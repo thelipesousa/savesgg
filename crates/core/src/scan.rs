@@ -43,6 +43,9 @@ pub struct DetectedGame {
     /// Raiz da loja (`<root>`).
     pub root: Option<PathBuf>,
     pub store_game_id: Option<String>,
+    /// Padrões (já expandidos) que acharam os arquivos: refeitos antes de cada backup
+    /// automático, porque jogos criam saves novos e apagam os antigos.
+    pub patterns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -300,6 +303,7 @@ fn build_game(
         base: None,
         root: None,
         store_game_id: None,
+        patterns: Vec::new(),
     })
 }
 
@@ -350,6 +354,31 @@ impl<'a> InstalledIndex<'a> {
             })
             .copied()
     }
+}
+
+/// Refaz a lista de arquivos de um jogo a partir dos padrões que o acharam
+/// (saves criados ou apagados depois da varredura). Sem padrões, devolve igual.
+pub fn refresh_files(g: &DetectedGame) -> DetectedGame {
+    if g.patterns.is_empty() {
+        return g.clone();
+    }
+    let mut cache = DirCache::default();
+    let mut files = BTreeSet::new();
+    let mut roots = BTreeSet::new();
+    for p in &g.patterns {
+        collect(&mut cache, p, &mut files, &mut roots);
+    }
+    let mut n = g.clone();
+    n.total_bytes = files
+        .iter()
+        .filter_map(|f| f.metadata().ok())
+        .map(|m| m.len())
+        .sum();
+    n.files = files.into_iter().collect();
+    if !roots.is_empty() {
+        n.save_roots = roots.into_iter().collect();
+    }
+    n
 }
 
 /// Executáveis de emuladores conhecidos até 3 níveis abaixo das pastas dadas.
@@ -412,9 +441,11 @@ pub(crate) fn scan_with_limit(
         };
         let mut files = BTreeSet::new();
         let mut roots = BTreeSet::new();
+        let mut pats = Vec::new();
         for pattern in entry.save_paths_for(store) {
             if let Some(p) = expand(pattern, &c, &vars) {
                 collect(&mut cache, &p, &mut files, &mut roots);
+                pats.push(p);
             }
         }
         if let Some(mut g) = build_game(
@@ -426,6 +457,7 @@ pub(crate) fn scan_with_limit(
             files,
             roots,
         ) {
+            g.patterns = pats;
             if let Some(i) = inst {
                 matched_installed.insert(i.install_dir.clone());
                 g.base = Some(i.install_dir.clone());
@@ -454,6 +486,8 @@ pub(crate) fn scan_with_limit(
             files,
             roots,
         ) {
+            let mut g = g;
+            g.patterns = vec![norm(&i.install_dir)];
             games.push(g);
         }
     }
@@ -462,6 +496,7 @@ pub(crate) fn scan_with_limit(
     for emu in EMULATORS {
         let mut files = BTreeSet::new();
         let mut roots = BTreeSet::new();
+        let mut pats = Vec::new();
         let bases: Vec<&PathBuf> = opts
             .extra_roots
             .iter()
@@ -476,10 +511,12 @@ pub(crate) fn scan_with_limit(
                     };
                     if let Some(p) = expand(pattern, ctx, &vars) {
                         collect(&mut cache, &p, &mut files, &mut roots);
+                        pats.push(p);
                     }
                 }
             } else if let Some(p) = expand(pattern, ctx, &GameVars::default()) {
                 collect(&mut cache, &p, &mut files, &mut roots);
+                pats.push(p);
             }
         }
         if let Some(mut g) = build_game(
@@ -492,6 +529,7 @@ pub(crate) fn scan_with_limit(
             roots,
         ) {
             g.exe_hint = bases.first().map(|b| b.join(emu.exes[0]));
+            g.patterns = pats;
             games.push(g);
         }
     }
@@ -511,6 +549,7 @@ pub(crate) fn scan_with_limit(
             roots,
         ) {
             g.exe_hint = m.exe.clone();
+            g.patterns = vec![norm(&m.save_dir)];
             games.push(g);
         }
     }
@@ -540,6 +579,8 @@ pub(crate) fn scan_with_limit(
             files,
             roots,
         ) {
+            let mut g = g;
+            g.patterns = vec![norm(&cand.dir)];
             games.push(g);
         }
     }
@@ -637,6 +678,56 @@ mod tests {
         assert_eq!(g.files.len(), 1);
         assert_eq!(g.root.as_deref(), Some(steam.as_path()));
         assert_eq!(g.store_game_id.as_deref(), Some("1086940"));
+    }
+
+    #[test]
+    fn refresh_pega_save_novo_e_esquece_apagado() {
+        // Jogos que criam saves numerados e apagam autosaves antigos.
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        touch(&c.home.join("Saved Games/Hades II/Profile1.sav"), 5);
+        touch(&c.home.join("Saved Games/Hades II/Profile2.sav"), 5);
+        let r = scan(&c, &manifest(), &[], &ScanOptions::default());
+        let g = r
+            .games
+            .iter()
+            .find(|g| g.name == "Hades II")
+            .unwrap()
+            .clone();
+        assert_eq!(g.files.len(), 2);
+        fs::remove_file(c.home.join("Saved Games/Hades II/Profile1.sav")).unwrap();
+        touch(&c.home.join("Saved Games/Hades II/Profile3.sav"), 7);
+        let novo = refresh_files(&g);
+        let nomes: Vec<_> = novo
+            .files
+            .iter()
+            .map(|f| f.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(nomes, ["Profile2.sav", "Profile3.sav"]);
+        assert_eq!(novo.total_bytes, 12);
+    }
+
+    #[test]
+    fn refresh_de_jogo_manual_relista_a_pasta() {
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        let dir = t.path().join("Jogos/Meu/saves");
+        touch(&dir.join("a.sav"), 1);
+        let opts = ScanOptions {
+            manual: vec![ManualGame {
+                name: "Meu".into(),
+                save_dir: dir.clone(),
+                exe: None,
+            }],
+            ..Default::default()
+        };
+        let g = scan(&c, &manifest(), &[], &opts)
+            .games
+            .into_iter()
+            .find(|g| g.id == "meu")
+            .unwrap();
+        touch(&dir.join("sub/b.sav"), 1);
+        assert_eq!(refresh_files(&g).files.len(), 2);
     }
 
     #[test]

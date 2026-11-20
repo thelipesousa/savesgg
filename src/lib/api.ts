@@ -6,6 +6,8 @@ import type {
   GameView,
   RestorePlan,
   RestoreReport,
+  SettingsView,
+  AutoStatusView,
 } from "./types";
 
 export const api = {
@@ -24,6 +26,12 @@ export const api = {
   confirmHeuristic: (gameId: string, keep: boolean) =>
     invoke<void>("confirm_heuristic", { gameId, keep }),
   appVersion: () => invoke<string>("app_version"),
+  getSettings: () => invoke<SettingsView>("get_settings"),
+  setAutoDestinations: (ids: string[]) => invoke<void>("set_auto_destinations", { ids }),
+  setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),
+  setPaused: (paused: boolean) => invoke<void>("set_paused", { paused }),
+  autoStatus: () => invoke<AutoStatusView>("auto_status"),
+  copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
 };
 
 /** Mensagem de erro amigável a partir do que o comando devolveu. */
