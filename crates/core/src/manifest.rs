@@ -113,6 +113,8 @@ pub fn parse(yaml: &str) -> Result<Manifest, CoreError> {
 
 impl GameEntry {
     /// Padrões de save (tag `save`) válidos no Windows para a loja informada.
+    /// Com `None` (loja desconhecida: jogo sem loja ou versão não oficial), aceita
+    /// as regras de qualquer loja.
     pub fn save_paths_for(&self, store: Option<Store>) -> Vec<&str> {
         let store_name = store.and_then(Store::manifest_name);
         self.files
@@ -122,9 +124,9 @@ impl GameEntry {
                 rule.when.is_empty()
                     || rule.when.iter().any(|w| {
                         let os_ok = w.os.as_deref().is_none_or(|o| o == "windows");
-                        let store_ok = match w.store.as_deref() {
-                            None => true,
-                            Some(s) => Some(s) == store_name,
+                        let store_ok = match (w.store.as_deref(), store) {
+                            (None, _) | (_, None) => true,
+                            (Some(s), Some(_)) => Some(s) == store_name,
                         };
                         os_ok && store_ok
                     })
@@ -170,6 +172,14 @@ mod tests {
         assert!(!steam.iter().any(|x| x.contains("wgs")), "{steam:?}");
         let xbox = hk.save_paths_for(Some(Store::Xbox));
         assert!(xbox.iter().any(|x| x.contains("wgs")), "{xbox:?}");
+    }
+
+    #[test]
+    fn sem_loja_aceita_regras_de_qualquer_loja() {
+        let m = mini();
+        let p = m.games["Hollow Knight"].save_paths_for(None);
+        assert!(p.iter().any(|x| x.contains("wgs")), "{p:?}");
+        assert!(p.iter().any(|x| x.ends_with("*.dat")), "{p:?}");
     }
 
     #[test]

@@ -1,7 +1,10 @@
 //! Motor do SaveGuard: varredura, prioridade, backup e restauração de saves.
 
+pub mod emulators;
+mod heuristics;
 pub mod manifest;
 pub mod paths;
+pub mod scan;
 pub mod stores;
 
 /// Erros do motor.
