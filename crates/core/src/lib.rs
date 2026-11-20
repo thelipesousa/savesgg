@@ -1,5 +1,6 @@
 //! Motor do SaveGuard: varredura, prioridade, backup e restauração de saves.
 
+pub mod backup;
 pub mod emulators;
 mod heuristics;
 pub mod manifest;
@@ -16,6 +17,12 @@ pub enum CoreError {
     Io(#[from] std::io::Error),
     #[error("formato inválido: {0}")]
     Formato(String),
+    #[error("arquivo em uso por outro programa (o jogo está aberto?): {0}")]
+    ArquivoTravado(std::path::PathBuf),
+    #[error("destino indisponível: {0}")]
+    DestinoIndisponivel(std::path::PathBuf),
+    #[error("caminho inseguro no backup: {0}")]
+    CaminhoInseguro(String),
 }
 
 /// Versão do motor.
