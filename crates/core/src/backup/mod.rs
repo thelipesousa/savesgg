@@ -36,6 +36,9 @@ pub(crate) enum FailPoint {
     Nenhum,
     #[cfg_attr(not(test), allow(dead_code))]
     AntesDoRename,
+    /// Simula o jogo gravando o primeiro arquivo entre a leitura e a cópia.
+    #[cfg_attr(not(test), allow(dead_code))]
+    ModificarEntrePassadas,
 }
 
 /// Erros de compartilhamento do Windows (arquivo aberto por outro processo).
@@ -43,18 +46,42 @@ fn travado(e: &std::io::Error) -> bool {
     matches!(e.raw_os_error(), Some(32) | Some(33))
 }
 
-fn read_file(path: &Path) -> Result<Vec<u8>, CoreError> {
-    let mut buf = Vec::new();
-    fs::File::open(path)
-        .and_then(|mut f| f.read_to_end(&mut buf))
-        .map_err(|e| {
+fn open_original(path: &Path) -> Result<fs::File, CoreError> {
+    fs::File::open(path).map_err(|e| {
+        if travado(&e) {
+            CoreError::ArquivoTravado(path.to_path_buf())
+        } else {
+            e.into()
+        }
+    })
+}
+
+/// Lê o arquivo em blocos (sem carregar tudo na memória), mandando cada bloco para
+/// `sink`. Devolve (tamanho, BLAKE3).
+fn stream_file(
+    path: &Path,
+    mut sink: impl FnMut(&[u8]) -> std::io::Result<()>,
+) -> Result<(u64, String), CoreError> {
+    let mut f = open_original(path)?;
+    let mut hasher = blake3::Hasher::new();
+    let mut buf = vec![0u8; 256 * 1024];
+    let mut size = 0u64;
+    loop {
+        let n = f.read(&mut buf).map_err(|e| {
             if travado(&e) {
                 CoreError::ArquivoTravado(path.to_path_buf())
             } else {
-                e.into()
+                CoreError::Io(e)
             }
         })?;
-    Ok(buf)
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+        sink(&buf[..n])?;
+        size += n as u64;
+    }
+    Ok((size, hasher.finalize().to_hex().to_string()))
 }
 
 /// Template com marcadores (`<base>`, `<root>`, pastas do usuário). A pasta com o ID
@@ -119,18 +146,19 @@ pub(crate) fn backup_game_inner(
         return Err(CoreError::DestinoIndisponivel(dest_root.to_path_buf()));
     }
 
-    // 1. Lê tudo antes de escrever qualquer coisa (arquivo travado = nada gravado).
-    let mut items: Vec<(FileEntry, Vec<u8>)> = Vec::new();
+    // 1. Primeira passada: lê cada arquivo em blocos só para calcular o hash
+    // (arquivo travado = erro antes de gravar qualquer coisa; nada fica na memória).
+    let mut items: Vec<(FileEntry, &PathBuf)> = Vec::new();
     for path in &game.files {
-        let bytes = read_file(path)?;
+        let (size, hash) = stream_file(path, |_| Ok(()))?;
         let template = template_for(path, ctx, game);
         let entry = FileEntry {
             zip_path: snapshot::zip_path_for(&template),
             template,
-            size: bytes.len() as u64,
-            blake3: blake3::hash(&bytes).to_hex().to_string(),
+            size,
+            blake3: hash,
         };
-        items.push((entry, bytes));
+        items.push((entry, path));
     }
     items.sort_by(|a, b| a.0.template.cmp(&b.0.template));
     let mut h = blake3::Hasher::new();
@@ -185,9 +213,21 @@ pub(crate) fn backup_game_inner(
         let mut zw = zip::ZipWriter::new(file);
         let opts = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated);
-        for (e, bytes) in &items {
+        if fail == FailPoint::ModificarEntrePassadas {
+            fs::OpenOptions::new()
+                .append(true)
+                .open(&game.files[0])?
+                .write_all(b"gravando")?;
+        }
+        // 2ª passada: copia em blocos para o zip e confere que o arquivo não mudou
+        // desde a primeira (jogo gravando sem travar o arquivo = versão pela metade).
+        for (e, path) in &items {
+            let opts = opts.large_file(e.size >= u32::MAX as u64);
             zw.start_file(e.zip_path.as_str(), opts).map_err(fmt_err)?;
-            zw.write_all(bytes)?;
+            let (size, hash) = stream_file(path, |chunk| zw.write_all(chunk))?;
+            if size != e.size || hash != e.blake3 {
+                return Err(CoreError::ArquivoMudou((*path).clone()));
+            }
         }
         let file = zw.finish().map_err(fmt_err)?;
         file.sync_all()?;
@@ -521,6 +561,47 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
             .count();
         assert_eq!(leftovers, 0, "temporários devem ser limpos");
+    }
+
+    #[test]
+    fn arquivo_que_muda_durante_a_copia_nao_vira_versao() {
+        let f = fixture();
+        let err = backup_game_inner(
+            &f.game,
+            &f.ctx,
+            &f.dest,
+            10,
+            now(),
+            FailPoint::ModificarEntrePassadas,
+        )
+        .unwrap_err();
+        assert!(matches!(err, CoreError::ArquivoMudou(_)), "{err:?}");
+        let idx = LibraryIndex::load(&f.dest).unwrap();
+        assert!(idx.games.get("elden-ring").is_none_or(|v| v.is_empty()));
+        let dir = f.dest.join("SaveGuard/elden-ring");
+        let sobras = fs::read_dir(&dir).map(|d| d.count()).unwrap_or(0);
+        assert_eq!(sobras, 0, "nada pode sobrar no destino");
+    }
+
+    #[test]
+    fn arquivo_grande_em_streaming() {
+        let f = fixture();
+        let big = vec![7u8; 20 * 1024 * 1024];
+        fs::write(&f.game.files[0], &big).unwrap();
+        let BackupOutcome::Criado(r) = backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap()
+        else {
+            panic!()
+        };
+        let mut z = zip::ZipArchive::new(
+            fs::File::open(f.dest.join(format!("SaveGuard/elden-ring/{}.zip", r.stem))).unwrap(),
+        )
+        .unwrap();
+        let name = z.by_index(0).unwrap().name().unwrap().to_string();
+        let size = (0..z.len())
+            .map(|i| z.by_index(i).unwrap().size())
+            .max()
+            .unwrap();
+        assert_eq!(size, big.len() as u64, "{name}");
     }
 
     #[test]
