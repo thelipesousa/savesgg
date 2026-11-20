@@ -1,7 +1,10 @@
 //! Estado do app compartilhado entre os comandos.
 
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
+
+use crate::auto::{AutoStatusView, DestLocks};
 
 use saveguard_core::config::Config;
 use saveguard_core::manifest::Manifest;
@@ -32,6 +35,12 @@ pub struct AppState {
     pub manifest_cache: PathBuf,
     pub manifest_bundled: Vec<PathBuf>,
     pub last_scan: Mutex<Option<Arc<ScanData>>>,
+    /// Muda a cada varredura (o motor recria os vigias).
+    pub scan_gen: AtomicU64,
+    pub locks: DestLocks,
+    pub auto_status: Mutex<AutoStatusView>,
+    /// `%LOCALAPPDATA%\SaveGuard\pendentes`
+    pub pending_base: PathBuf,
 }
 
 impl AppState {
@@ -46,6 +55,13 @@ impl AppState {
             manifest_cache,
             manifest_bundled: bundled,
             last_scan: Mutex::new(None),
+            scan_gen: AtomicU64::new(0),
+            locks: DestLocks::default(),
+            auto_status: Mutex::new(AutoStatusView::default()),
+            pending_base: dirs::data_local_dir()
+                .unwrap_or_default()
+                .join("SaveGuard")
+                .join("pendentes"),
         }
     }
 

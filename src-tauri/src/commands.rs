@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use saveguard_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
@@ -60,72 +60,90 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static
         .map_err(|_| "erro interno".to_string())?
 }
 
-/// Varre o PC e devolve os jogos já ordenados por prioridade.
-#[tauri::command]
-pub async fn scan(state: State<'_, AppState>) -> Res<Vec<GameView>> {
-    let manifest = {
-        let cached = state.manifest.lock().expect("manifest").clone();
-        match cached {
-            Some(m) => m,
-            None => {
-                let (cache, bundled) =
-                    (state.manifest_cache.clone(), state.manifest_bundled.clone());
-                let m = Arc::new(blocking(move || manifest_source::load(&cache, &bundled)).await?);
-                *state.manifest.lock().expect("manifest") = Some(m.clone());
-                m
-            }
+/// Varre o PC (bloqueante): carrega o manifesto se preciso, guarda o resultado no
+/// estado e devolve os jogos já ordenados por prioridade. Usada pelo comando e pelo motor.
+pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
+    let cached = state
+        .manifest
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let manifest = match cached {
+        Some(m) => m,
+        None => {
+            let m = Arc::new(manifest_source::load(
+                &state.manifest_cache,
+                &state.manifest_bundled,
+            )?);
+            *state.manifest.lock().unwrap_or_else(|e| e.into_inner()) = Some(m.clone());
+            m
         }
     };
     let cfg = state.config();
-    let (data, views) = blocking(move || {
-        let installed = detect_all();
-        let ctx = current_ctx(&installed);
-        let opts = ScanOptions {
-            extra_roots: find_emulator_roots(&drive_roots()),
-            manual: cfg.manual_games.clone(),
-        };
-        let result = core_scan(&ctx, &manifest, &installed, &opts);
-        let dests = list_destinations(&cfg);
-        let hist = history(&dests);
-        let sync = detect_sync_roots();
-        let now = Utc::now();
-        let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
-        let mut pairs: Vec<_> = result
-            .games
-            .iter()
-            .filter(visible)
-            .map(|g| (g.clone(), assess(g, &sync, &hist, now)))
-            .collect();
-        sort_for_display(&mut pairs);
-        let mut views: Vec<GameView> = pairs
-            .iter()
-            .map(|(g, a)| {
-                game_view(
-                    g,
-                    a,
-                    &ctx,
-                    hist.last_backup(&g.id),
-                    false,
-                    cfg.confirmed_games.contains(&g.id),
-                )
-            })
-            .collect();
-        for g in result.over_limit.iter().filter(visible) {
-            let a = assess(g, &sync, &hist, now);
-            views.push(game_view(
+    let installed = detect_all();
+    let ctx = current_ctx(&installed);
+    let opts = ScanOptions {
+        extra_roots: find_emulator_roots(&drive_roots()),
+        manual: cfg.manual_games.clone(),
+    };
+    let result = core_scan(&ctx, &manifest, &installed, &opts);
+    let dests = list_destinations(&cfg);
+    let hist = history(&dests);
+    let sync = detect_sync_roots();
+    let now = Utc::now();
+    let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
+    let mut pairs: Vec<_> = result
+        .games
+        .iter()
+        .filter(visible)
+        .map(|g| (g.clone(), assess(g, &sync, &hist, now)))
+        .collect();
+    sort_for_display(&mut pairs);
+    let mut views: Vec<GameView> = pairs
+        .iter()
+        .map(|(g, a)| {
+            game_view(
                 g,
-                &a,
+                a,
                 &ctx,
                 hist.last_backup(&g.id),
-                true,
+                false,
                 cfg.confirmed_games.contains(&g.id),
-            ));
-        }
-        Ok((ScanData { result, ctx }, views))
-    })
-    .await?;
-    *state.last_scan.lock().expect("scan") = Some(Arc::new(data));
+            )
+        })
+        .collect();
+    for g in result.over_limit.iter().filter(visible) {
+        let a = assess(g, &sync, &hist, now);
+        views.push(game_view(
+            g,
+            &a,
+            &ctx,
+            hist.last_backup(&g.id),
+            true,
+            cfg.confirmed_games.contains(&g.id),
+        ));
+    }
+    let at_risk = views
+        .iter()
+        .filter(|v| !v.grande && v.priority == saveguard_core::protection::Priority::Alta)
+        .count();
+    *state.last_scan.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some(Arc::new(ScanData { result, ctx }));
+    state
+        .scan_gen
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    state
+        .auto_status
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .at_risk = at_risk;
     Ok(views)
+}
+
+/// Varre o PC e devolve os jogos já ordenados por prioridade.
+#[tauri::command]
+pub async fn scan(app: tauri::AppHandle) -> Res<Vec<GameView>> {
+    blocking(move || run_scan_blocking(&app.state::<AppState>())).await
 }
 
 #[tauri::command]
