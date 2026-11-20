@@ -10,10 +10,13 @@ use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 use saveguard_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
-use saveguard_core::destinations::{Destination, DestinationKind, list_destinations};
+use saveguard_core::destinations::{
+    Destination, DestinationKind, counts_as_off_pc, list_destinations,
+};
 use saveguard_core::protection::{BackupHistory, assess, sort_for_display};
 use saveguard_core::restore::{
-    RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan, vars_for,
+    RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan,
+    resolve_overrides, vars_for,
 };
 use saveguard_core::scan::{ScanOptions, find_emulator_roots, scan as core_scan};
 use saveguard_core::stores::detect_all;
@@ -38,7 +41,7 @@ fn history(dests: &[Destination]) -> MultiHistory {
     MultiHistory(
         dests
             .iter()
-            .filter(|d| d.available && d.has_backup)
+            .filter(|d| d.available && d.has_backup && counts_as_off_pc(d))
             .filter_map(|d| LibraryIndex::load(&d.root).ok())
             .collect(),
     )
@@ -328,19 +331,7 @@ pub async fn apply_restore(
         let meta = load_meta(&root, &game_id, &stem).map_err(|e| e.to_string())?;
         let plan = core_plan(&root, &game_id, &stem, &ctx, &vars_for(&meta, &installed))
             .map_err(|e| e.to_string())?;
-        let overrides: BTreeMap<String, PathBuf> = overrides
-            .into_iter()
-            .filter(|(k, _)| plan.items.iter().any(|i| &i.zip_path == k))
-            .map(|(k, folder)| {
-                let file = plan
-                    .items
-                    .iter()
-                    .find(|i| i.zip_path == k)
-                    .and_then(|i| PathBuf::from(&i.zip_path).file_name().map(|n| n.to_owned()))
-                    .unwrap_or_default();
-                (k, PathBuf::from(folder).join(file))
-            })
-            .collect();
+        let overrides = resolve_overrides(&plan, &overrides).map_err(|e| e.to_string())?;
         core_apply(&plan, &root, &ctx, &overrides, Utc::now()).map_err(|e| e.to_string())
     })
     .await

@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::snapshot::SnapshotMeta;
 use crate::CoreError;
 use crate::protection::BackupHistory;
 
@@ -62,13 +63,55 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), CoreError> {
 }
 
 impl LibraryIndex {
-    /// Lê o índice do destino; se não existir, devolve um índice vazio.
+    /// Lê o índice do destino e completa com as versões cujos `.json` existem mas não
+    /// estão nele (índice sumido, corrompido ou sobrescrito por outro PC na nuvem).
     pub fn load(dest_root: &Path) -> Result<Self, CoreError> {
         let path = root(dest_root).join(INDICE);
-        match fs::read_to_string(&path) {
-            Ok(t) => serde_json::from_str(&t).map_err(|e| CoreError::Formato(e.to_string())),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-            Err(e) => Err(e.into()),
+        let mut idx: LibraryIndex = match fs::read_to_string(&path) {
+            Ok(t) => serde_json::from_str(&t).unwrap_or_default(),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Self::default(),
+            Err(e) => return Err(e.into()),
+        };
+        idx.merge_sidecars(dest_root);
+        Ok(idx)
+    }
+
+    /// Os `<jogo>/<stem>.json` (com o `.zip` ao lado) são a fonte da verdade.
+    fn merge_sidecars(&mut self, dest_root: &Path) {
+        let Ok(games) = fs::read_dir(root(dest_root)) else {
+            return;
+        };
+        for game_dir in games.flatten().filter(|e| e.path().is_dir()) {
+            let Ok(files) = fs::read_dir(game_dir.path()) else {
+                continue;
+            };
+            for f in files.flatten() {
+                let p = f.path();
+                if p.extension().is_none_or(|x| x != "json") || !p.with_extension("zip").is_file() {
+                    continue;
+                }
+                let Some(stem) = p.file_stem().map(|s| s.to_string_lossy().into_owned()) else {
+                    continue;
+                };
+                let Some(meta) = fs::read_to_string(&p)
+                    .ok()
+                    .and_then(|t| serde_json::from_str::<SnapshotMeta>(&t).ok())
+                else {
+                    continue;
+                };
+                let refs = self.games.entry(meta.game_id.clone()).or_default();
+                if refs.iter().any(|r| r.stem == stem) {
+                    continue;
+                }
+                refs.push(SnapshotRef {
+                    stem,
+                    created: meta.created,
+                    pinned: meta.pinned,
+                    content_hash: meta.content_hash,
+                    total_bytes: meta.total_bytes,
+                });
+                refs.sort_by_key(|r| r.created);
+            }
         }
     }
 

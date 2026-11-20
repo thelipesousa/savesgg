@@ -605,6 +605,32 @@ mod tests {
     }
 
     #[test]
+    fn indice_desatualizado_e_reconstruido_pelos_json() {
+        let f = fixture();
+        backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
+        let so_primeira = fs::read_to_string(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
+        fs::write(&f.game.files[0], b"mudou").unwrap();
+        backup_game(&f.game, &f.ctx, &f.dest, 10, now() + Duration::seconds(5)).unwrap();
+        // Outro PC sincronizado sobrescreve o índice com uma cópia antiga.
+        fs::write(f.dest.join("SaveGuard/biblioteca.json"), so_primeira).unwrap();
+        let idx = LibraryIndex::load(&f.dest).unwrap();
+        assert_eq!(idx.games["elden-ring"].len(), 2);
+        assert_eq!(
+            idx.last_backup("elden-ring"),
+            Some(now() + Duration::seconds(5))
+        );
+    }
+
+    #[test]
+    fn indice_sumido_e_reconstruido() {
+        let f = fixture();
+        backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
+        fs::remove_file(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
+        let idx = LibraryIndex::load(&f.dest).unwrap();
+        assert_eq!(idx.games["elden-ring"].len(), 1);
+    }
+
+    #[test]
     fn destino_inexistente() {
         let f = fixture();
         let err = backup_game(&f.game, &f.ctx, Path::new("Z:/nao-existe"), 10, now()).unwrap_err();
