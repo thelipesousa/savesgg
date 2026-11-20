@@ -116,6 +116,12 @@ pub fn build_destinations(
     out
 }
 
+/// Conta como "cópia fora do PC" para a prioridade? Pasta local (mesmo que em outra
+/// partição) não protege contra formatação ou disco queimado.
+pub fn counts_as_off_pc(d: &Destination) -> bool {
+    !matches!(d.kind, DestinationKind::PastaLocal)
+}
+
 /// Todos os destinos deste PC: pastas sincronizadas, discos externos e pastas da configuração.
 #[cfg(windows)]
 pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
@@ -334,6 +340,24 @@ mod tests {
         assert_eq!(d[0].kind, DestinationKind::PastaLocal);
         assert!(d[0].has_backup);
         assert!(d[0].available);
+    }
+
+    #[test]
+    fn so_nuvem_e_disco_externo_contam_como_fora_do_pc() {
+        let t = tempfile::tempdir().unwrap();
+        let sync = [SyncRoot {
+            provider: SyncProvider::Dropbox,
+            path: t.path().to_path_buf(),
+        }];
+        let drives = [DriveInfo {
+            root: t.path().to_path_buf(),
+            label: "HD".into(),
+            serial: 1,
+            free_bytes: None,
+        }];
+        let d = build_destinations(&sync, &drives, &[t.path().to_path_buf()]);
+        let fora: Vec<bool> = d.iter().map(counts_as_off_pc).collect();
+        assert_eq!(fora, [true, true, false]);
     }
 
     #[test]

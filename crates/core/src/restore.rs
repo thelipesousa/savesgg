@@ -149,6 +149,45 @@ pub fn plan_restore(
     })
 }
 
+/// Valida as pastas escolhidas pelo usuário para itens sem destino (zip_path → pasta) e
+/// devolve zip_path → arquivo final. Recusa pasta relativa/inexistente e dois arquivos
+/// indo para o mesmo lugar; ignora override de item que já tem destino.
+pub fn resolve_overrides(
+    plan: &RestorePlan,
+    folders: &BTreeMap<String, String>,
+) -> Result<BTreeMap<String, PathBuf>, CoreError> {
+    let mut out = BTreeMap::new();
+    for item in plan.items.iter().filter(|i| i.target.is_none()) {
+        let Some(folder) = folders.get(&item.zip_path) else {
+            continue;
+        };
+        let dir = PathBuf::from(folder);
+        if !dir.is_absolute() || !dir.is_dir() {
+            return Err(inseguro(folder));
+        }
+        let name = Path::new(&item.zip_path)
+            .file_name()
+            .ok_or_else(|| inseguro(&item.zip_path))?;
+        out.insert(item.zip_path.clone(), dir.join(name));
+    }
+    let mut todos: Vec<String> = plan
+        .items
+        .iter()
+        .filter_map(|i| i.target.as_ref())
+        .chain(out.values())
+        .map(|p| crate::paths::norm(p).to_lowercase())
+        .collect();
+    let n = todos.len();
+    todos.sort();
+    todos.dedup();
+    if todos.len() != n {
+        return Err(CoreError::Formato(
+            "dois arquivos iriam para o mesmo lugar; escolha pastas diferentes".into(),
+        ));
+    }
+    Ok(out)
+}
+
 /// Executa o plano. `overrides` (zip_path → arquivo final) resolve itens sem destino.
 /// Antes de sobrescrever, guarda os saves atuais como uma versão fixada.
 pub fn apply_restore(
@@ -399,6 +438,49 @@ mod tests {
         assert_eq!(v.root, Some(PathBuf::from("C:/Steam")));
         meta.store_game_id = None;
         assert_eq!(vars_for(&meta, &inst), GameVars::default());
+    }
+
+    fn plano_com_dois_nao_resolvidos(t: &Path) -> RestorePlan {
+        let item = |zip: &str| RestoreItem {
+            zip_path: zip.into(),
+            template: format!("Q:/{zip}"),
+            target: None,
+            exists: false,
+            existing_modified: None,
+        };
+        let mut ok = item("pronto/c.sav");
+        ok.target = Some(t.join("ja/c.sav"));
+        RestorePlan {
+            game_id: "x".into(),
+            game_name: "X".into(),
+            stem: "s".into(),
+            items: vec![item("slot1/save.dat"), item("slot2/save.dat"), ok],
+            unresolved: 2,
+            conflicts: 0,
+        }
+    }
+
+    #[test]
+    fn overrides_validam_pasta_e_duplicados() {
+        let t = tempfile::tempdir().unwrap();
+        let plan = plano_com_dois_nao_resolvidos(t.path());
+        let pasta = t.path().to_string_lossy().into_owned();
+        // mesma pasta para os dois save.dat → iriam para o mesmo arquivo
+        let dup = BTreeMap::from([
+            ("slot1/save.dat".to_string(), pasta.clone()),
+            ("slot2/save.dat".to_string(), pasta.clone()),
+        ]);
+        assert!(resolve_overrides(&plan, &dup).is_err());
+        // pasta relativa ou vazia
+        let rel = BTreeMap::from([("slot1/save.dat".to_string(), String::new())]);
+        assert!(resolve_overrides(&plan, &rel).is_err());
+        // item que já tem destino não aceita override
+        let ja = BTreeMap::from([("pronto/c.sav".to_string(), pasta.clone())]);
+        assert!(resolve_overrides(&plan, &ja).unwrap().is_empty());
+        // válido
+        let um = BTreeMap::from([("slot1/save.dat".to_string(), pasta.clone())]);
+        let r = resolve_overrides(&plan, &um).unwrap();
+        assert_eq!(r["slot1/save.dat"], t.path().join("save.dat"));
     }
 
     #[test]
