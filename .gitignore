@@ -8,3 +8,11 @@ src-tauri/gen/
 *.log
 .DS_Store
 Thumbs.db
+/build
+/.svelte-kit
+/package
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+.superpowers/
+/dist
