@@ -20,7 +20,7 @@ pub use library::{LibraryIndex, SnapshotRef, root as backup_root};
 pub use snapshot::{FileEntry, SnapshotMeta};
 
 use crate::CoreError;
-use crate::paths::{PathContext, contract};
+use crate::paths::{GameVars, PathContext, contract_with, steam_id64};
 use crate::scan::DetectedGame;
 pub(crate) use library::write_atomic;
 
@@ -57,17 +57,35 @@ fn read_file(path: &Path) -> Result<Vec<u8>, CoreError> {
     Ok(buf)
 }
 
-/// Template com marcadores; a pasta com o ID do usuário da loja vira `<storeUserId>`.
-pub(crate) fn template_for(path: &Path, ctx: &PathContext) -> String {
-    let t = contract(path, ctx);
-    match ctx.store_user_id.as_deref() {
-        Some(id) if !id.is_empty() && id != "*" => t
-            .split('/')
-            .map(|seg| if seg == id { "<storeUserId>" } else { seg })
-            .collect::<Vec<_>>()
-            .join("/"),
-        _ => t,
-    }
+/// Template com marcadores (`<base>`, `<root>`, pastas do usuário). A pasta com o ID
+/// da conta da loja vira `<storeUserId>` (ou `<storeUserId64>` quando é o SteamID64).
+pub(crate) fn template_for(path: &Path, ctx: &PathContext, game: &DetectedGame) -> String {
+    let vars = GameVars {
+        base: game.base.clone(),
+        root: game.root.clone(),
+        ..Default::default()
+    };
+    let t = contract_with(path, ctx, &vars);
+    let Some(id3) = ctx
+        .store_user_id
+        .as_deref()
+        .filter(|s| !s.is_empty() && *s != "*")
+    else {
+        return t;
+    };
+    let id64 = steam_id64(id3);
+    t.split('/')
+        .map(|seg| {
+            if seg == id3 {
+                "<storeUserId>"
+            } else if Some(seg) == id64.as_deref() {
+                "<storeUserId64>"
+            } else {
+                seg
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn source_pc() -> String {
@@ -105,7 +123,7 @@ pub(crate) fn backup_game_inner(
     let mut items: Vec<(FileEntry, Vec<u8>)> = Vec::new();
     for path in &game.files {
         let bytes = read_file(path)?;
-        let template = template_for(path, ctx);
+        let template = template_for(path, ctx, game);
         let entry = FileEntry {
             zip_path: snapshot::zip_path_for(&template),
             template,
@@ -155,6 +173,7 @@ pub(crate) fn backup_game_inner(
         pinned: false,
         store: game.store,
         store_user_id: ctx.store_user_id.clone().filter(|s| s != "*"),
+        store_game_id: game.store_game_id.clone(),
     };
 
     // 3. Grava .tmp e só renomeia quando tudo estiver no disco.
@@ -321,6 +340,9 @@ mod tests {
             cloud: CloudFlags::default(),
             source: Source::Manifesto,
             exe_hint: None,
+            base: None,
+            root: None,
+            store_game_id: None,
         };
         Fixture {
             _t: t,
@@ -367,6 +389,33 @@ mod tests {
         let idx = LibraryIndex::load(&f.dest).unwrap();
         assert_eq!(idx.games["elden-ring"].len(), 1);
         assert_eq!(idx.last_backup("elden-ring"), Some(now()));
+    }
+
+    #[test]
+    fn template_usa_base_e_id64() {
+        let f = fixture();
+        let mut g = f.game.clone();
+        let base = f.dest.parent().unwrap().join("Jogos/MeuJogo");
+        fs::create_dir_all(base.join("Saves")).unwrap();
+        fs::write(base.join("Saves/a.sav"), b"x").unwrap();
+        // id3 "111" do contexto = id64 76561197960265839
+        let er = f.ctx.app_data.join("EldenRing/76561197960265839");
+        fs::create_dir_all(&er).unwrap();
+        fs::write(er.join("ER0000.sl2"), b"y").unwrap();
+        g.base = Some(base.clone());
+        g.store_game_id = Some("123".into());
+        g.files = vec![base.join("Saves/a.sav"), er.join("ER0000.sl2")];
+        let BackupOutcome::Criado(r) = backup_game(&g, &f.ctx, &f.dest, 10, now()).unwrap() else {
+            panic!()
+        };
+        let meta = load_meta(&f.dest, "elden-ring", &r.stem).unwrap();
+        let t: Vec<_> = meta.files.iter().map(|e| e.template.as_str()).collect();
+        assert!(t.contains(&"<base>/Saves/a.sav"), "{t:?}");
+        assert!(
+            t.contains(&"<winAppData>/EldenRing/<storeUserId64>/ER0000.sl2"),
+            "{t:?}"
+        );
+        assert_eq!(meta.store_game_id.as_deref(), Some("123"));
     }
 
     #[test]

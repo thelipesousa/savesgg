@@ -38,6 +38,11 @@ pub struct DetectedGame {
     pub cloud: CloudFlags,
     pub source: Source,
     pub exe_hint: Option<PathBuf>,
+    /// Pasta de instalação (`<base>`), quando o jogo veio de uma loja.
+    pub base: Option<PathBuf>,
+    /// Raiz da loja (`<root>`).
+    pub root: Option<PathBuf>,
+    pub store_game_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -287,6 +292,9 @@ fn build_game(
         cloud,
         source,
         exe_hint: None,
+        base: None,
+        root: None,
+        store_game_id: None,
     })
 }
 
@@ -393,6 +401,7 @@ pub(crate) fn scan_with_limit(
         c.store_user_id = Some("*".into());
         let vars = GameVars {
             base: inst.map(|i| i.install_dir.clone()),
+            root: inst.and_then(|i| i.store_root.clone()),
             game: Some(name.clone()),
             store_game_id: inst.and_then(|i| i.store_game_id.clone()),
         };
@@ -403,7 +412,7 @@ pub(crate) fn scan_with_limit(
                 collect(&mut cache, &p, &mut files, &mut roots);
             }
         }
-        if let Some(g) = build_game(
+        if let Some(mut g) = build_game(
             game_id(name),
             name.clone(),
             store.unwrap_or(Store::SemLoja),
@@ -414,6 +423,9 @@ pub(crate) fn scan_with_limit(
         ) {
             if let Some(i) = inst {
                 matched_installed.insert(i.install_dir.clone());
+                g.base = Some(i.install_dir.clone());
+                g.root = i.store_root.clone();
+                g.store_game_id = i.store_game_id.clone();
             }
             games.push(g);
         }
@@ -573,6 +585,7 @@ mod tests {
             install_dir: root.join("Steam/steamapps/common/ELDEN RING"),
             store_game_id: Some("1245620".into()),
             store_user_id: Some("64734272".into()),
+            store_root: Some(root.join("Steam")),
         }
     }
 
@@ -597,6 +610,28 @@ mod tests {
         assert_eq!(er[0].files.len(), 1);
         assert_eq!(er[0].total_bytes, 10);
         assert!(er[0].cloud.steam);
+    }
+
+    #[test]
+    fn userdata_da_steam_pelo_root() {
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        let steam = t.path().join("Steam");
+        touch(&steam.join("userdata/64734272/1086940/remote/save.lsv"), 4);
+        let inst = InstalledGame {
+            name: "Jogo U".into(),
+            store: Store::Steam,
+            install_dir: steam.join("steamapps/common/JogoU"),
+            store_game_id: Some("1086940".into()),
+            store_user_id: Some("64734272".into()),
+            store_root: Some(steam.clone()),
+        };
+        let m = parse("Jogo U:\n  files:\n    \"<root>/userdata/<storeUserId>/1086940/remote\":\n      tags: [save]\n  steam:\n    id: 1086940\n").unwrap();
+        let r = scan(&c, &m, &[inst], &ScanOptions::default());
+        let g = r.games.iter().find(|g| g.name == "Jogo U").expect("Jogo U");
+        assert_eq!(g.files.len(), 1);
+        assert_eq!(g.root.as_deref(), Some(steam.as_path()));
+        assert_eq!(g.store_game_id.as_deref(), Some("1086940"));
     }
 
     #[test]

@@ -27,6 +27,7 @@ pub fn gog_from_registry() -> Vec<InstalledGame> {
                 install_dir: PathBuf::from(path),
                 store_game_id: Some(id),
                 store_user_id: None,
+                store_root: None,
             })
         })
         .collect()

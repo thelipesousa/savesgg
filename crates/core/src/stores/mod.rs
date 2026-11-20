@@ -24,6 +24,8 @@ pub struct InstalledGame {
     pub install_dir: PathBuf,
     pub store_game_id: Option<String>,
     pub store_user_id: Option<String>,
+    /// Raiz da loja (pasta do Steam, onde fica `userdata`), se houver.
+    pub store_root: Option<PathBuf>,
 }
 
 /// Detecta os jogos de todas as lojas encontradas neste PC.

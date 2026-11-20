@@ -114,6 +114,9 @@ mod tests {
             cloud: CloudFlags::default(),
             source: Source::Manifesto,
             exe_hint: None,
+            base: None,
+            root: None,
+            store_game_id: None,
         }
     }
 

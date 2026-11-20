@@ -27,6 +27,7 @@ pub fn xbox_from_packages(packages_dir: &Path) -> Vec<InstalledGame> {
                 install_dir: wgs,
                 store_game_id: Some(pkg),
                 store_user_id: None,
+                store_root: None,
             })
         })
         .collect()
