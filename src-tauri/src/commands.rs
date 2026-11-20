@@ -289,6 +289,15 @@ pub fn copy_all_blocking(state: &AppState, destination_id: &str) -> Vec<BackupRe
     backup_blocking(state, &ids, &[destination_id.to_string()]).unwrap_or_default()
 }
 
+/// Copia todos os jogos para um destino (aviso de disco plugado).
+#[tauri::command]
+pub async fn copy_all_to(
+    app: tauri::AppHandle,
+    destination_id: String,
+) -> Res<Vec<BackupResultView>> {
+    blocking(move || Ok(copy_all_blocking(&app.state::<AppState>(), &destination_id))).await
+}
+
 #[derive(Debug, Serialize)]
 pub struct SnapshotView {
     pub stem: String,

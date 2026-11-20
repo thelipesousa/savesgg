@@ -43,6 +43,7 @@ pub struct AppState {
     pub pending_base: PathBuf,
     /// Pendrives/HDs plugados agora (itens do menu da bandeja).
     pub plugged: Mutex<Vec<saveguard_core::destinations::Destination>>,
+    pub drive_watcher: Mutex<crate::drives::DriveWatcher>,
 }
 
 impl AppState {
@@ -65,6 +66,7 @@ impl AppState {
                 .join("SaveGuard")
                 .join("pendentes"),
             plugged: Mutex::new(Vec::new()),
+            drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
         }
     }
 

@@ -402,6 +402,8 @@ pub fn spawn(app: AppHandle) {
                         }
                     }
                 }
+                // Discos externos: a cada volta (5 s), mesmo com o automático pausado.
+                crate::drives::poll(&app, &list_destinations(&cfg));
                 let running: Vec<String> = scheduler
                     .running()
                     .into_iter()
