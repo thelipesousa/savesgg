@@ -252,6 +252,60 @@ pub fn publish(app: &AppHandle, f: impl FnOnce(&mut AutoStatusView)) {
     crate::on_status_changed(app, &snapshot);
 }
 
+/// "Fazer backup agora" da bandeja: todos os jogos para os destinos automáticos.
+pub fn backup_all_now(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let Some(scan) = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+    else {
+        crate::notify_user(
+            app,
+            "SaveGuard",
+            "Ainda escaneando o PC; tente de novo em instantes.",
+        );
+        return;
+    };
+    let cfg = state.config();
+    if cfg.auto_destinations.is_empty() {
+        crate::notify_user(
+            app,
+            "SaveGuard",
+            "Escolha os destinos do backup automático em Configurações.",
+        );
+        return;
+    }
+    publish(app, |s| s.copying = true);
+    let ids = crate::commands::all_backup_ids(&scan, &cfg);
+    let dests = list_destinations(&cfg);
+    let out = execute_due(
+        &ids,
+        &scan,
+        &cfg,
+        &dests,
+        &state.pending_base,
+        &state.locks,
+        Utc::now(),
+    );
+    let erros = out
+        .iter()
+        .filter(|o| matches!(o, AutoOutcome::Erro { .. }))
+        .count();
+    if erros > 0 {
+        crate::notify_user(
+            app,
+            "Backup não concluído",
+            &format!("{erros} jogo(s) não puderam ser copiados agora."),
+        );
+    }
+    publish(app, |s| {
+        s.copying = false;
+        s.last_backup = Some(Utc::now().to_rfc3339());
+    });
+}
+
 /// Inicia o motor numa thread própria, em prioridade baixa.
 pub fn spawn(app: AppHandle) {
     std::thread::Builder::new()
