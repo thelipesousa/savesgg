@@ -1,0 +1,299 @@
+"Baldur's Gate 3":
+  cloud:
+    gog: true
+    steam: true
+  files:
+    "<home>/Documents/Larian Studios/Baldur's Gate 3/PlayerProfiles":
+      tags:
+        - config
+      when:
+        - os: mac
+    "<home>/Documents/Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story":
+      tags:
+        - save
+      when:
+        - os: mac
+    "<root>/userdata/<storeUserId>/1086940/remote":
+      tags:
+        - save
+      when:
+        - store: steam
+    "<winLocalAppData>/Lari'an Studios/Baldur's Gate 3/PlayerProfiles":
+      tags:
+        - config
+      when:
+        - os: windows
+    "<winLocalAppData>/Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<winLocalAppData>/Larian Studios/Baldur's Gate 3/analytics.lsx":
+      tags:
+        - config
+      when:
+        - os: windows
+    "<winLocalAppData>/Larian Studios/Baldur's Gate 3/graphicSettings.lsx":
+      tags:
+        - config
+      when:
+        - os: windows
+    "<winLocalAppData>/Larian Studios/Baldur's Gate 3/imgui.ini":
+      tags:
+        - config
+      when:
+        - os: windows
+    "<xdgData>/Larian Studios/Baldur's Gate 3/PlayerProfiles":
+      tags:
+        - config
+      when:
+        - os: linux
+    "<xdgData>/Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story":
+      tags:
+        - save
+      when:
+        - os: linux
+  gog:
+    id: 1456460669
+  id:
+    gogExtra:
+      - 1157299235
+    lutris: baldurs-gate-3
+    steamExtra:
+      - 2378500
+  installDir:
+    Baldurs Gate 3: {}
+  launch:
+    "<base>/Baldur's Gate 3.app":
+      - when:
+          - os: mac
+            store: steam
+    "<base>/Launcher/LariLauncher.exe":
+      - when:
+          - os: windows
+            store: steam
+        workingDir: "<base>/bin"
+    "<base>/bin/bg3":
+      - when:
+          - os: linux
+            store: steam
+        workingDir: "<base>/bin"
+  steam:
+    id: 1086940
+Celeste:
+  cloud:
+    epic: true
+    steam: true
+  files:
+    "<base>/Saves/*.celeste":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<base>/Saves/debug.celeste":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<base>/Saves/settings.celeste":
+      tags:
+        - config
+      when:
+        - os: windows
+    "<home>/Library/Application Support/Celeste/Saves":
+      tags:
+        - save
+      when:
+        - os: mac
+    "<home>/Library/Application Support/Celeste/Saves/settings.celeste":
+      tags:
+        - config
+      when:
+        - os: mac
+    "<winLocalAppData>/Packages/MattMakesGamesInc.Celeste_79daxvg0dq3v6/Settings/settings.dat":
+      tags:
+        - config
+      when:
+        - os: windows
+          store: microsoft
+    "<winLocalAppData>/Packages/MattMakesGamesInc.Celeste_79daxvg0dq3v6/SystemAppData/wgs":
+      tags:
+        - config
+        - save
+      when:
+        - os: windows
+          store: microsoft
+    "<xdgData>/Celeste/Saves/*.celeste":
+      tags:
+        - save
+      when:
+        - os: linux
+    "<xdgData>/Celeste/Saves/settings.celeste":
+      tags:
+        - config
+      when:
+        - os: linux
+  id:
+    lutris: celeste
+  installDir:
+    Celeste: {}
+  launch:
+    "<base>/Celeste":
+      - when:
+          - os: linux
+            store: steam
+    "<base>/Celeste.app/Contents/MacOS/Celeste":
+      - when:
+          - os: mac
+            store: steam
+    "<base>/Celeste.exe":
+      - when:
+          - os: windows
+            store: steam
+  steam:
+    id: 504230
+Elden Ring:
+  cloud:
+    steam: true
+  files:
+    "<winAppData>/EldenRing/<storeUserId>":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<winAppData>/EldenRing/GraphicsConfig.xml":
+      tags:
+        - config
+      when:
+        - os: windows
+  id:
+    lutris: elden-ring
+    steamExtra:
+      - 2778580
+      - 2778590
+  installDir:
+    ELDEN RING: {}
+  launch:
+    "<base>/Game/start_protected_game.exe":
+      - when:
+          - store: steam
+        workingDir: "<base>/Game"
+  steam:
+    id: 1245620
+Hades II:
+  cloud:
+    epic: true
+    steam: true
+  files:
+    "<home>/Library/Application Support/Supergiant Games/Hades II/Profile*.sav":
+      tags:
+        - save
+      when:
+        - os: mac
+    "<home>/Saved Games/Hades II/GlobalSettingsWin.sjson":
+      tags:
+        - config
+      when:
+        - os: windows
+    "<home>/Saved Games/Hades II/Profile*.sav":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<winLocalAppData>/Packages/SupergiantGamesLLC.HadesII_q53c1yqmx7pha/SystemAppData/wgs":
+      tags:
+        - config
+      when:
+        - os: windows
+          store: microsoft
+    "<winLocalAppData>Path/Packages/SupergiantGamesLLC.HadesII_q53c1yqmx7pha/SystemAppData/wgs":
+      tags:
+        - save
+      when:
+        - os: windows
+          store: microsoft
+  id:
+    lutris: hades-ii
+  installDir:
+    Hades II: {}
+  steam:
+    id: 1145350
+Hollow Knight:
+  cloud:
+    gog: true
+    steam: true
+  files:
+    "<base>/hollow_knight_Data/Config.ini":
+      tags:
+        - config
+      when:
+        - os: windows
+        - os: linux
+    "<home>/AppData/LocalLow/Team Cherry/Hollow Knight/*.bak":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<home>/AppData/LocalLow/Team Cherry/Hollow Knight/*.dat":
+      tags:
+        - save
+      when:
+        - os: windows
+    "<home>/Library/Application Support/unity.Team Cherry.Hollow Knight":
+      tags:
+        - save
+      when:
+        - os: mac
+    "<home>/Library/Preferences/unity.Team Cherry.Hollow Knight.plist":
+      tags:
+        - config
+      when:
+        - os: mac
+    "<winProgramData>/Packages/TeamCherry.15373CD61C66B_y4jvztpgccj42/SystemAppData/wgs":
+      tags:
+        - config
+        - save
+      when:
+        - os: windows
+          store: microsoft
+    "<xdgConfig>/unity3d/Team Cherry/Hollow Knight/*.dat":
+      tags:
+        - save
+      when:
+        - os: linux
+    "<xdgConfig>/unity3d/Team Cherry/Hollow Knight/prefs":
+      tags:
+        - config
+      when:
+        - os: linux
+  gog:
+    id: 1308320804
+  id:
+    gogExtra:
+      - 1984697392
+      - 2031197911
+    lutris: hollow-knight
+    steamExtra:
+      - 598190
+      - 916000
+  installDir:
+    Hollow Knight: {}
+  launch:
+    "<base>/hollow_knight.app":
+      - when:
+          - os: mac
+            store: steam
+    "<base>/hollow_knight.exe":
+      - when:
+          - os: windows
+            store: steam
+    "<base>/hollow_knight.x86_64":
+      - when:
+          - os: linux
+            store: steam
+  registry:
+    HKEY_CURRENT_USER/Software/Team Cherry/Hollow Knight:
+      tags:
+        - config
+  steam:
+    id: 367520
