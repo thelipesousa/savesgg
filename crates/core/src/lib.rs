@@ -1,5 +1,6 @@
 //! Motor do SaveGuard: varredura, prioridade, backup e restauração de saves.
 
+pub mod manifest;
 pub mod paths;
 
 /// Erros do motor.
