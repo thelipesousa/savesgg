@@ -228,7 +228,21 @@ pub fn apply_restore(
         writes.push((target.clone(), bytes));
     }
 
-    // 2. Backup de segurança do que vai ser sobrescrito.
+    // 2. Todo destino existente precisa aceitar escrita (jogo aberto costuma deixar
+    //    ler mas não escrever): melhor falhar antes do que restaurar pela metade.
+    for (target, _) in &writes {
+        if target.is_file()
+            && let Err(e) = fs::OpenOptions::new().write(true).open(target)
+        {
+            return Err(if matches!(e.raw_os_error(), Some(32) | Some(33)) {
+                CoreError::ArquivoTravado(target.clone())
+            } else {
+                e.into()
+            });
+        }
+    }
+
+    // 3. Backup de segurança do que vai ser sobrescrito.
     let existing: Vec<PathBuf> = writes
         .iter()
         .map(|(t, _)| t.clone())
@@ -265,12 +279,25 @@ pub fn apply_restore(
         safety_snapshot = Some(SnapshotRef { pinned: true, ..r });
     }
 
-    // 3. Escreve.
-    for (target, bytes) in &writes {
-        if let Some(dir) = target.parent() {
-            fs::create_dir_all(dir)?;
+    // 4. Escreve. Se algo falhar no meio, diz qual versão guarda o estado anterior.
+    for (i, (target, bytes)) in writes.iter().enumerate() {
+        let r = target
+            .parent()
+            .map_or(Ok(()), fs::create_dir_all)
+            .map_err(CoreError::from)
+            .and_then(|_| crate::backup_write_atomic(target, bytes));
+        if let Err(e) = r {
+            if i == 0 {
+                return Err(e);
+            }
+            let seg = safety_snapshot
+                .as_ref()
+                .map_or("nenhuma".to_string(), |s| s.stem.clone());
+            return Err(CoreError::Formato(format!(
+                "restauração parcial ({i} de {} arquivos); a versão de segurança é {seg}: {e}",
+                writes.len()
+            )));
         }
-        crate::backup_write_atomic(target, bytes)?;
     }
     Ok(RestoreReport {
         restored: writes.len(),
@@ -527,6 +554,34 @@ mod tests {
         assert_eq!(fs::read(&alvo).unwrap(), b"progresso da ana");
         let meta = load_meta(&dest, "elden-ring", &safety.stem).unwrap();
         assert_eq!(meta.files.len(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn destino_em_uso_nao_restaura_nada() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let (t, dest, stem) = backup_da_ana();
+        let b = ctx(t.path(), "Bruno", "222");
+        let alvo = b.app_data.join("EldenRing/222/ER0000.sl2");
+        fs::create_dir_all(alvo.parent().unwrap()).unwrap();
+        fs::write(&alvo, b"progresso do bruno").unwrap();
+        // O jogo aberto deixa ler, mas não escrever (FILE_SHARE_READ = 1).
+        let _jogo = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(&alvo)
+            .unwrap();
+        let plan = plan_restore(&dest, "elden-ring", &stem, &b, &GameVars::default()).unwrap();
+        let err = apply_restore(&plan, &dest, &b, &BTreeMap::new(), now()).unwrap_err();
+        assert!(matches!(err, CoreError::ArquivoTravado(_)), "{err:?}");
+        drop(_jogo);
+        assert_eq!(fs::read(&alvo).unwrap(), b"progresso do bruno");
+        let idx = LibraryIndex::load(&dest).unwrap();
+        assert_eq!(
+            idx.games["elden-ring"].len(),
+            1,
+            "não deve criar versão de segurança à toa"
+        );
     }
 
     #[test]
