@@ -1,5 +1,16 @@
 //! Motor do SaveGuard: varredura, prioridade, backup e restauração de saves.
 
+pub mod paths;
+
+/// Erros do motor.
+#[derive(Debug, thiserror::Error)]
+pub enum CoreError {
+    #[error("erro de arquivo: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("formato inválido: {0}")]
+    Formato(String),
+}
+
 /// Versão do motor.
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
