@@ -288,6 +288,30 @@ fn apply_retention(
     Ok(())
 }
 
+/// Apaga temporários (`*.tmp`) deixados por backups interrompidos em `SaveGuard\`
+/// e `SaveGuard\<jogo>\`. Chamar com a trava do destino. Devolve quantos apagou.
+pub fn cleanup_temp(dest_root: &Path) -> usize {
+    let root = backup_root(dest_root);
+    let mut dirs = vec![root.clone()];
+    if let Ok(rd) = fs::read_dir(&root) {
+        dirs.extend(rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()));
+    }
+    let mut n = 0;
+    for d in dirs {
+        let Ok(rd) = fs::read_dir(&d) else { continue };
+        for f in rd.flatten() {
+            let p = f.path();
+            if p.is_file()
+                && p.extension().is_some_and(|x| x == "tmp")
+                && fs::remove_file(&p).is_ok()
+            {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
 /// Caminhos do zip e do json de uma versão.
 pub fn snapshot_paths(dest_root: &Path, game_id: &str, stem: &str) -> (PathBuf, PathBuf) {
     let dir = backup_root(dest_root).join(game_id);
@@ -383,6 +407,7 @@ mod tests {
             base: None,
             root: None,
             store_game_id: None,
+            patterns: Vec::new(),
         };
         Fixture {
             _t: t,
@@ -628,6 +653,25 @@ mod tests {
         fs::remove_file(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
         let idx = LibraryIndex::load(&f.dest).unwrap();
         assert_eq!(idx.games["elden-ring"].len(), 1);
+    }
+
+    #[test]
+    fn limpa_tmp_orfao() {
+        let f = fixture();
+        backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
+        fs::write(
+            f.dest.join("SaveGuard/elden-ring/x.zip.tmp"),
+            b"pela metade",
+        )
+        .unwrap();
+        fs::write(f.dest.join("SaveGuard/biblioteca.json.tmp"), b"{").unwrap();
+        assert_eq!(cleanup_temp(&f.dest), 2);
+        assert!(!f.dest.join("SaveGuard/elden-ring/x.zip.tmp").exists());
+        assert_eq!(
+            LibraryIndex::load(&f.dest).unwrap().games["elden-ring"].len(),
+            1
+        );
+        assert_eq!(cleanup_temp(&f.dest), 0);
     }
 
     #[test]

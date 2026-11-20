@@ -76,6 +76,14 @@ impl LibraryIndex {
         Ok(idx)
     }
 
+    /// Índice montado só pelos `.json` (ignora o `biblioteca.json`).
+    pub fn rebuild_from_sidecars(dest_root: &Path) -> Self {
+        let mut idx = Self::default();
+        idx.merge_sidecars(dest_root);
+        idx.games.retain(|_, v| !v.is_empty());
+        idx
+    }
+
     /// Os `<jogo>/<stem>.json` (com o `.zip` ao lado) são a fonte da verdade.
     fn merge_sidecars(&mut self, dest_root: &Path) {
         let Ok(games) = fs::read_dir(root(dest_root)) else {

@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use saveguard_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
@@ -60,72 +60,93 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static
         .map_err(|_| "erro interno".to_string())?
 }
 
-/// Varre o PC e devolve os jogos já ordenados por prioridade.
-#[tauri::command]
-pub async fn scan(state: State<'_, AppState>) -> Res<Vec<GameView>> {
-    let manifest = {
-        let cached = state.manifest.lock().expect("manifest").clone();
-        match cached {
-            Some(m) => m,
-            None => {
-                let (cache, bundled) =
-                    (state.manifest_cache.clone(), state.manifest_bundled.clone());
-                let m = Arc::new(blocking(move || manifest_source::load(&cache, &bundled)).await?);
-                *state.manifest.lock().expect("manifest") = Some(m.clone());
-                m
-            }
+/// Varre o PC (bloqueante): carrega o manifesto se preciso, guarda o resultado no
+/// estado e devolve os jogos já ordenados por prioridade. Usada pelo comando e pelo motor.
+pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
+    let cached = state
+        .manifest
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let manifest = match cached {
+        Some(m) => m,
+        None => {
+            let m = Arc::new(manifest_source::load(
+                &state.manifest_cache,
+                &state.manifest_bundled,
+            )?);
+            *state.manifest.lock().unwrap_or_else(|e| e.into_inner()) = Some(m.clone());
+            m
         }
     };
     let cfg = state.config();
-    let (data, views) = blocking(move || {
-        let installed = detect_all();
-        let ctx = current_ctx(&installed);
-        let opts = ScanOptions {
-            extra_roots: find_emulator_roots(&drive_roots()),
-            manual: cfg.manual_games.clone(),
-        };
-        let result = core_scan(&ctx, &manifest, &installed, &opts);
-        let dests = list_destinations(&cfg);
-        let hist = history(&dests);
-        let sync = detect_sync_roots();
-        let now = Utc::now();
-        let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
-        let mut pairs: Vec<_> = result
-            .games
-            .iter()
-            .filter(visible)
-            .map(|g| (g.clone(), assess(g, &sync, &hist, now)))
-            .collect();
-        sort_for_display(&mut pairs);
-        let mut views: Vec<GameView> = pairs
-            .iter()
-            .map(|(g, a)| {
-                game_view(
-                    g,
-                    a,
-                    &ctx,
-                    hist.last_backup(&g.id),
-                    false,
-                    cfg.confirmed_games.contains(&g.id),
-                )
-            })
-            .collect();
-        for g in result.over_limit.iter().filter(visible) {
-            let a = assess(g, &sync, &hist, now);
-            views.push(game_view(
+    let installed = detect_all();
+    let ctx = current_ctx(&installed);
+    let opts = ScanOptions {
+        extra_roots: find_emulator_roots(&drive_roots()),
+        manual: cfg.manual_games.clone(),
+    };
+    let result = core_scan(&ctx, &manifest, &installed, &opts);
+    let dests = list_destinations(&cfg);
+    let hist = history(&dests);
+    let sync = detect_sync_roots();
+    let now = Utc::now();
+    let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
+    let mut pairs: Vec<_> = result
+        .games
+        .iter()
+        .filter(visible)
+        .map(|g| (g.clone(), assess(g, &sync, &hist, now)))
+        .collect();
+    sort_for_display(&mut pairs);
+    let mut views: Vec<GameView> = pairs
+        .iter()
+        .map(|(g, a)| {
+            game_view(
                 g,
-                &a,
+                a,
                 &ctx,
                 hist.last_backup(&g.id),
-                true,
+                false,
                 cfg.confirmed_games.contains(&g.id),
-            ));
-        }
-        Ok((ScanData { result, ctx }, views))
-    })
-    .await?;
-    *state.last_scan.lock().expect("scan") = Some(Arc::new(data));
+            )
+        })
+        .collect();
+    for g in result.over_limit.iter().filter(visible) {
+        let a = assess(g, &sync, &hist, now);
+        views.push(game_view(
+            g,
+            &a,
+            &ctx,
+            hist.last_backup(&g.id),
+            true,
+            cfg.confirmed_games.contains(&g.id),
+        ));
+    }
+    let risk_ids: std::collections::BTreeSet<String> = views
+        .iter()
+        .filter(|v| !v.grande && v.priority == saveguard_core::protection::Priority::Alta)
+        .map(|v| v.id.clone())
+        .collect();
+    let at_risk = risk_ids.len();
+    *state.at_risk_ids.lock().unwrap_or_else(|e| e.into_inner()) = risk_ids;
+    *state.last_scan.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some(Arc::new(ScanData { result, ctx }));
+    state
+        .scan_gen
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    state
+        .auto_status
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .at_risk = at_risk;
     Ok(views)
+}
+
+/// Varre o PC e devolve os jogos já ordenados por prioridade.
+#[tauri::command]
+pub async fn scan(app: tauri::AppHandle) -> Res<Vec<GameView>> {
+    blocking(move || run_scan_blocking(&app.state::<AppState>())).await
 }
 
 #[tauri::command]
@@ -182,54 +203,105 @@ fn find_destinations(cfg: &saveguard_core::config::Config, ids: &[String]) -> Ve
         .collect()
 }
 
-#[tauri::command]
-pub async fn backup_now(
-    state: State<'_, AppState>,
-    game_ids: Vec<String>,
-    destination_ids: Vec<String>,
+/// Backup manual de vários jogos para vários destinos, com a trava de cada destino.
+pub fn backup_blocking(
+    state: &AppState,
+    game_ids: &[String],
+    destination_ids: &[String],
 ) -> Res<Vec<BackupResultView>> {
     let data = state
         .last_scan
         .lock()
-        .expect("scan")
+        .unwrap_or_else(|e| e.into_inner())
         .clone()
         .ok_or("faça uma varredura primeiro")?;
     let cfg = state.config();
-    blocking(move || {
-        let dests = find_destinations(&cfg, &destination_ids);
-        let mut out = Vec::new();
-        for d in &dests {
-            if matches!(d.kind, DestinationKind::PastaSincronizada(_))
-                && d.available
-                && let Err(e) = std::fs::create_dir_all(&d.root)
-            {
-                out.push(BackupResultView {
-                    game_id: String::new(),
-                    destination_id: d.id.clone(),
-                    status: "erro",
-                    message: Some(e.to_string()),
-                });
-                continue;
-            }
-            for id in &game_ids {
-                let Some(g) = data.find(id) else { continue };
-                let r = backup_game(g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
-                let (status, message) = match r {
-                    Ok(BackupOutcome::Criado(_)) => ("criado", None),
-                    Ok(BackupOutcome::SemMudanca) => ("sem_mudanca", None),
-                    Err(e) => ("erro", Some(e.to_string())),
-                };
-                out.push(BackupResultView {
-                    game_id: id.clone(),
-                    destination_id: d.id.clone(),
-                    status,
-                    message,
-                });
-            }
+    let dests = find_destinations(&cfg, destination_ids);
+    let mut out = Vec::new();
+    for d in &dests {
+        if matches!(d.kind, DestinationKind::PastaSincronizada(_))
+            && d.available
+            && let Err(e) = std::fs::create_dir_all(&d.root)
+        {
+            out.push(BackupResultView {
+                game_id: String::new(),
+                destination_id: d.id.clone(),
+                status: "erro",
+                message: Some(e.to_string()),
+            });
+            continue;
         }
-        Ok(out)
-    })
-    .await
+        for id in game_ids {
+            let Some(g) = data.find(id) else { continue };
+            // Trava por jogo, não pelo destino inteiro: copiar 30 GB não pode parar
+            // o motor automático por minutos.
+            let lock = state.locks.lock(&d.id);
+            let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
+            let g = saveguard_core::scan::refresh_files(g);
+            let r = backup_game(&g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
+            let (status, message) = match r {
+                Ok(BackupOutcome::Criado(_)) => ("criado", None),
+                Ok(BackupOutcome::SemMudanca) => ("sem_mudanca", None),
+                Err(e) => ("erro", Some(e.to_string())),
+            };
+            out.push(BackupResultView {
+                game_id: id.clone(),
+                destination_id: d.id.clone(),
+                status,
+                message,
+            });
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn backup_now(
+    app: tauri::AppHandle,
+    game_ids: Vec<String>,
+    destination_ids: Vec<String>,
+) -> Res<Vec<BackupResultView>> {
+    blocking(move || backup_blocking(&app.state::<AppState>(), &game_ids, &destination_ids)).await
+}
+
+/// Jogos que entram em "copiar tudo": sem os ignorados e sem possíveis saves ou
+/// grandes demais que o usuário ainda não confirmou.
+pub fn all_backup_ids(data: &ScanData, cfg: &saveguard_core::config::Config) -> Vec<String> {
+    data.result
+        .games
+        .iter()
+        .chain(&data.result.over_limit)
+        .filter(|g| !cfg.ignored_games.contains(&g.id))
+        .filter(|g| {
+            let grande = data.result.over_limit.iter().any(|o| o.id == g.id);
+            let precisa_confirmar = g.source == saveguard_core::scan::Source::Heuristica || grande;
+            !precisa_confirmar || cfg.confirmed_games.contains(&g.id)
+        })
+        .map(|g| g.id.clone())
+        .collect()
+}
+
+/// Copia todos os jogos para um destino (aviso de pendrive/HD e menu da bandeja).
+pub fn copy_all_blocking(state: &AppState, destination_id: &str) -> Vec<BackupResultView> {
+    let Some(data) = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+    else {
+        return Vec::new();
+    };
+    let ids = all_backup_ids(&data, &state.config());
+    backup_blocking(state, &ids, &[destination_id.to_string()]).unwrap_or_default()
+}
+
+/// Copia todos os jogos para um destino (aviso de disco plugado).
+#[tauri::command]
+pub async fn copy_all_to(
+    app: tauri::AppHandle,
+    destination_id: String,
+) -> Res<Vec<BackupResultView>> {
+    blocking(move || Ok(copy_all_blocking(&app.state::<AppState>(), &destination_id))).await
 }
 
 #[derive(Debug, Serialize)]
@@ -355,4 +427,65 @@ pub async fn confirm_heuristic(state: State<'_, AppState>, game_id: String, keep
 #[tauri::command]
 pub fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+#[derive(Debug, Serialize)]
+pub struct SettingsView {
+    pub auto_destinations: Vec<String>,
+    pub autostart: bool,
+    pub auto_paused: bool,
+    pub keep_versions: usize,
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> SettingsView {
+    let c = state.config();
+    SettingsView {
+        auto_destinations: c.auto_destinations,
+        autostart: c.autostart,
+        auto_paused: c.auto_paused,
+        keep_versions: c.keep_versions,
+    }
+}
+
+/// Destinos do backup automático. Só aceita ids de destinos que o app conhece
+/// (ou que já estavam escolhidos, como um pendrive desplugado agora).
+#[tauri::command]
+pub async fn set_auto_destinations(app: tauri::AppHandle, ids: Vec<String>) -> Res<()> {
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let cfg = state.config();
+        let known = list_destinations(&cfg);
+        let ids: Vec<String> = ids
+            .into_iter()
+            .filter(|id| known.iter().any(|d| &d.id == id) || cfg.auto_destinations.contains(id))
+            .collect();
+        state.update_config(|c| c.auto_destinations = ids)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Res<()> {
+    app.state::<AppState>()
+        .update_config(|c| c.autostart = enabled)?;
+    crate::sync_autostart(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_paused(app: tauri::AppHandle, paused: bool) -> Res<()> {
+    app.state::<AppState>()
+        .update_config(|c| c.auto_paused = paused)?;
+    crate::auto::publish(&app, |s| s.paused = paused);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
+    state
+        .auto_status
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
 }

@@ -19,6 +19,7 @@ walkdir = "2.5.0"
 zip = { version = "9.8.1", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
+sysinfo = "0.40"
 tempfile = "3.27.0"
 
 [target."cfg(windows)".dependencies]

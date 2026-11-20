@@ -75,3 +75,21 @@ export interface RestoreReport {
   restored: number;
   safety_snapshot: { stem: string } | null;
 }
+
+export interface SettingsView {
+  auto_destinations: string[];
+  autostart: boolean;
+  auto_paused: boolean;
+  keep_versions: number;
+}
+
+export interface AutoStatusView {
+  paused: boolean;
+  running: string[];
+  waiting: number;
+  pending: number;
+  last_backup: string | null;
+  at_risk: number;
+  copying: boolean;
+  last_error: string | null;
+}

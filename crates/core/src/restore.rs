@@ -266,6 +266,7 @@ pub fn apply_restore(
             base: None,
             root: None,
             store_game_id: None,
+            patterns: Vec::new(),
         };
         let r = match backup_game(&game, ctx, dest_root, usize::MAX, now)? {
             BackupOutcome::Criado(r) => r,
@@ -358,6 +359,7 @@ mod tests {
             base: None,
             root: None,
             store_game_id: None,
+            patterns: Vec::new(),
         };
         let BackupOutcome::Criado(r) = backup_game(&game, &a, &dest, 10, now()).unwrap() else {
             panic!()

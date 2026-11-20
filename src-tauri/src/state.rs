@@ -1,7 +1,10 @@
 //! Estado do app compartilhado entre os comandos.
 
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
+
+use crate::auto::{AutoStatusView, DestLocks};
 
 use saveguard_core::config::Config;
 use saveguard_core::manifest::Manifest;
@@ -32,6 +35,17 @@ pub struct AppState {
     pub manifest_cache: PathBuf,
     pub manifest_bundled: Vec<PathBuf>,
     pub last_scan: Mutex<Option<Arc<ScanData>>>,
+    /// Muda a cada varredura (o motor recria os vigias).
+    pub scan_gen: AtomicU64,
+    pub locks: DestLocks,
+    pub auto_status: Mutex<AutoStatusView>,
+    /// `%LOCALAPPDATA%\SaveGuard\pendentes`
+    pub pending_base: PathBuf,
+    /// Pendrives/HDs plugados agora (itens do menu da bandeja).
+    pub plugged: Mutex<Vec<saveguard_core::destinations::Destination>>,
+    pub drive_watcher: Mutex<crate::drives::DriveWatcher>,
+    /// Jogos sem cópia fora do PC (cor da bandeja); atualizado a cada backup.
+    pub at_risk_ids: Mutex<std::collections::BTreeSet<String>>,
 }
 
 impl AppState {
@@ -46,6 +60,16 @@ impl AppState {
             manifest_cache,
             manifest_bundled: bundled,
             last_scan: Mutex::new(None),
+            scan_gen: AtomicU64::new(0),
+            locks: DestLocks::default(),
+            auto_status: Mutex::new(AutoStatusView::default()),
+            pending_base: dirs::data_local_dir()
+                .unwrap_or_default()
+                .join("SaveGuard")
+                .join("pendentes"),
+            plugged: Mutex::new(Vec::new()),
+            drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
+            at_risk_ids: Mutex::new(std::collections::BTreeSet::new()),
         }
     }
 
