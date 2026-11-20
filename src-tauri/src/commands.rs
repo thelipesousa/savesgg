@@ -200,54 +200,93 @@ fn find_destinations(cfg: &saveguard_core::config::Config, ids: &[String]) -> Ve
         .collect()
 }
 
-#[tauri::command]
-pub async fn backup_now(
-    state: State<'_, AppState>,
-    game_ids: Vec<String>,
-    destination_ids: Vec<String>,
+/// Backup manual de vários jogos para vários destinos, com a trava de cada destino.
+pub fn backup_blocking(
+    state: &AppState,
+    game_ids: &[String],
+    destination_ids: &[String],
 ) -> Res<Vec<BackupResultView>> {
     let data = state
         .last_scan
         .lock()
-        .expect("scan")
+        .unwrap_or_else(|e| e.into_inner())
         .clone()
         .ok_or("faça uma varredura primeiro")?;
     let cfg = state.config();
-    blocking(move || {
-        let dests = find_destinations(&cfg, &destination_ids);
-        let mut out = Vec::new();
-        for d in &dests {
-            if matches!(d.kind, DestinationKind::PastaSincronizada(_))
-                && d.available
-                && let Err(e) = std::fs::create_dir_all(&d.root)
-            {
-                out.push(BackupResultView {
-                    game_id: String::new(),
-                    destination_id: d.id.clone(),
-                    status: "erro",
-                    message: Some(e.to_string()),
-                });
-                continue;
-            }
-            for id in &game_ids {
-                let Some(g) = data.find(id) else { continue };
-                let r = backup_game(g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
-                let (status, message) = match r {
-                    Ok(BackupOutcome::Criado(_)) => ("criado", None),
-                    Ok(BackupOutcome::SemMudanca) => ("sem_mudanca", None),
-                    Err(e) => ("erro", Some(e.to_string())),
-                };
-                out.push(BackupResultView {
-                    game_id: id.clone(),
-                    destination_id: d.id.clone(),
-                    status,
-                    message,
-                });
-            }
+    let dests = find_destinations(&cfg, destination_ids);
+    let mut out = Vec::new();
+    for d in &dests {
+        let lock = state.locks.lock(&d.id);
+        let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
+        if matches!(d.kind, DestinationKind::PastaSincronizada(_))
+            && d.available
+            && let Err(e) = std::fs::create_dir_all(&d.root)
+        {
+            out.push(BackupResultView {
+                game_id: String::new(),
+                destination_id: d.id.clone(),
+                status: "erro",
+                message: Some(e.to_string()),
+            });
+            continue;
         }
-        Ok(out)
-    })
-    .await
+        for id in game_ids {
+            let Some(g) = data.find(id) else { continue };
+            let r = backup_game(g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
+            let (status, message) = match r {
+                Ok(BackupOutcome::Criado(_)) => ("criado", None),
+                Ok(BackupOutcome::SemMudanca) => ("sem_mudanca", None),
+                Err(e) => ("erro", Some(e.to_string())),
+            };
+            out.push(BackupResultView {
+                game_id: id.clone(),
+                destination_id: d.id.clone(),
+                status,
+                message,
+            });
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn backup_now(
+    app: tauri::AppHandle,
+    game_ids: Vec<String>,
+    destination_ids: Vec<String>,
+) -> Res<Vec<BackupResultView>> {
+    blocking(move || backup_blocking(&app.state::<AppState>(), &game_ids, &destination_ids)).await
+}
+
+/// Jogos que entram em "copiar tudo": sem os ignorados e sem possíveis saves ou
+/// grandes demais que o usuário ainda não confirmou.
+pub fn all_backup_ids(data: &ScanData, cfg: &saveguard_core::config::Config) -> Vec<String> {
+    data.result
+        .games
+        .iter()
+        .chain(&data.result.over_limit)
+        .filter(|g| !cfg.ignored_games.contains(&g.id))
+        .filter(|g| {
+            let grande = data.result.over_limit.iter().any(|o| o.id == g.id);
+            let precisa_confirmar = g.source == saveguard_core::scan::Source::Heuristica || grande;
+            !precisa_confirmar || cfg.confirmed_games.contains(&g.id)
+        })
+        .map(|g| g.id.clone())
+        .collect()
+}
+
+/// Copia todos os jogos para um destino (aviso de pendrive/HD e menu da bandeja).
+pub fn copy_all_blocking(state: &AppState, destination_id: &str) -> Vec<BackupResultView> {
+    let Some(data) = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+    else {
+        return Vec::new();
+    };
+    let ids = all_backup_ids(&data, &state.config());
+    backup_blocking(state, &ids, &[destination_id.to_string()]).unwrap_or_default()
 }
 
 #[derive(Debug, Serialize)]
