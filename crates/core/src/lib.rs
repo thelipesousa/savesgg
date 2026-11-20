@@ -4,8 +4,10 @@ pub mod emulators;
 mod heuristics;
 pub mod manifest;
 pub mod paths;
+pub mod protection;
 pub mod scan;
 pub mod stores;
+pub mod sync_folders;
 
 /// Erros do motor.
 #[derive(Debug, thiserror::Error)]
