@@ -7,6 +7,7 @@ pub mod emulators;
 mod heuristics;
 pub mod manifest;
 pub mod paths;
+pub mod pending;
 pub mod protection;
 pub mod restore;
 pub mod scan;
