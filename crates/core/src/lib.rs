@@ -8,6 +8,7 @@ mod heuristics;
 pub mod manifest;
 pub mod paths;
 pub mod protection;
+pub mod restore;
 pub mod scan;
 pub mod stores;
 pub mod sync_folders;
