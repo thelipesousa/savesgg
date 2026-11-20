@@ -422,3 +422,64 @@ pub async fn confirm_heuristic(state: State<'_, AppState>, game_id: String, keep
 pub fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+#[derive(Debug, Serialize)]
+pub struct SettingsView {
+    pub auto_destinations: Vec<String>,
+    pub autostart: bool,
+    pub auto_paused: bool,
+    pub keep_versions: usize,
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> SettingsView {
+    let c = state.config();
+    SettingsView {
+        auto_destinations: c.auto_destinations,
+        autostart: c.autostart,
+        auto_paused: c.auto_paused,
+        keep_versions: c.keep_versions,
+    }
+}
+
+/// Destinos do backup automático. Só aceita ids de destinos que o app conhece
+/// (ou que já estavam escolhidos, como um pendrive desplugado agora).
+#[tauri::command]
+pub async fn set_auto_destinations(app: tauri::AppHandle, ids: Vec<String>) -> Res<()> {
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let cfg = state.config();
+        let known = list_destinations(&cfg);
+        let ids: Vec<String> = ids
+            .into_iter()
+            .filter(|id| known.iter().any(|d| &d.id == id) || cfg.auto_destinations.contains(id))
+            .collect();
+        state.update_config(|c| c.auto_destinations = ids)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Res<()> {
+    app.state::<AppState>()
+        .update_config(|c| c.autostart = enabled)?;
+    crate::sync_autostart(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_paused(app: tauri::AppHandle, paused: bool) -> Res<()> {
+    app.state::<AppState>()
+        .update_config(|c| c.auto_paused = paused)?;
+    crate::auto::publish(&app, |s| s.paused = paused);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
+    state
+        .auto_status
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}

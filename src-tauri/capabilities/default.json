@@ -18,6 +18,12 @@
     "allow-confirm-heuristic",
     "allow-app-version",
     "allow-copy-all-to",
-    "notification:default"
+    "notification:default",
+    "allow-get-settings",
+    "allow-set-auto-destinations",
+    "allow-set-autostart",
+    "allow-set-paused",
+    "allow-auto-status",
+    "core:event:default"
   ]
 }

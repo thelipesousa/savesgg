@@ -12,6 +12,11 @@ fn main() {
         "confirm_heuristic",
         "app_version",
         "copy_all_to",
+        "get_settings",
+        "set_auto_destinations",
+        "set_autostart",
+        "set_paused",
+        "auto_status",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

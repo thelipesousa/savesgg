@@ -2,13 +2,15 @@
   import Inicio from "./screens/Inicio.svelte";
   import Restaurar from "./screens/Restaurar.svelte";
   import Sobre from "./screens/Sobre.svelte";
+  import Configuracoes from "./screens/Configuracoes.svelte";
 
-  type Tela = "inicio" | "restaurar" | "sobre";
+  type Tela = "inicio" | "restaurar" | "configuracoes" | "sobre";
   let tela = $state<Tela>("inicio");
 
   const menu: { id: Tela; texto: string; icone: string }[] = [
     { id: "inicio", texto: "Início", icone: "🏠" },
     { id: "restaurar", texto: "Restaurar", icone: "↩️" },
+    { id: "configuracoes", texto: "Configurações", icone: "⚙️" },
     { id: "sobre", texto: "Sobre", icone: "ℹ️" },
   ];
 </script>
@@ -32,6 +34,8 @@
       <Inicio />
     {:else if tela === "restaurar"}
       <Restaurar />
+    {:else if tela === "configuracoes"}
+      <Configuracoes />
     {:else}
       <Sobre />
     {/if}
