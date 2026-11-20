@@ -59,6 +59,8 @@ pub enum AutoOutcome {
     Erro {
         game_id: String,
         message: String,
+        /// Vale tentar de novo daqui a pouco (arquivo em uso, save sumindo/mudando).
+        retry: bool,
     },
 }
 
@@ -99,6 +101,7 @@ fn to_pending(
         Err(e) => AutoOutcome::Erro {
             game_id: g.id.clone(),
             message: e.to_string(),
+            retry: false,
         },
     }
 }
@@ -124,6 +127,12 @@ pub fn execute_due(
         {
             continue;
         }
+        // Saves criados ou apagados desde a varredura (jogos que rodam autosaves).
+        let fresh = saveguard_core::scan::refresh_files(g);
+        let g = &fresh;
+        if g.files.is_empty() {
+            continue;
+        }
         for d in &targets.available {
             let lock = locks.lock(&d.id);
             let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
@@ -143,12 +152,26 @@ pub fn execute_due(
                     destination_id: d.id.clone(),
                 },
                 // Destino sumiu no meio (pendrive arrancado): vai para a fila.
-                Err(CoreError::DestinoIndisponivel(_)) | Err(CoreError::Io(_)) => {
+                Err(CoreError::DestinoIndisponivel(_)) => {
                     to_pending(g, scan, cfg, &d.id, pending_base, locks, now)
                 }
+                Err(CoreError::Io(_)) if !d.root.is_dir() => {
+                    to_pending(g, scan, cfg, &d.id, pending_base, locks, now)
+                }
+                // O problema é na origem (save em uso, sumiu, mudando): tenta de novo.
+                Err(
+                    e @ (CoreError::Io(_)
+                    | CoreError::ArquivoTravado(_)
+                    | CoreError::ArquivoMudou(_)),
+                ) => AutoOutcome::Erro {
+                    game_id: g.id.clone(),
+                    message: e.to_string(),
+                    retry: true,
+                },
                 Err(e) => AutoOutcome::Erro {
                     game_id: g.id.clone(),
                     message: e.to_string(),
+                    retry: false,
                 },
             });
         }
@@ -172,8 +195,11 @@ pub fn flush_all(
         if pending_count(&pr) == 0 {
             continue;
         }
+        // Ordem fixa das travas (destino, depois a fila) para não haver impasse.
         let lock = locks.lock(&d.id);
         let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let plock = locks.lock(&format!("pendente:{}", d.id));
+        let _p = plock.lock().unwrap_or_else(|e| e.into_inner());
         if matches!(d.kind, DestinationKind::PastaSincronizada(_)) {
             let _ = std::fs::create_dir_all(&d.root);
         }
@@ -182,6 +208,42 @@ pub fn flush_all(
         }
     }
     sent
+}
+
+/// Refazer a lista de destinos (registro, unidades, IOCTL USB) só quando um disco
+/// entrou/saiu, a configuração mudou ou a cada 60 s — não a cada volta de 5 s.
+pub fn needs_dest_refresh(
+    prev_mask: Option<u32>,
+    mask: u32,
+    last_refresh: u64,
+    now: u64,
+    cfg_changed: bool,
+) -> bool {
+    prev_mask != Some(mask) || cfg_changed || now >= last_refresh + 60
+}
+
+/// Jogo copiado para um destino fora do PC deixa de estar em risco.
+pub fn clear_protected(
+    at_risk: &mut std::collections::BTreeSet<String>,
+    out: &[AutoOutcome],
+    dests: &[Destination],
+) {
+    for o in out {
+        if let AutoOutcome::Copiado {
+            game_id,
+            destination_id,
+        }
+        | AutoOutcome::SemMudanca {
+            game_id,
+            destination_id,
+        } = o
+            && dests.iter().any(|d| {
+                &d.id == destination_id && saveguard_core::destinations::counts_as_off_pc(d)
+            })
+        {
+            at_risk.remove(game_id);
+        }
+    }
 }
 
 /// Total de versões esperando na fila (todos os destinos automáticos).
@@ -330,6 +392,11 @@ pub fn spawn(app: AppHandle) {
             let mut seen_gen = u64::MAX;
             let start = Instant::now();
             let mut last_flush = 0u64;
+            // Lista de destinos em cache: refeita só quando precisa (ver needs_dest_refresh).
+            let mut dests: Vec<Destination> = Vec::new();
+            let mut last_mask: Option<u32> = None;
+            let mut last_dest_refresh = 0u64;
+            let mut last_dest_cfg: Option<(Vec<String>, Vec<PathBuf>)> = None;
             loop {
                 let now_s = start.elapsed().as_secs();
                 let scan = state.last_scan.lock().unwrap_or_else(|e| e.into_inner()).clone();
@@ -340,7 +407,8 @@ pub fn spawn(app: AppHandle) {
                     seen_gen = gen_now;
                     let games: Vec<_> =
                         scan.result.games.iter().chain(&scan.result.over_limit).cloned().collect();
-                    tracker = ProcessTracker::new(&games);
+                    // Lembra quem estava aberto: se fechou durante a varredura, ainda conta.
+                    tracker = ProcessTracker::with_running(&games, tracker.running());
                     if let Some(w) = watcher.as_mut() {
                         for r in &watched {
                             let _ = w.unwatch(r);
@@ -352,6 +420,17 @@ pub fn spawn(app: AppHandle) {
                     }
                 }
                 let cfg = state.config();
+                let mask = saveguard_core::destinations::drive_mask();
+                let dest_cfg = (cfg.auto_destinations.clone(), cfg.custom_folders.clone());
+                let cfg_changed = last_dest_cfg.as_ref() != Some(&dest_cfg);
+                if needs_dest_refresh(last_mask, mask, last_dest_refresh, now_s, cfg_changed) {
+                    dests = list_destinations(&cfg);
+                    last_mask = Some(mask);
+                    last_dest_refresh = now_s;
+                    last_dest_cfg = Some(dest_cfg);
+                    // Discos externos: avisa quando um entra ou sai.
+                    crate::drives::poll(&app, &dests);
+                }
                 let procs = sys.as_mut().map(processes).unwrap_or_default();
                 for ev in tracker.update(&procs) {
                     scheduler.on_event(ev, now_s);
@@ -376,35 +455,52 @@ pub fn spawn(app: AppHandle) {
                     let due = scheduler.due(now_s);
                     if !due.is_empty() {
                         publish(&app, |s| s.copying = true);
-                        let dests = list_destinations(&cfg);
                         let out = execute_due(&due, scan, &cfg, &dests, &state.pending_base, &state.locks, Utc::now());
                         let copied = out.iter().any(|o| matches!(o, AutoOutcome::Copiado { .. }));
-                        let err = out.iter().find_map(|o| match o {
-                            AutoOutcome::Erro { game_id, message } => Some(format!("{game_id}: {message}")),
-                            _ => None,
-                        });
+                        let mut err = None;
+                        for o in &out {
+                            match o {
+                                AutoOutcome::Copiado { game_id, .. } | AutoOutcome::SemMudanca { game_id, .. } => {
+                                    scheduler.succeeded(game_id);
+                                }
+                                AutoOutcome::Erro { game_id, message, retry } => {
+                                    // Arquivo em uso logo depois de fechar: tenta de novo em
+                                    // 30 s, 2 min e 10 min; só avisa quando desistir.
+                                    if !(*retry && scheduler.retry(game_id, now_s)) {
+                                        let nome = scan.find(game_id).map_or(game_id.as_str(), |g| g.name.as_str());
+                                        err = Some(format!("{nome}: {message}"));
+                                    }
+                                }
+                                AutoOutcome::Pendente { .. } => {}
+                            }
+                        }
                         if let Some(e) = &err {
                             crate::notify_user(&app, "Backup automático não concluído", e);
                         }
+                        let at_risk = {
+                            let mut ids = state.at_risk_ids.lock().unwrap_or_else(|e| e.into_inner());
+                            clear_protected(&mut ids, &out, &dests);
+                            ids.len()
+                        };
                         publish(&app, |s| {
                             s.copying = false;
+                            s.at_risk = at_risk;
                             if copied {
                                 s.last_backup = Some(Utc::now().to_rfc3339());
                             }
-                            s.last_error = err;
+                            if err.is_some() {
+                                s.last_error = err;
+                            }
                         });
                     }
                     if now_s >= last_flush + 60 {
                         last_flush = now_s;
-                        let dests = list_destinations(&cfg);
                         let n = flush_all(&cfg, &dests, &state.pending_base, &state.locks);
                         if n > 0 {
                             crate::notify_user(&app, "Backups enviados", &format!("{n} backup(s) que estavam esperando foram copiados para o destino."));
                         }
                     }
                 }
-                // Discos externos: a cada volta (5 s), mesmo com o automático pausado.
-                crate::drives::poll(&app, &list_destinations(&cfg));
                 let running: Vec<String> = scheduler
                     .running()
                     .into_iter()
@@ -468,7 +564,7 @@ mod tests {
             base: None,
             root: None,
             store_game_id: None,
-            patterns: Vec::new(),
+            patterns: vec![save.to_string_lossy().replace('\\', "/")],
         };
         let scan = ScanData {
             result: ScanResult {
@@ -545,6 +641,118 @@ mod tests {
         let dests = pasta(&dest);
         assert_eq!(flush_all(&cfg, &dests, &base, &locks), 1);
         assert_eq!(pending_count(&pr), 0);
+    }
+
+    #[test]
+    fn automatico_pega_save_novo_e_ignora_apagado() {
+        let f = fx();
+        let save_dir = f.scan.result.games[0].save_roots[0].clone();
+        fs::remove_file(save_dir.join("a.sav")).unwrap();
+        fs::write(save_dir.join("b.sav"), b"novo").unwrap();
+        let dest = f.t.path().join("Destino");
+        fs::create_dir_all(&dest).unwrap();
+        let dests = pasta(&dest);
+        let cfg = cfg_with(vec![dests[0].id.clone()]);
+        let out = execute_due(
+            &["jogo".into()],
+            &f.scan,
+            &cfg,
+            &dests,
+            &f.t.path().join("p"),
+            &DestLocks::default(),
+            Utc::now(),
+        );
+        assert!(matches!(&out[..], [AutoOutcome::Copiado { .. }]), "{out:?}");
+        let idx = saveguard_core::backup::LibraryIndex::load(&dest).unwrap();
+        let stem = &idx.games["jogo"][0].stem;
+        let meta = saveguard_core::backup::load_meta(&dest, "jogo", stem).unwrap();
+        assert!(
+            meta.files.iter().any(|e| e.template.ends_with("b.sav")),
+            "{:?}",
+            meta.files
+        );
+        assert!(!meta.files.iter().any(|e| e.template.ends_with("a.sav")));
+    }
+
+    #[test]
+    fn erro_na_origem_nao_vira_pendente() {
+        let mut f = fx();
+        f.scan.result.games[0].patterns.clear(); // sem padrões: usa a lista antiga
+        fs::remove_file(&f.scan.result.games[0].files[0]).unwrap();
+        let dest = f.t.path().join("Destino");
+        fs::create_dir_all(&dest).unwrap();
+        let dests = pasta(&dest);
+        let cfg = cfg_with(vec![dests[0].id.clone()]);
+        let base = f.t.path().join("p");
+        let out = execute_due(
+            &["jogo".into()],
+            &f.scan,
+            &cfg,
+            &dests,
+            &base,
+            &DestLocks::default(),
+            Utc::now(),
+        );
+        assert!(
+            matches!(&out[..], [AutoOutcome::Erro { retry: true, .. }]),
+            "{out:?}"
+        );
+        assert_eq!(
+            pending_count(&saveguard_core::pending::pending_root(&base, &dests[0].id)),
+            0
+        );
+    }
+
+    #[test]
+    fn destinos_so_sao_refeitos_quando_precisa() {
+        assert!(needs_dest_refresh(None, 0b100, 0, 0, false), "primeira vez");
+        assert!(!needs_dest_refresh(Some(0b100), 0b100, 10, 15, false));
+        assert!(
+            needs_dest_refresh(Some(0b100), 0b110, 10, 15, false),
+            "disco novo"
+        );
+        assert!(
+            needs_dest_refresh(Some(0b100), 0b100, 10, 70, false),
+            "a cada 60 s"
+        );
+        assert!(
+            needs_dest_refresh(Some(0b100), 0b100, 10, 15, true),
+            "config mudou"
+        );
+    }
+
+    #[test]
+    fn copia_fora_do_pc_tira_o_jogo_do_risco() {
+        let t = tempfile::tempdir().unwrap();
+        let mut risco: std::collections::BTreeSet<String> = ["a".into(), "b".into()].into();
+        let local = pasta(t.path());
+        let pen = build_destinations(
+            &[],
+            &[saveguard_core::destinations::DriveInfo {
+                root: t.path().to_path_buf(),
+                label: "PEN".into(),
+                serial: 7,
+                free_bytes: None,
+            }],
+            &[],
+        );
+        let todos: Vec<_> = local.iter().chain(&pen).cloned().collect();
+        let out = vec![
+            AutoOutcome::Copiado {
+                game_id: "a".into(),
+                destination_id: local[0].id.clone(),
+            },
+            AutoOutcome::Copiado {
+                game_id: "b".into(),
+                destination_id: pen[0].id.clone(),
+            },
+        ];
+        clear_protected(&mut risco, &out, &todos);
+        assert_eq!(
+            risco,
+            ["a".to_string()].into(),
+            "pasta local não protege; pendrive sim"
+        );
     }
 
     #[test]

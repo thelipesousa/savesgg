@@ -16,7 +16,7 @@ pub fn pending_root(base: &Path, destination_id: &str) -> PathBuf {
 }
 
 /// Versões completas (`.zip` com `.json`) de uma pasta `SaveGuard`.
-fn versions(root: &Path) -> Vec<(String, PathBuf, PathBuf)> {
+pub(crate) fn versions(root: &Path) -> Vec<(String, PathBuf, PathBuf)> {
     let Ok(games) = fs::read_dir(backup_root(root)) else {
         return Vec::new();
     };
@@ -60,7 +60,16 @@ fn copy_atomic(from: &Path, to: &Path) -> Result<(), CoreError> {
 /// Envia os pendentes para o destino. Copia o zip e depois o json (o índice do
 /// destino se reconstrói pelos json), grava o índice e só então limpa o pendente.
 pub fn flush_pending(pending_root: &Path, dest_root: &Path) -> Result<usize, CoreError> {
-    let list = versions(pending_root);
+    flush_listed(pending_root, dest_root, &versions(pending_root))
+}
+
+/// Envia só as versões listadas e apaga do pendente só elas: uma versão que
+/// entrar na fila durante o envio fica para a próxima vez.
+pub(crate) fn flush_listed(
+    pending_root: &Path,
+    dest_root: &Path,
+    list: &[(String, PathBuf, PathBuf)],
+) -> Result<usize, CoreError> {
     if list.is_empty() {
         return Ok(0);
     }
@@ -68,7 +77,7 @@ pub fn flush_pending(pending_root: &Path, dest_root: &Path) -> Result<usize, Cor
         return Err(CoreError::DestinoIndisponivel(dest_root.to_path_buf()));
     }
     let mut sent = 0;
-    for (game, zip, json) in &list {
+    for (game, zip, json) in list {
         let dir = backup_root(dest_root).join(game);
         fs::create_dir_all(&dir)?;
         let (Some(zname), Some(jname)) = (zip.file_name(), json.file_name()) else {
@@ -82,8 +91,17 @@ pub fn flush_pending(pending_root: &Path, dest_root: &Path) -> Result<usize, Cor
         sent += 1;
     }
     LibraryIndex::load(dest_root)?.save_atomic(dest_root)?;
-    // Tudo já está no destino: o pendente pode ser apagado.
-    fs::remove_dir_all(backup_root(pending_root))?;
+    // Só o que foi enviado sai da fila; o índice da fila é refeito pelo que sobrou.
+    for (_, zip, json) in list {
+        let _ = fs::remove_file(zip);
+        let _ = fs::remove_file(json);
+    }
+    let rest = LibraryIndex::rebuild_from_sidecars(pending_root);
+    if rest.games.values().all(|v| v.is_empty()) {
+        let _ = fs::remove_dir_all(backup_root(pending_root));
+    } else {
+        rest.save_atomic(pending_root)?;
+    }
     Ok(sent)
 }
 
@@ -179,6 +197,36 @@ mod tests {
         }
         assert_eq!(flush_pending(&p, &dest).unwrap(), 0);
         assert_eq!(pending_count(&p), 0);
+    }
+
+    #[test]
+    fn envio_nao_apaga_versao_que_chegou_depois() {
+        let f = fx();
+        let p = pending_root(&f.t.path().join("pendentes"), "disco:9");
+        let dest = f.t.path().join("Pendrive");
+        fs::create_dir_all(&p).unwrap();
+        fs::create_dir_all(&dest).unwrap();
+        backup_game(&f.game, &f.ctx, &p, 10, now()).unwrap();
+        let lista = versions(&p); // o envio já listou o que vai mandar...
+        fs::write(&f.game.files[0], b"jogou mais").unwrap();
+        // ...e uma versão nova entra na fila enquanto isso
+        backup_game(
+            &f.game,
+            &f.ctx,
+            &p,
+            10,
+            now() + chrono::Duration::seconds(60),
+        )
+        .unwrap();
+        assert_eq!(flush_listed(&p, &dest, &lista).unwrap(), 1);
+        assert_eq!(
+            pending_count(&p),
+            1,
+            "a versão nova tem que continuar na fila"
+        );
+        // e a fila não pode achar que a versão nova já foi feita (índice sem restos)
+        let idx = LibraryIndex::load(&p).unwrap();
+        assert_eq!(idx.games["jogo"].len(), 1);
     }
 
     #[test]

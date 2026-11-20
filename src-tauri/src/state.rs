@@ -44,6 +44,8 @@ pub struct AppState {
     /// Pendrives/HDs plugados agora (itens do menu da bandeja).
     pub plugged: Mutex<Vec<saveguard_core::destinations::Destination>>,
     pub drive_watcher: Mutex<crate::drives::DriveWatcher>,
+    /// Jogos sem cópia fora do PC (cor da bandeja); atualizado a cada backup.
+    pub at_risk_ids: Mutex<std::collections::BTreeSet<String>>,
 }
 
 impl AppState {
@@ -67,6 +69,7 @@ impl AppState {
                 .join("pendentes"),
             plugged: Mutex::new(Vec::new()),
             drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
+            at_risk_ids: Mutex::new(std::collections::BTreeSet::new()),
         }
     }
 

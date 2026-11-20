@@ -56,6 +56,18 @@ impl ProcessTracker {
         }
     }
 
+    /// Tracker novo (varredura refeita) que lembra quais jogos estavam abertos:
+    /// se um deles fechou no meio tempo, a próxima `update` gera o `JogoFechou`.
+    pub fn with_running(games: &[DetectedGame], running: BTreeSet<String>) -> Self {
+        let mut t = Self::new(games);
+        t.running = running;
+        t
+    }
+
+    pub fn running(&self) -> BTreeSet<String> {
+        self.running.clone()
+    }
+
     pub fn update(&mut self, procs: &[ProcInfo]) -> Vec<WatchEvent> {
         let exes: Vec<String> = procs.iter().map(|p| norm(&p.exe).to_lowercase()).collect();
         let now: BTreeSet<String> = self
@@ -151,6 +163,17 @@ pub(crate) mod tests {
         assert_eq!(t.update(&ambos), vec![WatchEvent::JogoAbriu("g".into())]);
         assert!(t.update(&[p(2, "D:/G/bin/game.exe")]).is_empty());
         assert_eq!(t.update(&[]), vec![WatchEvent::JogoFechou("g".into())]);
+    }
+
+    #[test]
+    fn recriar_mantem_jogos_abertos() {
+        // Nova varredura com o jogo aberto: o fechamento depois tem que ser notado.
+        let g = game("hades", Some("D:/Jogos/Hades"), None, "C:/s");
+        let mut t = ProcessTracker::new(std::slice::from_ref(&g));
+        t.update(&[p(1, "D:/Jogos/Hades/h.exe")]);
+        let mut t2 = ProcessTracker::with_running(&[g], t.running());
+        assert!(t2.update(&[p(1, "D:/Jogos/Hades/h.exe")]).is_empty());
+        assert_eq!(t2.update(&[]), vec![WatchEvent::JogoFechou("hades".into())]);
     }
 
     #[test]
