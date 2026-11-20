@@ -23,6 +23,10 @@ pub struct Config {
     /// Possíveis saves (heurística) que o usuário confirmou.
     pub confirmed_games: Vec<String>,
     pub theme: String,
+    /// Iniciar com o Windows (minimizado na bandeja).
+    pub autostart: bool,
+    /// Backup automático pausado pelo usuário.
+    pub auto_paused: bool,
 }
 
 impl Default for Config {
@@ -37,6 +41,8 @@ impl Default for Config {
             ignored_games: Vec::new(),
             confirmed_games: Vec::new(),
             theme: "gamer".into(),
+            autostart: true,
+            auto_paused: false,
         }
     }
 }
@@ -126,6 +132,17 @@ mod tests {
         let c = Config::load_or_default(&p);
         assert_eq!(c, Config::default());
         assert!(t.path().join("config.json.corrompido").is_file());
+    }
+
+    #[test]
+    fn config_antiga_ganha_padroes() {
+        let t = tempfile::tempdir().unwrap();
+        let p = t.path().join("config.json");
+        fs::write(&p, r#"{"version":1,"keep_versions":7,"theme":"gamer"}"#).unwrap();
+        let c = Config::load_or_default(&p);
+        assert_eq!(c.keep_versions, 7);
+        assert!(c.autostart);
+        assert!(!c.auto_paused);
     }
 
     #[test]
