@@ -1,6 +1,8 @@
 //! Motor do SaveGuard: varredura, prioridade, backup e restauração de saves.
 
 pub mod backup;
+pub mod config;
+pub mod destinations;
 pub mod emulators;
 mod heuristics;
 pub mod manifest;
@@ -9,6 +11,8 @@ pub mod protection;
 pub mod scan;
 pub mod stores;
 pub mod sync_folders;
+
+pub(crate) use backup::write_atomic as backup_write_atomic;
 
 /// Erros do motor.
 #[derive(Debug, thiserror::Error)]
