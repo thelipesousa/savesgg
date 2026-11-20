@@ -6,6 +6,16 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "allow-scan",
+    "allow-list-destinations-cmd",
+    "allow-add-custom-folder",
+    "allow-pick-folder",
+    "allow-backup-now",
+    "allow-list-snapshots",
+    "allow-plan-restore",
+    "allow-apply-restore",
+    "allow-confirm-heuristic",
+    "allow-app-version"
   ]
 }
