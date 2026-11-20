@@ -12,6 +12,7 @@ pub mod restore;
 pub mod scan;
 pub mod stores;
 pub mod sync_folders;
+pub mod watch;
 
 pub(crate) use backup::write_atomic as backup_write_atomic;
 
