@@ -62,7 +62,8 @@ impl Config {
         let Ok(text) = std::fs::read_to_string(path) else {
             return Config::default();
         };
-        match serde_json::from_str(&text) {
+        // Ignora o BOM que o Bloco de Notas e o PowerShell 5.1 colocam no início.
+        match serde_json::from_str(text.trim_start_matches('\u{feff}')) {
             Ok(c) => c,
             Err(_) => {
                 let mut bad = path.as_os_str().to_os_string();
@@ -143,6 +144,19 @@ mod tests {
         assert_eq!(c.keep_versions, 7);
         assert!(c.autostart);
         assert!(!c.auto_paused);
+    }
+
+    #[test]
+    fn config_com_bom_e_lida() {
+        // Bloco de Notas e PowerShell 5.1 gravam UTF-8 com BOM.
+        let t = tempfile::tempdir().unwrap();
+        let p = t.path().join("config.json");
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend_from_slice(br#"{"version":1,"keep_versions":4,"theme":"gamer"}"#);
+        fs::write(&p, bytes).unwrap();
+        let c = Config::load_or_default(&p);
+        assert_eq!(c.keep_versions, 4);
+        assert!(!t.path().join("config.json.corrompido").exists());
     }
 
     #[test]
