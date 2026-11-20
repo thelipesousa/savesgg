@@ -7,6 +7,20 @@ Feito com **Tauri 2 + Rust** (motor) e **Svelte + TypeScript + Tailwind** (inter
 - Design aprovado: [`docs/superpowers/specs/2026-11-20-saveguard-design.md`](docs/superpowers/specs/2026-11-20-saveguard-design.md)
 - Referências visuais (Google Stitch): [`design/stitch/`](design/stitch/)
 
+## Como rodar
+
+Requisitos: Windows 10/11, [Rust](https://rustup.rs) estável, Node 22 e o WebView2 (já vem no Windows).
+
+```powershell
+npm install
+./scripts/atualizar-manifesto.ps1   # baixa o manifesto de saves embutido no app
+npm run tauri dev                   # abre o app em modo de desenvolvimento
+```
+
+Testes: `cargo test --workspace` (motor e comandos) e `npm run test -- --run` (interface).
+Testes com os dados reais do seu PC (não alteram os saves): veja os comandos `--ignored` nos arquivos
+`crates/core/src/scan.rs` e `crates/core/tests/ponta_a_ponta_real.rs`.
+
 ## Fluxo de branches
 
 - `main`: produção e branch padrão; só código estável, é dela que sai o release.

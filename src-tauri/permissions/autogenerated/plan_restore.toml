@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plan-restore"
+description = "Enables the plan_restore command without any pre-configured scope."
+commands.allow = ["plan_restore"]
+
+[[permission]]
+identifier = "deny-plan-restore"
+description = "Denies the plan_restore command without any pre-configured scope."
+commands.deny = ["plan_restore"]
