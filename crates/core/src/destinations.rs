@@ -122,6 +122,28 @@ pub fn counts_as_off_pc(d: &Destination) -> bool {
     !matches!(d.kind, DestinationKind::PastaLocal)
 }
 
+/// Destinos do backup automático, separados entre os que estão disponíveis agora e
+/// os que estão fora (desplugados ou que sumiram) — esses recebem backup na fila.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AutoTargets {
+    pub available: Vec<Destination>,
+    pub unavailable: Vec<String>,
+}
+
+pub fn auto_targets(cfg: &crate::config::Config, all: &[Destination]) -> AutoTargets {
+    let mut t = AutoTargets {
+        available: Vec::new(),
+        unavailable: Vec::new(),
+    };
+    for id in &cfg.auto_destinations {
+        match all.iter().find(|d| &d.id == id && d.available) {
+            Some(d) => t.available.push(d.clone()),
+            None => t.unavailable.push(id.clone()),
+        }
+    }
+    t
+}
+
 /// Todos os destinos deste PC: pastas sincronizadas, discos externos e pastas da configuração.
 #[cfg(windows)]
 pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
@@ -358,6 +380,42 @@ mod tests {
         let d = build_destinations(&sync, &drives, &[t.path().to_path_buf()]);
         let fora: Vec<bool> = d.iter().map(counts_as_off_pc).collect();
         assert_eq!(fora, [true, true, false]);
+    }
+
+    #[test]
+    fn alvos_separa_disponiveis() {
+        let t = tempfile::tempdir().unwrap();
+        let sync = [SyncRoot {
+            provider: SyncProvider::OneDrive,
+            path: t.path().to_path_buf(),
+        }];
+        let drives = [DriveInfo {
+            root: PathBuf::from("Z:/sumiu"),
+            label: "PEN".into(),
+            serial: 1,
+            free_bytes: None,
+        }];
+        let all = build_destinations(&sync, &drives, &[]);
+        let sync_id = all[0].id.clone();
+        let cfg = crate::config::Config {
+            auto_destinations: vec![sync_id.clone(), "disco:00000001".into(), "pasta:x".into()],
+            ..Default::default()
+        };
+        let a = auto_targets(&cfg, &all);
+        assert_eq!(
+            a.available.iter().map(|d| d.id.clone()).collect::<Vec<_>>(),
+            vec![sync_id]
+        );
+        assert_eq!(
+            a.unavailable,
+            vec!["disco:00000001".to_string(), "pasta:x".to_string()]
+        );
+    }
+
+    #[test]
+    fn sem_destinos_automaticos_vazio() {
+        let a = auto_targets(&crate::config::Config::default(), &[]);
+        assert!(a.available.is_empty() && a.unavailable.is_empty());
     }
 
     #[test]
