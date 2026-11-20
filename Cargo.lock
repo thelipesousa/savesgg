@@ -2708,6 +2708,10 @@ dependencies = [
 [[package]]
 name = "saveguard-core"
 version = "0.1.0"
+dependencies = [
+ "dirs",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "schemars"
