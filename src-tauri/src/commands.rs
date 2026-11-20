@@ -11,10 +11,9 @@ use tauri_plugin_dialog::DialogExt;
 
 use saveguard_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
 use saveguard_core::destinations::{Destination, DestinationKind, list_destinations};
-use saveguard_core::paths::GameVars;
 use saveguard_core::protection::{BackupHistory, assess, sort_for_display};
 use saveguard_core::restore::{
-    RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan,
+    RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan, vars_for,
 };
 use saveguard_core::scan::{ScanOptions, find_emulator_roots, scan as core_scan};
 use saveguard_core::stores::detect_all;
@@ -304,8 +303,11 @@ pub async fn plan_restore(
 ) -> Res<RestorePlan> {
     let root = destination_root(&state, &destination_id)?;
     blocking(move || {
-        let ctx = current_ctx(&detect_all());
-        core_plan(&root, &game_id, &stem, &ctx, &GameVars::default()).map_err(|e| e.to_string())
+        let installed = detect_all();
+        let ctx = current_ctx(&installed);
+        let meta = load_meta(&root, &game_id, &stem).map_err(|e| e.to_string())?;
+        core_plan(&root, &game_id, &stem, &ctx, &vars_for(&meta, &installed))
+            .map_err(|e| e.to_string())
     })
     .await
 }
@@ -321,8 +323,10 @@ pub async fn apply_restore(
 ) -> Res<RestoreReport> {
     let root = destination_root(&state, &destination_id)?;
     blocking(move || {
-        let ctx = current_ctx(&detect_all());
-        let plan = core_plan(&root, &game_id, &stem, &ctx, &GameVars::default())
+        let installed = detect_all();
+        let ctx = current_ctx(&installed);
+        let meta = load_meta(&root, &game_id, &stem).map_err(|e| e.to_string())?;
+        let plan = core_plan(&root, &game_id, &stem, &ctx, &vars_for(&meta, &installed))
             .map_err(|e| e.to_string())?;
         let overrides: BTreeMap<String, PathBuf> = overrides
             .into_iter()

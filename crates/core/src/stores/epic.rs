@@ -35,6 +35,7 @@ pub fn epic_from_dir(manifests_dir: &Path) -> Vec<InstalledGame> {
             install_dir: PathBuf::from(i.install_location),
             store_game_id: i.app_name,
             store_user_id: None,
+            store_root: None,
         })
         .collect()
 }

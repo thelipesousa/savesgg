@@ -27,6 +27,9 @@ pub struct SnapshotMeta {
     pub pinned: bool,
     pub store: Store,
     pub store_user_id: Option<String>,
+    /// ID do jogo na loja (para achar a pasta de instalação no PC novo).
+    #[serde(default)]
+    pub store_game_id: Option<String>,
 }
 
 /// Caminho legível dentro do zip: `<winAppData>/X/a.sav` → `winAppData/X/a.sav`.

@@ -22,7 +22,10 @@ pub struct PathContext {
 /// Variáveis específicas de um jogo.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GameVars {
+    /// Pasta de instalação do jogo.
     pub base: Option<PathBuf>,
+    /// Raiz da loja (ex.: pasta do Steam, onde fica `userdata`).
+    pub root: Option<PathBuf>,
     pub game: Option<String>,
     pub store_game_id: Option<String>,
 }
@@ -70,6 +73,17 @@ impl PathContext {
     }
 }
 
+/// Diferença entre o SteamID64 e o SteamID3 (ID de conta).
+pub const STEAM_ID64_BASE: u64 = 76_561_197_960_265_728;
+
+/// SteamID64 a partir do SteamID3 (`"64734272"` → `"76561198025000000"`).
+pub fn steam_id64(id3: &str) -> Option<String> {
+    id3.parse::<u64>()
+        .ok()
+        .and_then(|n| n.checked_add(STEAM_ID64_BASE))
+        .map(|n| n.to_string())
+}
+
 /// Caminho com `/` e sem barra final.
 pub fn norm(p: &Path) -> String {
     p.to_string_lossy()
@@ -83,8 +97,9 @@ pub fn norm(p: &Path) -> String {
 pub fn expand(template: &str, ctx: &PathContext, vars: &GameVars) -> Option<String> {
     let mut out = template.replace('\\', "/");
     let base = vars.base.as_deref().map(norm);
-    let root = vars.base.as_deref().and_then(Path::parent).map(norm);
-    let fixed: [(&str, Option<String>); 13] = [
+    let root = vars.root.as_deref().map(norm);
+    let id64 = ctx.store_user_id.as_deref().and_then(steam_id64);
+    let fixed: [(&str, Option<String>); 14] = [
         ("<winLocalAppDataLow>", Some(norm(&ctx.local_app_data_low))),
         ("<winLocalAppData>", Some(norm(&ctx.local_app_data))),
         ("<winAppData>", Some(norm(&ctx.app_data))),
@@ -93,6 +108,7 @@ pub fn expand(template: &str, ctx: &PathContext, vars: &GameVars) -> Option<Stri
         ("<winProgramData>", Some(norm(&ctx.program_data))),
         ("<home>", Some(norm(&ctx.home))),
         ("<osUserName>", Some(ctx.os_user_name.clone())),
+        ("<storeUserId64>", id64),
         ("<storeUserId>", ctx.store_user_id.clone()),
         ("<base>", base),
         ("<root>", root),
@@ -110,9 +126,23 @@ pub fn expand(template: &str, ctx: &PathContext, vars: &GameVars) -> Option<Stri
 /// Troca o prefixo de pasta conhecida mais longo pelo marcador correspondente.
 /// A comparação ignora maiúsculas/minúsculas, como o Windows.
 pub fn contract(path: &Path, ctx: &PathContext) -> String {
+    contract_with(path, ctx, &GameVars::default())
+}
+
+/// Como [`contract`], considerando também `<base>` (pasta do jogo) e `<root>` (raiz da loja).
+pub fn contract_with(path: &Path, ctx: &PathContext, vars: &GameVars) -> String {
     let p = norm(path);
     let chars: Vec<char> = p.chars().collect();
-    for (marker, prefix) in ctx.prefixes() {
+    let mut prefixes = ctx.prefixes();
+    if let Some(b) = &vars.base {
+        prefixes.push(("<base>", norm(b)));
+    }
+    if let Some(r) = &vars.root {
+        prefixes.push(("<root>", norm(r)));
+    }
+    prefixes.retain(|(_, p)| !p.is_empty());
+    prefixes.sort_by_key(|(_, p)| std::cmp::Reverse(p.chars().count()));
+    for (marker, prefix) in prefixes {
         let pre: Vec<char> = prefix.chars().collect();
         if chars.len() < pre.len() {
             continue;
@@ -176,16 +206,64 @@ mod tests {
     }
 
     #[test]
-    fn expande_base_root_e_game() {
+    fn expande_base_e_game() {
         let vars = GameVars {
             base: Some(PathBuf::from(r"D:\Steam\steamapps\common\Celeste")),
+            root: Some(PathBuf::from(r"C:\Program Files (x86)\Steam")),
             game: Some("Celeste".into()),
             store_game_id: Some("504230".into()),
         };
-        let r = expand("<root>/<game>/<storeGameId>", &ctx(), &vars);
+        let r = expand("<base>/<game>/<storeGameId>", &ctx(), &vars);
         assert_eq!(
             r.as_deref(),
-            Some("D:/Steam/steamapps/common/Celeste/504230")
+            Some("D:/Steam/steamapps/common/Celeste/Celeste/504230")
+        );
+    }
+
+    #[test]
+    fn root_e_a_raiz_da_loja() {
+        let mut c = ctx();
+        c.store_user_id = Some("64734272".into());
+        let vars = GameVars {
+            root: Some(PathBuf::from(r"C:\Program Files (x86)\Steam")),
+            ..Default::default()
+        };
+        let r = expand("<root>/userdata/<storeUserId>/1086940/remote", &c, &vars);
+        assert_eq!(
+            r.as_deref(),
+            Some("C:/Program Files (x86)/Steam/userdata/64734272/1086940/remote")
+        );
+        assert_eq!(expand("<root>/x", &c, &GameVars::default()), None);
+    }
+
+    #[test]
+    fn expande_id64_a_partir_do_id3() {
+        let mut c = ctx();
+        c.store_user_id = Some("64734272".into());
+        let r = expand(
+            "<winAppData>/EldenRing/<storeUserId64>",
+            &c,
+            &GameVars::default(),
+        );
+        assert_eq!(
+            r.as_deref(),
+            Some("C:/Users/João/AppData/Roaming/EldenRing/76561198025000000")
+        );
+    }
+
+    #[test]
+    fn contract_com_base_e_root() {
+        let vars = GameVars {
+            base: Some(PathBuf::from(r"D:\SteamLibrary\steamapps\common\Jogo")),
+            root: Some(PathBuf::from(r"C:\Steam")),
+            ..Default::default()
+        };
+        let p = Path::new(r"D:\SteamLibrary\steamapps\common\Jogo\Saves\a.sav");
+        assert_eq!(contract_with(p, &ctx(), &vars), "<base>/Saves/a.sav");
+        let u = Path::new(r"C:\Steam\userdata\1\2\remote\s.dat");
+        assert_eq!(
+            contract_with(u, &ctx(), &vars),
+            "<root>/userdata/1/2/remote/s.dat"
         );
     }
 

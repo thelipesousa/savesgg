@@ -8,8 +8,7 @@ use keyvalues_parser::{Obj, Vdf};
 use super::InstalledGame;
 use crate::manifest::Store;
 
-/// Diferença entre o SteamID64 e o SteamID3 (ID de conta).
-const STEAM_ID64_BASE: u64 = 76_561_197_960_265_728;
+use crate::paths::STEAM_ID64_BASE;
 
 fn read_vdf(path: &Path) -> Option<Vdf<'static>> {
     let text = fs::read_to_string(path).ok()?;
@@ -97,6 +96,7 @@ pub fn steam_from_dir(steam_root: &Path) -> Vec<InstalledGame> {
                 install_dir: apps.join("common").join(dir),
                 store_game_id: Some(appid.to_string()),
                 store_user_id: user.clone(),
+                store_root: Some(steam_root.to_path_buf()),
             });
         }
     }

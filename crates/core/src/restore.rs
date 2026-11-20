@@ -9,12 +9,14 @@ pub use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::CoreError;
+use crate::backup::SnapshotMeta;
 use crate::backup::{
     BackupOutcome, LibraryIndex, SnapshotRef, backup_game, load_meta, set_pinned, snapshot_paths,
 };
 use crate::paths::expand;
 pub use crate::paths::{GameVars, PathContext};
 use crate::scan::{DetectedGame, Source};
+use crate::stores::InstalledGame;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RestoreItem {
@@ -82,6 +84,24 @@ fn modified(p: &Path) -> Option<DateTime<Utc>> {
         .map(DateTime::<Utc>::from)
 }
 
+/// `<base>`/`<root>` do jogo no PC atual: o mesmo jogo (loja + ID) instalado aqui.
+/// Sem correspondência, os arquivos de `<base>`/`<root>` ficam como não resolvidos.
+pub fn vars_for(meta: &SnapshotMeta, installed: &[InstalledGame]) -> GameVars {
+    let Some(id) = meta.store_game_id.as_deref() else {
+        return GameVars::default();
+    };
+    installed
+        .iter()
+        .find(|i| i.store == meta.store && i.store_game_id.as_deref() == Some(id))
+        .map(|i| GameVars {
+            base: Some(i.install_dir.clone()),
+            root: i.store_root.clone(),
+            game: Some(i.name.clone()),
+            store_game_id: Some(id.to_string()),
+        })
+        .unwrap_or_default()
+}
+
 /// Monta o plano: para onde vai cada arquivo e o que já existe lá.
 pub fn plan_restore(
     dest_root: &Path,
@@ -102,7 +122,10 @@ pub fn plan_restore(
         let target = expand(&f.template, &c, vars)
             .filter(|s| !s.contains(['*', '?']))
             .map(PathBuf::from)
-            .filter(|p| drive_exists(p));
+            .filter(|p| drive_exists(p))
+            // Caminho absoluto (fora das pastas conhecidas): só vale se a pasta já existe
+            // aqui; senão é uma pasta fantasma que o jogo não lê, e o usuário escolhe.
+            .filter(|p| f.template.starts_with('<') || p.parent().is_some_and(Path::is_dir));
         let exists = target.as_deref().is_some_and(Path::is_file);
         items.push(RestoreItem {
             zip_path: f.zip_path.clone(),
@@ -187,6 +210,9 @@ pub fn apply_restore(
             cloud: Default::default(),
             source: Source::Manifesto,
             exe_hint: None,
+            base: None,
+            root: None,
+            store_game_id: None,
         };
         let r = match backup_game(&game, ctx, dest_root, usize::MAX, now)? {
             BackupOutcome::Criado(r) => r,
@@ -263,6 +289,9 @@ mod tests {
             cloud: CloudFlags::default(),
             source: Source::Manifesto,
             exe_hint: None,
+            base: None,
+            root: None,
+            store_game_id: None,
         };
         let BackupOutcome::Criado(r) = backup_game(&game, &a, &dest, 10, now()).unwrap() else {
             panic!()
@@ -295,6 +324,81 @@ mod tests {
         let plan = plan_restore(&dest, "elden-ring", &stem, &b, &GameVars::default()).unwrap();
         assert_eq!(plan.unresolved, 1);
         assert!(plan.items[0].target.is_none());
+    }
+
+    #[test]
+    fn absoluto_sem_pasta_pai_fica_nao_resolvido() {
+        let (t, dest, stem) = backup_da_ana();
+        let (_, json) = snapshot_paths(&dest, "elden-ring", &stem);
+        let mut meta = load_meta(&dest, "elden-ring", &stem).unwrap();
+        let fantasma = t
+            .path()
+            .join("SteamLibrary/steamapps/common/Jogo/ER0000.sl2");
+        meta.files[0].template = fantasma.to_string_lossy().replace('\\', "/");
+        fs::write(&json, serde_json::to_vec(&meta).unwrap()).unwrap();
+        let b = ctx(t.path(), "Bruno", "222");
+        let plan = plan_restore(&dest, "elden-ring", &stem, &b, &GameVars::default()).unwrap();
+        assert_eq!(
+            plan.unresolved, 1,
+            "pasta do jogo não existe neste PC: precisa perguntar"
+        );
+    }
+
+    #[test]
+    fn base_resolve_so_com_jogo_instalado() {
+        let (t, dest, stem) = backup_da_ana();
+        let (_, json) = snapshot_paths(&dest, "elden-ring", &stem);
+        let mut meta = load_meta(&dest, "elden-ring", &stem).unwrap();
+        meta.files[0].template = "<base>/Saves/ER0000.sl2".into();
+        fs::write(&json, serde_json::to_vec(&meta).unwrap()).unwrap();
+        let b = ctx(t.path(), "Bruno", "222");
+        let sem = plan_restore(&dest, "elden-ring", &stem, &b, &GameVars::default()).unwrap();
+        assert_eq!(sem.unresolved, 1);
+        let base = t.path().join("Jogos/Elden");
+        let vars = GameVars {
+            base: Some(base.clone()),
+            ..Default::default()
+        };
+        let com = plan_restore(&dest, "elden-ring", &stem, &b, &vars).unwrap();
+        assert_eq!(com.unresolved, 0);
+        assert_eq!(
+            com.items[0].target.as_deref(),
+            Some(base.join("Saves/ER0000.sl2").as_path())
+        );
+    }
+
+    #[test]
+    fn vars_do_jogo_instalado_no_pc_novo() {
+        use crate::stores::InstalledGame;
+        let (_t, dest, stem) = backup_da_ana();
+        let mut meta = load_meta(&dest, "elden-ring", &stem).unwrap();
+        meta.store_game_id = Some("1245620".into());
+        let inst = vec![
+            InstalledGame {
+                name: "Outro".into(),
+                store: Store::Steam,
+                install_dir: PathBuf::from("E:/Outro"),
+                store_game_id: Some("999".into()),
+                store_user_id: None,
+                store_root: None,
+            },
+            InstalledGame {
+                name: "ELDEN RING".into(),
+                store: Store::Steam,
+                install_dir: PathBuf::from("E:/Steam/steamapps/common/ELDEN RING"),
+                store_game_id: Some("1245620".into()),
+                store_user_id: None,
+                store_root: Some(PathBuf::from("C:/Steam")),
+            },
+        ];
+        let v = vars_for(&meta, &inst);
+        assert_eq!(
+            v.base,
+            Some(PathBuf::from("E:/Steam/steamapps/common/ELDEN RING"))
+        );
+        assert_eq!(v.root, Some(PathBuf::from("C:/Steam")));
+        meta.store_game_id = None;
+        assert_eq!(vars_for(&meta, &inst), GameVars::default());
     }
 
     #[test]
