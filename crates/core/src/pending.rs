@@ -133,6 +133,7 @@ mod tests {
             base: None,
             root: None,
             store_game_id: None,
+            patterns: Vec::new(),
         };
         Fx { t, ctx, game }
     }

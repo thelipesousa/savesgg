@@ -60,6 +60,7 @@ fn ciclo_automatico_com_processo_real() {
         base: Some(base.clone()),
         root: None,
         store_game_id: None,
+        patterns: Vec::new(),
     };
     let ctx = PathContext::from_system();
     let mut sys = sysinfo::System::new().expect("sysinfo");
