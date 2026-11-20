@@ -123,10 +123,13 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
             cfg.confirmed_games.contains(&g.id),
         ));
     }
-    let at_risk = views
+    let risk_ids: std::collections::BTreeSet<String> = views
         .iter()
         .filter(|v| !v.grande && v.priority == saveguard_core::protection::Priority::Alta)
-        .count();
+        .map(|v| v.id.clone())
+        .collect();
+    let at_risk = risk_ids.len();
+    *state.at_risk_ids.lock().unwrap_or_else(|e| e.into_inner()) = risk_ids;
     *state.last_scan.lock().unwrap_or_else(|e| e.into_inner()) =
         Some(Arc::new(ScanData { result, ctx }));
     state
@@ -216,8 +219,6 @@ pub fn backup_blocking(
     let dests = find_destinations(&cfg, destination_ids);
     let mut out = Vec::new();
     for d in &dests {
-        let lock = state.locks.lock(&d.id);
-        let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
         if matches!(d.kind, DestinationKind::PastaSincronizada(_))
             && d.available
             && let Err(e) = std::fs::create_dir_all(&d.root)
@@ -232,7 +233,12 @@ pub fn backup_blocking(
         }
         for id in game_ids {
             let Some(g) = data.find(id) else { continue };
-            let r = backup_game(g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
+            // Trava por jogo, não pelo destino inteiro: copiar 30 GB não pode parar
+            // o motor automático por minutos.
+            let lock = state.locks.lock(&d.id);
+            let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
+            let g = saveguard_core::scan::refresh_files(g);
+            let r = backup_game(&g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
             let (status, message) = match r {
                 Ok(BackupOutcome::Criado(_)) => ("criado", None),
                 Ok(BackupOutcome::SemMudanca) => ("sem_mudanca", None),

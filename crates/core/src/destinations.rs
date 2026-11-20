@@ -144,6 +144,19 @@ pub fn auto_targets(cfg: &crate::config::Config, all: &[Destination]) -> AutoTar
     t
 }
 
+/// Bits das letras de unidade presentes (muda quando um disco entra ou sai).
+/// Consulta barata, feita a cada volta do motor no lugar da lista completa.
+#[cfg(windows)]
+pub fn drive_mask() -> u32 {
+    // SAFETY: GetLogicalDrives não recebe ponteiros.
+    unsafe { windows_sys::Win32::Storage::FileSystem::GetLogicalDrives() }
+}
+
+#[cfg(not(windows))]
+pub fn drive_mask() -> u32 {
+    0
+}
+
 /// Todos os destinos deste PC: pastas sincronizadas, discos externos e pastas da configuração.
 #[cfg(windows)]
 pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
