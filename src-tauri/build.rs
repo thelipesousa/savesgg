@@ -11,6 +11,7 @@ fn main() {
         "apply_restore",
         "confirm_heuristic",
         "app_version",
+        "copy_all_to",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

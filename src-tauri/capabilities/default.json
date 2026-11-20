@@ -16,6 +16,8 @@
     "allow-plan-restore",
     "allow-apply-restore",
     "allow-confirm-heuristic",
-    "allow-app-version"
+    "allow-app-version",
+    "allow-copy-all-to",
+    "notification:default"
   ]
 }

@@ -1,5 +1,6 @@
 mod auto;
 mod commands;
+mod drives;
 mod manifest_source;
 mod state;
 mod tray;
@@ -19,6 +20,7 @@ pub fn run() {
             Some(vec!["--minimizado"]),
         ))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .on_window_event(|window, event| {
             // Fechar a janela só esconde: o app segue protegendo na bandeja.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -56,6 +58,7 @@ pub fn run() {
             commands::apply_restore,
             commands::confirm_heuristic,
             commands::app_version,
+            commands::copy_all_to,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SaveGuard");
@@ -86,6 +89,9 @@ pub(crate) fn sync_autostart(app: &tauri::AppHandle) {
 }
 
 /// Avisa o usuário (notificação do Windows).
-pub(crate) fn notify_user(_app: &tauri::AppHandle, title: &str, body: &str) {
-    eprintln!("{title}: {body}");
+pub(crate) fn notify_user(app: &tauri::AppHandle, title: &str, body: &str) {
+    use tauri_plugin_notification::NotificationExt;
+    if let Err(e) = app.notification().builder().title(title).body(body).show() {
+        eprintln!("notificação ({title}): {e}");
+    }
 }
