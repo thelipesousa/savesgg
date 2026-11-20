@@ -72,7 +72,30 @@ pub fn game_id(name: &str) -> String {
             out.push('-');
         }
     }
-    out.trim_matches('-').to_string()
+    let slug = out.trim_matches('-').to_string();
+    if slug.is_empty() {
+        // Nomes sem letras latinas (cirílico, japonês, símbolos): id pelo hash do nome.
+        format!("jogo-{}", short_hash(name))
+    } else {
+        slug
+    }
+}
+
+fn short_hash(s: &str) -> String {
+    blake3::hash(s.as_bytes()).to_hex()[..8].to_string()
+}
+
+/// Garante ids únicos: repetidos ganham o hash do nome original.
+fn dedupe_ids(games: &mut [DetectedGame]) {
+    let mut count: HashMap<String, usize> = HashMap::new();
+    for g in games.iter() {
+        *count.entry(g.id.clone()).or_default() += 1;
+    }
+    for g in games.iter_mut() {
+        if count[&g.id] > 1 {
+            g.id = format!("{}-{}", g.id, short_hash(&g.name));
+        }
+    }
 }
 
 /// Guarda o conteúdo de cada pasta lida, para checar milhares de caminhos do
@@ -504,6 +527,7 @@ pub(crate) fn scan_with_limit(
         }
     }
 
+    dedupe_ids(&mut games);
     games.sort_by_key(|g| g.name.to_lowercase());
     let (games, over_limit) = games.into_iter().partition(|g| g.total_bytes <= limit);
     ScanResult { games, over_limit }
@@ -792,6 +816,45 @@ mod tests {
         let r = scan_with_limit(&c, &manifest(), &[], &ScanOptions::default(), 1000);
         assert!(!r.games.iter().any(|g| g.name == "Hades II"));
         assert!(r.over_limit.iter().any(|g| g.name == "Hades II"));
+    }
+
+    #[test]
+    fn game_id_de_nome_sem_letras_latinas_nao_fica_vazio() {
+        let a = game_id("Звёздный путь");
+        let b = game_id("星のカービィ");
+        assert!(a.starts_with("jogo-") && a.len() > 5, "{a}");
+        assert!(b.starts_with("jogo-"), "{b}");
+        assert_ne!(a, b);
+        assert_eq!(game_id("***"), game_id("***"));
+    }
+
+    #[test]
+    fn ids_repetidos_sao_desambiguados() {
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        touch(&c.app_data.join("KlausA/s.sav"), 1);
+        touch(&c.app_data.join("KlausB/s.sav"), 1);
+        let m = parse(
+            "Klaus:
+  files:
+    \"<winAppData>/KlausA\":
+      tags: [save]
+-KLAUS-:
+  files:
+    \"<winAppData>/KlausB\":
+      tags: [save]
+",
+        )
+        .unwrap();
+        let r = scan(&c, &m, &[], &ScanOptions::default());
+        let ids: Vec<_> = r
+            .games
+            .iter()
+            .filter(|g| g.name.to_lowercase().contains("klaus"))
+            .map(|g| g.id.clone())
+            .collect();
+        assert_eq!(ids.len(), 2, "{ids:?}");
+        assert_ne!(ids[0], ids[1]);
     }
 
     #[test]
