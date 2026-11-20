@@ -1,3 +1,4 @@
+mod auto;
 mod commands;
 mod manifest_source;
 mod state;
@@ -20,6 +21,7 @@ pub fn run() {
                     .join("resources/manifest.yaml"),
             );
             app.manage(state::AppState::new(bundled));
+            auto::spawn(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,4 +38,12 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SaveGuard");
+}
+
+/// Chamado quando o estado do backup automático muda (a bandeja se atualiza aqui).
+pub(crate) fn on_status_changed(_app: &tauri::AppHandle, _status: &auto::AutoStatusView) {}
+
+/// Avisa o usuário (notificação do Windows).
+pub(crate) fn notify_user(_app: &tauri::AppHandle, title: &str, body: &str) {
+    eprintln!("{title}: {body}");
 }

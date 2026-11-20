@@ -26,8 +26,14 @@ serde_json = "1"
 chrono = { version = "0.4.45", features = ["serde"] }
 tauri-plugin-dialog = "2"
 ureq = "3"
+sysinfo = "0.40.4"
+notify = "8.2.2"
+dirs = "7.0.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
 
 
