@@ -22,7 +22,7 @@ pub use snapshot::{FileEntry, SnapshotMeta};
 use crate::CoreError;
 use crate::paths::{PathContext, contract};
 use crate::scan::DetectedGame;
-use library::write_atomic;
+pub(crate) use library::write_atomic;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BackupOutcome {
