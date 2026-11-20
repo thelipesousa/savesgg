@@ -104,6 +104,7 @@ pub(crate) mod tests {
             base: base.map(PathBuf::from),
             root: None,
             store_game_id: None,
+            patterns: Vec::new(),
         }
     }
 

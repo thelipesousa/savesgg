@@ -407,6 +407,7 @@ mod tests {
             base: None,
             root: None,
             store_game_id: None,
+            patterns: Vec::new(),
         };
         Fixture {
             _t: t,
