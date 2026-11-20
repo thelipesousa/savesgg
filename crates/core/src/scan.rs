@@ -147,7 +147,12 @@ impl DirCache {
             return false;
         }
         let name = name.to_string_lossy().to_lowercase();
-        self.listing(parent).is_some_and(|l| l.contains_key(&name))
+        if self.listing(parent).is_some_and(|l| l.contains_key(&name)) {
+            return true;
+        }
+        // A listagem traz só nomes longos; um nome curto 8.3 (ex. RUNNER~1, que aparece
+        // em %TEMP% e em perfis com nome comprido) só é confirmado indo ao disco.
+        name.contains('~') && p.exists()
     }
 }
 
@@ -790,6 +795,39 @@ mod tests {
         let g = r.games.iter().find(|g| g.name == "Jogo W").expect("Jogo W");
         assert_eq!(g.files.len(), 1);
         assert!(g.files[0].ends_with("x"));
+    }
+
+    /// Nome curto 8.3 do Windows (ex. `RUNNER~1`) para um caminho que existe.
+    #[cfg(windows)]
+    fn short_path(p: &std::path::Path) -> std::path::PathBuf {
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        let wide: Vec<u16> = p.as_os_str().encode_wide().chain([0]).collect();
+        let mut buf = vec![0u16; 1024];
+        // SAFETY: `wide` termina em zero e `buf` tem o tamanho informado.
+        let n = unsafe {
+            windows_sys::Win32::Storage::FileSystem::GetShortPathNameW(
+                wide.as_ptr(),
+                buf.as_mut_ptr(),
+                buf.len() as u32,
+            )
+        } as usize;
+        std::path::PathBuf::from(std::ffi::OsString::from_wide(&buf[..n]))
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn dir_cache_aceita_nome_curto_8_3() {
+        let t = tempfile::tempdir().unwrap();
+        let longa = t.path().join("Pasta Com Nome Bem Comprido");
+        touch(&longa.join("slot.sav"), 1);
+        let curta = short_path(&longa);
+        if curta.file_name() == longa.file_name() {
+            eprintln!("nomes 8.3 desligados neste volume; teste sem efeito");
+            return;
+        }
+        let mut cache = DirCache::default();
+        assert!(cache.exists(&curta.join("slot.sav")), "{curta:?}");
+        assert!(!cache.exists(&curta.join("outro.sav")));
     }
 
     #[test]
