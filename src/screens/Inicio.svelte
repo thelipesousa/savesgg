@@ -2,8 +2,27 @@
   import { api, errorMessage } from "../lib/api";
   import { formatBytes, formatRelative } from "../lib/format";
   import type { BackupResultView, Destination, GameView } from "../lib/types";
+  import { listen } from "@tauri-apps/api/event";
+  import type { AutoStatusView } from "../lib/types";
   import GameRow from "../components/GameRow.svelte";
   import DestinationPicker from "../components/DestinationPicker.svelte";
+  import StatusAutomatico from "../components/StatusAutomatico.svelte";
+  import AvisoDisco from "../components/AvisoDisco.svelte";
+
+  let status = $state<AutoStatusView | null>(null);
+  let disco = $state<Destination | null>(null);
+
+  $effect(() => {
+    api.autoStatus().then((s) => (status = s)).catch(() => {});
+    const parar = [
+      listen<AutoStatusView>("status-automatico", (e) => (status = e.payload)),
+      listen<Destination>("disco-plugado", (e) => (disco = e.payload)),
+      listen<string>("disco-removido", (e) => {
+        if (disco?.id === e.payload) disco = null;
+      }),
+    ];
+    return () => parar.forEach((p) => p.then((f) => f()));
+  });
 
   let games = $state<GameView[]>([]);
   let scanned = $state(false);
@@ -107,11 +126,16 @@
         Escaneie o PC para encontrar os saves dos seus jogos.
       {/if}
     </p>
+    <StatusAutomatico {status} />
   </div>
   <button type="button" class="botao-primario grande" onclick={escanear} disabled={scanning || copiando}>
     {scanning ? "Escaneando…" : scanned ? "Escanear de novo" : "Escanear PC"}
   </button>
 </section>
+
+{#if disco}
+  <AvisoDisco {disco} onclose={() => (disco = null)} />
+{/if}
 
 {#if erro}
   <p class="erro" role="alert">{erro}</p>
