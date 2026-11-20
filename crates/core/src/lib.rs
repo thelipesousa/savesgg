@@ -2,6 +2,7 @@
 
 pub mod manifest;
 pub mod paths;
+pub mod stores;
 
 /// Erros do motor.
 #[derive(Debug, thiserror::Error)]
