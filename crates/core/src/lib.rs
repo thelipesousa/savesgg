@@ -24,6 +24,8 @@ pub enum CoreError {
     Formato(String),
     #[error("arquivo em uso por outro programa (o jogo está aberto?): {0}")]
     ArquivoTravado(std::path::PathBuf),
+    #[error("o jogo está gravando este arquivo agora; tente de novo com o jogo fechado: {0}")]
+    ArquivoMudou(std::path::PathBuf),
     #[error("destino indisponível: {0}")]
     DestinoIndisponivel(std::path::PathBuf),
     #[error("caminho inseguro no backup: {0}")]
