@@ -71,6 +71,23 @@ pub struct ScanResult {
 }
 
 /// Identificador estável: minúsculas, sem acentos, palavras separadas por hífen.
+/// Valida o nome de um jogo adicionado à mão: 1 a 80 caracteres (sem espaços nas
+/// pontas) e sem caracteres de controle. (`game_id` nunca fica vazio.)
+pub fn validar_nome_jogo(nome: &str) -> Result<String, String> {
+    let nome = nome.trim();
+    let n = nome.chars().count();
+    if n == 0 {
+        return Err("Digite o nome do jogo".into());
+    }
+    if n > 80 {
+        return Err("O nome pode ter até 80 caracteres".into());
+    }
+    if nome.chars().any(char::is_control) {
+        return Err("O nome não pode ter quebras de linha".into());
+    }
+    Ok(nome.to_string())
+}
+
 pub fn game_id(name: &str) -> String {
     let mut out = String::new();
     for c in name.nfd().filter(|c| c.is_ascii()) {
@@ -965,6 +982,37 @@ mod tests {
             .collect();
         assert_eq!(hk.len(), 1, "{hk:?}");
         assert_eq!(hk[0].source, Source::Manifesto);
+    }
+
+    #[test]
+    fn nome_valido_e_aparado() {
+        assert_eq!(
+            validar_nome_jogo("  Meu Jogo  "),
+            Ok("Meu Jogo".to_string())
+        );
+    }
+
+    #[test]
+    fn nome_vazio_ou_espacos_recusado() {
+        assert!(validar_nome_jogo("").is_err());
+        assert!(validar_nome_jogo("    ").is_err());
+    }
+
+    #[test]
+    fn nome_com_81_caracteres_recusado() {
+        assert!(validar_nome_jogo(&"a".repeat(81)).is_err());
+        assert!(validar_nome_jogo(&"á".repeat(80)).is_ok());
+    }
+
+    #[test]
+    fn nome_com_quebra_de_linha_recusado() {
+        assert!(
+            validar_nome_jogo(
+                "Meu
+Jogo"
+            )
+            .is_err()
+        );
     }
 
     #[test]

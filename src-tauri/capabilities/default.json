@@ -33,6 +33,9 @@
     "allow-open-backup-folder",
     "allow-set-pinned-cmd",
     "allow-set-keep-versions",
-    "allow-set-game-keep"
+    "allow-set-game-keep",
+    "allow-add-manual-game",
+    "allow-remove-manual-game",
+    "allow-ignored-games"
   ]
 }

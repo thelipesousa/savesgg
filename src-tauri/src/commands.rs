@@ -631,6 +631,127 @@ pub async fn restore_many(
     .await
 }
 
+/// Acrescenta um jogo manual, recusando nome que gera o mesmo id de outro.
+fn adicionar_manual(
+    c: &mut savesgg_core::config::Config,
+    m: savesgg_core::config::ManualGame,
+) -> Res<()> {
+    let id = savesgg_core::scan::game_id(&m.name);
+    if c.manual_games
+        .iter()
+        .any(|g| savesgg_core::scan::game_id(&g.name) == id)
+    {
+        return Err("Já existe um jogo com esse nome".into());
+    }
+    c.manual_games.push(m);
+    Ok(())
+}
+
+/// Tira um jogo manual da configuração (os backups continuam). Devolve se achou.
+fn remover_manual(c: &mut savesgg_core::config::Config, game_id: &str) -> bool {
+    let antes = c.manual_games.len();
+    c.manual_games
+        .retain(|g| savesgg_core::scan::game_id(&g.name) != game_id);
+    c.manual_games.len() != antes
+}
+
+/// Adiciona um jogo à mão: valida o nome, pede a pasta do save e, opcionalmente, o .exe.
+/// `None` se o usuário cancelar a escolha da pasta.
+#[tauri::command]
+pub async fn add_manual_game(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+) -> Res<Option<Vec<GameView>>> {
+    let name = savesgg_core::scan::validar_nome_jogo(&name)?;
+    let id = savesgg_core::scan::game_id(&name);
+    if state
+        .config()
+        .manual_games
+        .iter()
+        .any(|g| savesgg_core::scan::game_id(&g.name) == id)
+    {
+        return Err("Já existe um jogo com esse nome".into());
+    }
+    let Some(pasta) = app
+        .dialog()
+        .file()
+        .set_title("Pasta onde o jogo guarda os saves")
+        .blocking_pick_folder()
+    else {
+        return Ok(None);
+    };
+    let save_dir = pasta
+        .into_path()
+        .map_err(|_| "pasta inválida".to_string())?;
+    let exe = app
+        .dialog()
+        .file()
+        .set_title("Executável do jogo (opcional)")
+        .add_filter("Programa", &["exe"])
+        .blocking_pick_file()
+        .and_then(|f| f.into_path().ok());
+    let mut erro = None;
+    state.update_config(|c| {
+        erro = adicionar_manual(
+            c,
+            savesgg_core::config::ManualGame {
+                name,
+                save_dir,
+                exe,
+            },
+        )
+        .err();
+    })?;
+    if let Some(e) = erro {
+        return Err(e);
+    }
+    let app2 = app.clone();
+    blocking(move || run_scan_blocking(&app2.state::<AppState>()))
+        .await
+        .map(Some)
+}
+
+/// Remove um jogo adicionado à mão (os backups dele continuam guardados).
+#[tauri::command]
+pub fn remove_manual_game(state: State<'_, AppState>, game_id: String) -> Res<()> {
+    let mut achou = false;
+    state.update_config(|c| achou = remover_manual(c, &game_id))?;
+    if achou {
+        Ok(())
+    } else {
+        Err("jogo não encontrado".into())
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct IgnoredView {
+    pub id: String,
+    pub name: String,
+}
+
+/// Possíveis saves descartados, com o nome da última varredura (ou o id).
+#[tauri::command]
+pub fn ignored_games(state: State<'_, AppState>) -> Res<Vec<IgnoredView>> {
+    let ids = state.config().ignored_games;
+    let scan = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    Ok(ids
+        .into_iter()
+        .map(|id| IgnoredView {
+            name: scan
+                .as_ref()
+                .and_then(|s| s.find(&id))
+                .map(|g| g.name.clone())
+                .unwrap_or_else(|| id.clone()),
+            id,
+        })
+        .collect())
+}
+
 /// Confirma (mantém) ou descarta um possível save da heurística.
 #[tauri::command]
 pub async fn confirm_heuristic(state: State<'_, AppState>, game_id: String, keep: bool) -> Res<()> {
@@ -747,6 +868,33 @@ pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn manual(nome: &str) -> savesgg_core::config::ManualGame {
+        savesgg_core::config::ManualGame {
+            name: nome.into(),
+            save_dir: "D:/Jogos/X".into(),
+            exe: None,
+        }
+    }
+
+    #[test]
+    fn adicionar_manual_recusa_nome_repetido() {
+        let mut c = savesgg_core::config::Config::default();
+        adicionar_manual(&mut c, manual("Meu Jogo")).unwrap();
+        assert!(adicionar_manual(&mut c, manual("meu jogo!")).is_err());
+        assert_eq!(c.manual_games.len(), 1);
+    }
+
+    #[test]
+    fn remover_manual_tira_da_config() {
+        let mut c = savesgg_core::config::Config::default();
+        adicionar_manual(&mut c, manual("Meu Jogo")).unwrap();
+        adicionar_manual(&mut c, manual("Outro")).unwrap();
+        assert!(remover_manual(&mut c, "meu-jogo"));
+        assert_eq!(c.manual_games.len(), 1);
+        assert_eq!(c.manual_games[0].name, "Outro");
+        assert!(!remover_manual(&mut c, "meu-jogo"));
+    }
 
     #[test]
     fn fixar_versao_inexistente_falha() {

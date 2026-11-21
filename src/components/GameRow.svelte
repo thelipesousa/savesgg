@@ -9,9 +9,15 @@
     selected: boolean;
     ontoggle: () => void;
     onconfirm?: (keep: boolean) => void;
+    /** Só para jogos adicionados à mão. */
+    onremove?: () => void;
   }
 
-  let { game, selected, ontoggle, onconfirm }: Props = $props();
+  let { game, selected, ontoggle, onconfirm, onremove }: Props = $props();
+  function remover() {
+    if (onremove && confirm(`Remover ${game.name} da lista? Os backups continuam guardados.`)) onremove();
+  }
+
 
   const lojas: Record<Store, string> = {
     steam: "Steam",
@@ -51,6 +57,9 @@
   <div class="numeros">
     <span>{game.files} {game.files === 1 ? "arquivo" : "arquivos"} · {formatBytes(game.total_bytes)}</span>
     <span class="muted">Último backup: {formatRelative(game.last_backup)}</span>
+    {#if game.source === "manual" && onremove}
+      <button type="button" class="botao-secundario remover" onclick={remover}>Remover</button>
+    {/if}
     {#if pendente && onconfirm}
       <span class="confirmar">
         <button type="button" class="botao-secundario" onclick={() => onconfirm(true)}>Confirmar</button>
@@ -103,6 +112,9 @@
     display: flex;
     gap: 6px;
     margin-top: 4px;
+  }
+  .remover {
+    padding: 4px 12px;
   }
   .confirmar button {
     padding: 4px 12px;

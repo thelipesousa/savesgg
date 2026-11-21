@@ -73,6 +73,9 @@ pub fn run() {
             commands::set_pinned_cmd,
             commands::set_keep_versions,
             commands::set_game_keep,
+            commands::add_manual_game,
+            commands::remove_manual_game,
+            commands::ignored_games,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SavesGG");

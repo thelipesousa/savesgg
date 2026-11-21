@@ -4,6 +4,7 @@ import type {
   Destination,
   GameSnapshotsView,
   GameView,
+  IgnoredView,
   LoteItemView,
   RestorePlan,
   RestoreReport,
@@ -41,6 +42,9 @@ export const api = {
     invoke<void>("set_pinned_cmd", { destinationId, gameId, stem, pinned }),
   setKeepVersions: (n: number) => invoke<void>("set_keep_versions", { n }),
   setGameKeep: (gameId: string, n: number | null) => invoke<void>("set_game_keep", { gameId, n }),
+  addManualGame: (name: string) => invoke<GameView[] | null>("add_manual_game", { name }),
+  removeManualGame: (gameId: string) => invoke<void>("remove_manual_game", { gameId }),
+  ignoredGames: () => invoke<IgnoredView[]>("ignored_games"),
   restoreMany: (destinationId: string, gameIds: string[]) =>
     invoke<LoteItemView[]>("restore_many", { destinationId, gameIds }),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
