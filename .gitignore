@@ -21,3 +21,4 @@ vite.config.ts.timestamp-*
 # Chaves de assinatura (nunca no repositório)
 *.key
 *.key.pub
+savesgg-oauth.json

@@ -38,6 +38,17 @@ if (-not (Test-Path $chave)) { throw "Chave não encontrada em $chave. Sem ela n
 $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content $chave -Raw).Trim()
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
 
+# Ids do cadastro do login na nuvem (fora do Git). Sem eles, o login fica desligado.
+$oauth = Join-Path $env:USERPROFILE ".tauri\savesgg-oauth.json"
+if (Test-Path $oauth) {
+  $o = Get-Content $oauth -Raw | ConvertFrom-Json
+  $env:SAVESGG_GOOGLE_CLIENT_ID = "$($o.google_client_id)"
+  $env:SAVESGG_GOOGLE_CLIENT_SECRET = "$($o.google_client_secret)"
+  Write-Host "Login no Google Drive: ligado" -ForegroundColor Green
+} else {
+  Write-Warning "Login na nuvem ficará desligado nesta versão (falta $oauth)."
+}
+
 $versao = (Get-Content "src-tauri\tauri.conf.json" -Raw | ConvertFrom-Json).version
 $tag = "v$versao"
 Write-Host "SavesGG $versao" -ForegroundColor Cyan
