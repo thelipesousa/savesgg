@@ -2,6 +2,7 @@
   import type { GameView, Store } from "../lib/types";
   import { formatBytes, formatRelative } from "../lib/format";
   import PriorityBadge from "./PriorityBadge.svelte";
+  import Capa from "./Capa.svelte";
 
   interface Props {
     game: GameView;
@@ -22,16 +23,13 @@
   };
 
   const pendente = $derived(game.source === "heuristica" && !game.confirmado);
-  const inicial = $derived(game.name.trim().charAt(0).toUpperCase() || "?");
-  // Cor estável a partir do id (cartão com a inicial enquanto não há capas).
-  const matiz = $derived([...game.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7));
 </script>
 
 <li class="linha cartao" class:selecionada={selected}>
   <label class="selecao">
     <input type="checkbox" checked={selected} onchange={ontoggle} aria-label={`Selecionar ${game.name}`} />
   </label>
-  <div class="capa" style:background={`hsl(${matiz} 45% 28%)`} aria-hidden="true">{inicial}</div>
+  <Capa {game} />
   <div class="info">
     <div class="titulo">
       <h3>{game.name}</h3>
@@ -73,15 +71,6 @@
   }
   .selecionada {
     border-color: var(--destaque);
-  }
-  .capa {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 1.4em;
   }
   .titulo {
     display: flex;
