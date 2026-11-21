@@ -41,6 +41,9 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // Atualização assinada (chave pública em tauri.conf.json) e reinício depois dela.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .on_window_event(|window, event| {
             // Fechar a janela só esconde: o app segue protegendo na bandeja.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
