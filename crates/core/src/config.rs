@@ -9,6 +9,11 @@ use crate::CoreError;
 use crate::backup_write_atomic;
 pub use crate::scan::ManualGame;
 
+/// Temas da interface (o primeiro é o padrão).
+pub const TEMAS: [&str; 5] = ["gamer", "pastel", "win11", "cyberpunk", "console"];
+/// Exibição da lista de jogos (o primeiro é o padrão).
+pub const EXIBICOES: [&str; 2] = ["lista", "grade"];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -27,6 +32,10 @@ pub struct Config {
     pub autostart: bool,
     /// Backup automático pausado pelo usuário.
     pub auto_paused: bool,
+    /// "lista" ou "grade" de capas.
+    pub game_view: String,
+    /// Assistente da primeira execução concluído (ou pulado).
+    pub wizard_done: bool,
 }
 
 impl Default for Config {
@@ -43,6 +52,8 @@ impl Default for Config {
             theme: "gamer".into(),
             autostart: true,
             auto_paused: false,
+            game_view: EXIBICOES[0].into(),
+            wizard_done: false,
         }
     }
 }
@@ -81,6 +92,24 @@ impl Config {
         let json =
             serde_json::to_vec_pretty(self).map_err(|e| CoreError::Formato(e.to_string()))?;
         backup_write_atomic(path, &json)
+    }
+
+    /// Tema salvo, ou o padrão se o valor não for conhecido (config editada à mão).
+    pub fn theme_or_default(&self) -> &str {
+        TEMAS
+            .iter()
+            .find(|t| **t == self.theme)
+            .copied()
+            .unwrap_or(TEMAS[0])
+    }
+
+    /// Exibição salva, ou o padrão se o valor não for conhecido.
+    pub fn game_view_or_default(&self) -> &str {
+        EXIBICOES
+            .iter()
+            .find(|t| **t == self.game_view)
+            .copied()
+            .unwrap_or(EXIBICOES[0])
     }
 
     /// Quantas versões manter para um jogo.
@@ -157,6 +186,33 @@ mod tests {
         let c = Config::load_or_default(&p);
         assert_eq!(c.keep_versions, 4);
         assert!(!t.path().join("config.json.corrompido").exists());
+    }
+
+    #[test]
+    fn tema_invalido_usa_padrao() {
+        let t = tempfile::tempdir().unwrap();
+        let p = t.path().join("config.json");
+        fs::write(&p, r#"{"version":1,"theme":"azul","game_view":"mosaico"}"#).unwrap();
+        let c = Config::load_or_default(&p);
+        assert_eq!(c.theme_or_default(), "gamer");
+        assert_eq!(c.game_view_or_default(), "lista");
+        let ok = Config {
+            theme: "pastel".into(),
+            game_view: "grade".into(),
+            ..Default::default()
+        };
+        assert_eq!(ok.theme_or_default(), "pastel");
+        assert_eq!(ok.game_view_or_default(), "grade");
+    }
+
+    #[test]
+    fn config_antiga_mostra_assistente() {
+        let t = tempfile::tempdir().unwrap();
+        let p = t.path().join("config.json");
+        fs::write(&p, r#"{"version":1}"#).unwrap();
+        let c = Config::load_or_default(&p);
+        assert!(!c.wizard_done);
+        assert_eq!(c.game_view, "lista");
     }
 
     #[test]

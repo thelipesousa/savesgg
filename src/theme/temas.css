@@ -1,0 +1,127 @@
+/* Os 5 temas do SaveGuard (paletas tiradas das telas do Stitch em design/stitch/).
+   Cada tema só redefine variáveis; o tema console também troca o topo do Início. */
+
+[data-theme="gamer"] {
+  --destaque-fundo: rgb(25 230 160 / 0.12);
+  --fundo: #0b100e;
+  --superficie: #131a17;
+  --superficie-2: #1a2420;
+  --borda: #24312c;
+  --texto: #e7f2ed;
+  --texto-suave: #8ea69b;
+  --destaque: #19e6a0;
+  --destaque-texto: #04140d;
+  --alerta: #ff5a5f;
+  --aviso: #ffb547;
+  --ok: #19e6a0;
+  --alerta-fundo: rgb(255 90 95 / 0.15);
+  --aviso-fundo: rgb(255 181 71 / 0.15);
+  --ok-fundo: rgb(25 230 160 / 0.12);
+  --raio: 16px;
+  --raio-pequeno: 10px;
+  --fonte: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --fonte-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --brilho: 0 0 24px rgb(25 230 160 / 0.25);
+  --banner: linear-gradient(120deg, #0f3b2c, var(--superficie) 60%);
+  color-scheme: dark;
+}
+
+[data-theme="pastel"] {
+  --destaque-fundo: #f1edff;
+  --fundo: #f4effc;
+  --superficie: #ffffff;
+  --superficie-2: #eee4f9;
+  --borda: #e3d8f5;
+  --texto: #3b3355;
+  --texto-suave: #635a7d;
+  --destaque: #6d55d9;
+  --destaque-texto: #ffffff;
+  --alerta: #b3213b;
+  --aviso: #8a5300;
+  --ok: #11733a;
+  --alerta-fundo: #ffe4e9;
+  --aviso-fundo: #fff1d6;
+  --ok-fundo: #ddfaeb;
+  --raio: 24px;
+  --raio-pequeno: 16px;
+  --fonte: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --fonte-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --brilho: 0 6px 18px rgb(155 135 245 / 0.35);
+  --banner: linear-gradient(120deg, #e6dcff, #fde7f1 70%);
+  color-scheme: light;
+}
+
+[data-theme="win11"] {
+  --destaque-fundo: #e5f1fb;
+  --fundo: #f3f3f3;
+  --superficie: #ffffff;
+  --superficie-2: #f9fafb;
+  --borda: #e5e7eb;
+  --texto: #1b1b1b;
+  --texto-suave: #5f6368;
+  --destaque: #0067c0;
+  --destaque-texto: #ffffff;
+  --alerta: #c42b1c;
+  --aviso: #9d5d00;
+  --ok: #0f7b0f;
+  --alerta-fundo: #fde7e9;
+  --aviso-fundo: #fff4ce;
+  --ok-fundo: #dff6dd;
+  --raio: 8px;
+  --raio-pequeno: 4px;
+  --fonte: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --fonte-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --brilho: none;
+  --banner: linear-gradient(120deg, #eff6fc, #ffffff 70%);
+  color-scheme: light;
+}
+
+[data-theme="cyberpunk"] {
+  --destaque-fundo: rgb(0 240 255 / 0.1);
+  --fundo: #07090e;
+  --superficie: #0c1220;
+  --superficie-2: #101a2c;
+  --borda: #162338;
+  --texto: #e6f7ff;
+  --texto-suave: #6b8aa8;
+  --destaque: #00f0ff;
+  --destaque-texto: #001014;
+  --alerta: #ff2a85;
+  --aviso: #ffe600;
+  --ok: #39ff14;
+  --alerta-fundo: rgb(255 0 127 / 0.15);
+  --aviso-fundo: rgb(255 230 0 / 0.12);
+  --ok-fundo: rgb(57 255 20 / 0.1);
+  --raio: 3px;
+  --raio-pequeno: 2px;
+  --fonte: "Cascadia Code", "Segoe UI", monospace;
+  --fonte-titulo: "Cascadia Code", "Segoe UI", monospace;
+  --brilho: 0 0 18px rgb(0 240 255 / 0.45);
+  --banner: linear-gradient(120deg, rgb(255 0 127 / 0.25), var(--superficie) 55%, rgb(0 240 255 / 0.2));
+  color-scheme: dark;
+}
+
+[data-theme="console"] {
+  --destaque-fundo: rgb(219 184 255 / 0.14);
+  --fundo: #10131a;
+  --superficie: #1d2026;
+  --superficie-2: #272a31;
+  --borda: #32353c;
+  --texto: #e1e2eb;
+  --texto-suave: #b9cbbd;
+  --destaque: #dbb8ff;
+  --destaque-texto: #2a0050;
+  --alerta: #ffb4ab;
+  --aviso: #ffd28a;
+  --ok: #00e293;
+  --alerta-fundo: rgb(255 180 171 / 0.14);
+  --aviso-fundo: rgb(255 210 138 / 0.14);
+  --ok-fundo: rgb(0 226 147 / 0.12);
+  --raio: 20px;
+  --raio-pequeno: 12px;
+  --fonte: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --fonte-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --brilho: 0 0 24px rgb(219 184 255 / 0.35);
+  --banner: linear-gradient(120deg, #3b1f5c, var(--superficie) 60%);
+  color-scheme: dark;
+}

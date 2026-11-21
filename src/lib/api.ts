@@ -12,6 +12,7 @@ import type {
 
 export const api = {
   scan: () => invoke<GameView[]>("scan"),
+  cachedScan: () => invoke<GameView[] | null>("cached_scan"),
   listDestinations: () => invoke<Destination[]>("list_destinations_cmd"),
   addCustomFolder: () => invoke<Destination | null>("add_custom_folder"),
   pickFolder: () => invoke<string | null>("pick_folder"),
@@ -31,6 +32,9 @@ export const api = {
   setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),
   setPaused: (paused: boolean) => invoke<void>("set_paused", { paused }),
   autoStatus: () => invoke<AutoStatusView>("auto_status"),
+  setTheme: (theme: string) => invoke<void>("set_theme", { theme }),
+  setGameView: (view: string) => invoke<void>("set_game_view", { view }),
+  completeWizard: () => invoke<void>("complete_wizard"),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
 };
 

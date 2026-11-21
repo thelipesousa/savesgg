@@ -31,6 +31,13 @@ Testes com os dados reais do seu PC (não alteram os saves): veja os comandos `-
 - **Iniciar com o Windows:** ligado por padrão, abrindo minimizado na bandeja. Desligue em **Configurações → Iniciar com o Windows**. Só vale no app instalado (em desenvolvimento não é registrado).
 - **Possíveis saves** (heurística) e jogos acima de 2 GB só entram no automático depois de confirmados.
 
+## Temas e assistente
+
+- **Assistente da primeira execução:** ao abrir pela primeira vez, o SaveGuard escaneia o PC, mostra quantos jogos já estão protegidos e quantos não têm cópia fora do PC, pergunta para onde mandar os saves (destinos do backup automático) e deixa escolher o tema. Dá para pular; ele não volta depois de concluído.
+- **5 temas**, trocados na hora em **Configurações → Aparência**: Gamer (escuro verde-neon), Pastel (claro e fofinho), Windows 11 (claro e limpo), Cyberpunk (neon ciano e rosa) e Console (jogo em destaque e carrossel de capas, navegável pelas setas).
+- **Lista ou grade de capas** para os jogos, também em Aparência.
+- **Capas:** vêm da Steam pelo AppID do jogo (`cdn.cloudflare.steamstatic.com`). Sem internet ou sem capa, aparece um cartão com a inicial do jogo. As referências visuais (Google Stitch) e capturas reais ficam em `design/`.
+
 ## Fluxo de branches
 
 - `main`: produção e branch padrão; só código estável, é dela que sai o release.

@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_dashboard" name="shell-type"/>
+<title>SaveGuard - Proteção de Saves</title>
+<!-- Fonts: Quicksand & Nunito for cozy rounded typography, JetBrains Mono for technical snippets -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&amp;family=Nunito:wght@400;600;700;800;900&amp;family=Quicksand:wght@500;600;700&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        overscroll-behavior: none;
+        font-family: 'Nunito', 'Quicksand', sans-serif;
+      }
+      main > :first-child {
+        margin-top: 0 !important;
+      }
+      main > :last-child {
+        margin-bottom: 0 !important;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    .cozy-shadow {
+      box-shadow: 0 10px 30px -5px rgba(192, 132, 252, 0.08), 0 4px 12px -2px rgba(244, 114, 182, 0.05);
+    }
+    .cozy-card-shadow {
+      box-shadow: 0 4px 20px -2px rgba(116, 92, 151, 0.06);
+    }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // Cozy Pastel & Cute Gaming Palette
+            cozy: {
+              cream: "#FBF9F5",
+              almond: "#F5F0E8",
+              card: "#FFFFFF",
+              plum: "#2D2438",
+              plumMuted: "#6B5E7A",
+              plumLight: "#9C8EA9",
+              border: "#EDE5F2",
+              sage: "#86EFAC",
+              sageDark: "#15803D",
+              sageSoft: "#ECFDF5",
+              pink: "#F472B6",
+              pinkSoft: "#FDF2F8",
+              pinkDark: "#BE185D",
+              lilac: "#C084FC",
+              lilacSoft: "#F3E8FF",
+              lilacDark: "#7E22CE",
+              peach: "#FDBA74",
+              peachSoft: "#FFF7ED",
+              peachDark: "#C2410C",
+              sky: "#7DD3FC",
+              skySoft: "#F0F9FF",
+              skyDark: "#0369A1",
+              roseSoft: "#FFE4E6",
+              roseDark: "#E11D48",
+            }
+          },
+          fontFamily: {
+            sans: ['Nunito', 'Quicksand', 'sans-serif'],
+            heading: ['Quicksand', 'Nunito', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          borderRadius: {
+            '2xl': '1.25rem',
+            '3xl': '1.75rem',
+            '4xl': '2.25rem',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#FAF7F2] font-sans text-cozy-plum selection:bg-cozy-lilacSoft selection:text-cozy-lilacDark min-h-screen">
+<!-- Cute Ambient Cozy Clouds / Blobs -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+<div class="absolute -top-24 -left-20 w-[480px] h-[480px] bg-gradient-to-br from-cozy-pinkSoft via-cozy-lilacSoft/40 to-transparent rounded-full blur-3xl opacity-70"></div>
+<div class="absolute top-1/3 -right-28 w-[500px] h-[500px] bg-gradient-to-bl from-cozy-peachSoft via-cozy-sageSoft/50 to-transparent rounded-full blur-3xl opacity-75"></div>
+<div class="absolute -bottom-24 left-1/3 w-[450px] h-[450px] bg-gradient-to-tr from-cozy-skySoft/60 via-cozy-lilacSoft/30 to-transparent rounded-full blur-3xl opacity-60"></div>
+</div>
+<!-- Header: Floating Cute Bar -->
+<header class="fixed top-0 left-0 right-0 h-16 z-50 bg-white/80 backdrop-blur-xl border-b border-cozy-border/60 flex items-center justify-between px-6 select-none shadow-sm">
+<!-- Brand / Logo -->
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cozy-lilacSoft via-cozy-pinkSoft to-cozy-peachSoft border border-cozy-pink/30 flex items-center justify-center text-cozy-pinkDark shadow-sm">
+<span class="material-symbols-outlined text-[24px]">savings</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-heading text-xl font-extrabold tracking-tight bg-gradient-to-r from-cozy-plum via-cozy-lilacDark to-cozy-pinkDark bg-clip-text text-transparent">SaveGuard</span>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-sageSoft text-cozy-sageDark border border-cozy-sage/40 font-mono text-[11px] font-bold">🌸 v2.4 Proativo</span>
+</div>
+</div>
+<!-- Cozy Search Bar -->
+<div class="hidden md:flex items-center flex-1 max-w-md mx-8">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-cozy-plumLight text-[18px]">search</span>
+<input class="w-full bg-[#F5F0E8]/70 hover:bg-[#F5F0E8] focus:bg-white text-cozy-plum placeholder:text-cozy-plumLight text-xs pl-10 pr-4 py-2.5 rounded-full border border-cozy-border focus:border-cozy-lilac focus:ring-2 focus:ring-cozy-lilac/30 outline-none transition-all shadow-inner" placeholder="Buscar jogos, saves locais ou nuvem..." type="text"/>
+</div>
+</div>
+<!-- Right Controls: Profile & Cute Buttons -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-3 bg-cozy-almond/50 pl-3 pr-1 py-1 rounded-full border border-cozy-border/70">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-cozy-plum leading-tight">Luna Gamer ✨</p>
+<p class="text-[11px] font-semibold text-cozy-lilacDark">Modo Pro Ativo</p>
+</div>
+<img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-cozy-pink" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATGHzZ7wdn4t2AV2J1ZB0kmJKtXjK4n2Auk4q6l7ydSoICxkONHoE1NUa4ZnnufP1C-__jMeCOfUi6SGyk4LIAGpydeLO-VhwPCbiF3TNYb570zXSHq6c5KufFWQRhLkqj1NQjE3Np1gUtboGM5THowz6X_Bc_IJ9GMs7rGHgFH_cUezkSCMOxXY1Ukharwr6-ssq5qAIFZHddNH12UQGMLeBAaXykQSw99hIZ1RjZ2ZsvozbKmNAJGTU-Ek6CJfr9K-LCxIFrXhUc"/>
+</div>
+<!-- Window Mock Buttons (cute mac/switch candy style) -->
+<div class="flex items-center gap-1.5 ml-1 text-cozy-plumLight">
+<button aria-label="Minimizar" class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-cozy-almond hover:text-cozy-plum transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-amber-300"></span>
+</button>
+<button aria-label="Maximizar" class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-cozy-almond hover:text-cozy-plum transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-cozy-sage"></span>
+</button>
+<button aria-label="Fechar" class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-cozy-roseSoft hover:text-cozy-roseDark transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-rose-300"></span>
+</button>
+</div>
+</div>
+</header>
+<!-- Cute Cozy Sidebar Navigation -->
+<aside class="fixed left-0 top-16 bottom-0 w-64 z-40 bg-white/70 backdrop-blur-xl border-r border-cozy-border/60 flex flex-col justify-between p-4">
+<div class="flex flex-col gap-5">
+<div class="px-3 pt-2">
+<p class="text-[11px] font-extrabold uppercase tracking-wider text-cozy-plumLight font-heading flex items-center gap-1.5">
+<span>🍓</span> Menu Principal
+        </p>
+</div>
+<nav class="flex flex-col gap-1.5">
+<!-- Início (Active) -->
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cozy-lilacSoft to-cozy-pinkSoft text-cozy-lilacDark font-bold border border-cozy-lilac/30 shadow-sm transition-all" data-path="inicio" href="#">
+<span class="material-symbols-outlined text-[20px] text-cozy-lilacDark" style="font-variation-settings: 'FILL' 1;">cottage</span>
+<span class="text-sm font-heading">Início</span>
+</a>
+<!-- Jogos -->
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-cozy-plumMuted hover:bg-cozy-almond/60 hover:text-cozy-plum transition-all font-semibold" data-path="jogos" href="#">
+<span class="material-symbols-outlined text-[20px] text-cozy-plumLight">sports_esports</span>
+<span class="text-sm font-heading">Jogos</span>
+</a>
+<!-- Backups -->
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-cozy-plumMuted hover:bg-cozy-almond/60 hover:text-cozy-plum transition-all font-semibold" data-path="backups" href="#">
+<span class="material-symbols-outlined text-[20px] text-cozy-plumLight">inventory_2</span>
+<span class="text-sm font-heading">Backups</span>
+</a>
+<!-- Nuvem -->
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-cozy-plumMuted hover:bg-cozy-almond/60 hover:text-cozy-plum transition-all font-semibold" data-path="nuvem" href="#">
+<span class="material-symbols-outlined text-[20px] text-cozy-plumLight">cloud</span>
+<span class="text-sm font-heading">Nuvem</span>
+</a>
+<!-- Restaurar -->
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-cozy-plumMuted hover:bg-cozy-almond/60 hover:text-cozy-plum transition-all font-semibold" data-path="restaurar" href="#">
+<span class="material-symbols-outlined text-[20px] text-cozy-plumLight">magic_button</span>
+<span class="text-sm font-heading">Restaurar</span>
+</a>
+<!-- Configurações -->
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-cozy-plumMuted hover:bg-cozy-almond/60 hover:text-cozy-plum transition-all font-semibold" data-path="configuracoes" href="#">
+<span class="material-symbols-outlined text-[20px] text-cozy-plumLight">tune</span>
+<span class="text-sm font-heading">Configurações</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Sentinel Pill Widget -->
+<div class="flex flex-col gap-3 p-4 bg-gradient-to-br from-[#FFFDF9] to-cozy-sageSoft/70 rounded-3xl border border-cozy-sage/40 cozy-card-shadow">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+</span>
+<span class="text-xs font-bold text-cozy-plum font-heading">Proteção Ativa</span>
+</div>
+<span class="material-symbols-outlined text-emerald-600 text-[18px]">verified_user</span>
+</div>
+<p class="text-[12px] text-cozy-plumMuted leading-relaxed">Sentinela de arquivos em tempo real ativo.</p>
+<div class="flex items-center justify-between pt-1 border-t border-cozy-border/60">
+<button class="flex items-center gap-1 text-[11px] font-bold text-cozy-lilacDark hover:text-cozy-pinkDark transition-colors">
+<span class="material-symbols-outlined text-[15px]">electric_bolt</span>
+<span>Modo Gamer</span>
+</button>
+<button class="text-[11px] font-bold text-cozy-plumLight hover:text-cozy-plum transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px]">favorite</span>
+<span>Suporte</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<div class="pl-64">
+<main class="relative pt-20 pb-12 min-h-screen px-8">
+<div class="max-w-7xl mx-auto flex flex-col gap-7">
+<!-- 1. Top Hero Status Banner & Ações Principais -->
+<section class="relative overflow-hidden rounded-3xl bg-white/90 p-6 sm:p-7 border border-cozy-border cozy-shadow">
+<!-- Subtle cozy candy stripes on top -->
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cozy-pink via-cozy-lilac to-cozy-sage"></div>
+<div class="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+<!-- Status & Sentinel Info -->
+<div class="flex items-start sm:items-center gap-4">
+<div class="relative flex-shrink-0 w-14 h-14 rounded-3xl bg-gradient-to-tr from-cozy-sageSoft via-emerald-100 to-cozy-peachSoft border border-cozy-sage flex items-center justify-center text-emerald-700 shadow-sm">
+<span class="material-symbols-outlined text-[30px]" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+<span class="absolute -bottom-1 -right-1 flex h-5 w-5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+<span class="relative inline-flex rounded-full h-5 w-5 bg-emerald-500 text-white text-[10px] items-center justify-center font-bold shadow-sm">✓</span>
+</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2.5 flex-wrap">
+<h1 class="font-heading text-xl sm:text-2xl font-extrabold text-cozy-plum tracking-tight">Proteção contínua ativa</h1>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Sentinela em tempo real
+                  </span>
+</div>
+<p class="text-xs sm:text-sm text-cozy-plumMuted flex items-center gap-2 flex-wrap">
+<span>Monitorando pastas de saves em tempo real</span>
+<span class="text-cozy-plumLight">•</span>
+<span class="text-cozy-plum font-semibold">Último backup automático:</span>
+<span class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">há 4 minutos</span>
+<span class="px-2 py-0.5 rounded-lg bg-cozy-lilacSoft text-cozy-lilacDark font-mono text-xs font-semibold">Elden Ring</span>
+</p>
+</div>
+</div>
+<!-- Action CTAs: Bouncy Soft Pastel Buttons -->
+<div class="flex items-center gap-3 flex-wrap">
+<button class="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-300 hover:from-emerald-300 hover:to-teal-200 text-emerald-950 font-heading text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all border border-emerald-300/60" id="scanPcBtn">
+<span class="material-symbols-outlined text-[20px] group-hover:rotate-180 transition-transform duration-700">radar</span>
+<span>Escanear PC</span>
+<span class="px-2.5 py-0.5 rounded-full bg-white/70 text-emerald-900 font-mono text-[11px] font-bold">142 detectados</span>
+</button>
+<button class="flex items-center gap-2 px-5 py-3 rounded-full bg-cozy-lilacSoft hover:bg-cozy-lilac/30 text-cozy-lilacDark font-heading text-sm font-bold border border-cozy-lilac/40 hover:-translate-y-0.5 active:translate-y-0 transition-all shadow-sm" id="forceSyncBtn">
+<span class="material-symbols-outlined text-[20px]">sync</span>
+<span>Forçar Sincronização Geral</span>
+</button>
+</div>
+</div>
+<!-- Quick Sentinel status mini-bar -->
+<div class="mt-5 pt-4 border-t border-cozy-border/60 flex items-center justify-between gap-4 text-cozy-plumMuted font-mono text-xs flex-wrap">
+<div class="flex items-center gap-4 sm:gap-6 flex-wrap">
+<span class="flex items-center gap-1.5 text-emerald-700 font-semibold">
+<span class="material-symbols-outlined text-[16px] text-emerald-500">task_alt</span> Motor VSS Ativo
+              </span>
+<span class="flex items-center gap-1.5 text-cozy-plumMuted">
+<span class="material-symbols-outlined text-[16px] text-cozy-pink">speed</span> Compressão LZ4 Ultra
+              </span>
+<span class="flex items-center gap-1.5 text-cozy-plumMuted">
+<span class="material-symbols-outlined text-[16px] text-cozy-lilacDark">lock_open_right</span> Criptografia AES-256
+              </span>
+</div>
+<div class="flex items-center gap-2 text-xs">
+<span class="text-cozy-plumLight font-sans">Próxima verificação preventiva:</span>
+<span class="text-cozy-plum font-bold font-mono bg-cozy-almond/70 px-2 py-0.5 rounded-md">00:08:24</span>
+</div>
+</div>
+</section>
+<!-- 2. Quatro Pillowy Summary Cards -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Card 1: Jogos Monitorados -->
+<div class="relative overflow-hidden rounded-3xl bg-white p-5 border border-cozy-border cozy-card-shadow flex flex-col justify-between group hover:border-cozy-sage transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold uppercase tracking-wider text-cozy-plumLight font-heading">Jogos Monitorados</span>
+<div class="flex items-baseline gap-2">
+<span class="font-heading text-3xl font-extrabold text-cozy-plum">142</span>
+<span class="text-xs px-2.5 py-0.5 rounded-full bg-cozy-sageSoft text-emerald-700 border border-emerald-200 font-bold font-sans">+3 novos</span>
+</div>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-cozy-sageSoft text-emerald-600 flex items-center justify-center border border-cozy-sage/40 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[26px]">sports_esports</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-cozy-border/50 flex items-center justify-between text-xs text-cozy-plumMuted">
+<span>7 plataformas identificadas</span>
+<span class="text-emerald-700 font-bold font-mono bg-emerald-50 px-2 py-0.5 rounded-md">100% integridade</span>
+</div>
+</div>
+<!-- Card 2: Sem nuvem (Alerta fofo em tom pêssego/rosa coral) -->
+<div class="relative overflow-hidden rounded-3xl bg-white p-5 border border-rose-200/80 cozy-card-shadow flex flex-col justify-between group hover:border-rose-300 transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold uppercase tracking-wider text-cozy-roseDark font-heading flex items-center gap-1">
+<span>🍓</span> Sem Nuvem • Alerta
+                </span>
+<div class="flex items-baseline gap-2">
+<span class="font-heading text-3xl font-extrabold text-cozy-roseDark">38</span>
+<span class="text-xs px-2.5 py-0.5 rounded-full bg-cozy-roseSoft text-cozy-roseDark border border-rose-200 font-bold font-sans">Risco local</span>
+</div>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-cozy-roseSoft text-cozy-roseDark flex items-center justify-center border border-rose-200 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[26px]">warning_amber</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-rose-100 flex items-center justify-between text-xs text-cozy-plumMuted">
+<span class="text-rose-600 font-medium">Saves vulneráveis a formatação</span>
+<span class="font-bold text-cozy-roseDark hover:underline cursor-pointer">Blindar todos</span>
+</div>
+</div>
+<!-- Card 3: Espaço Protegido -->
+<div class="relative overflow-hidden rounded-3xl bg-white p-5 border border-cozy-border cozy-card-shadow flex flex-col justify-between group hover:border-cozy-lilac transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold uppercase tracking-wider text-cozy-plumLight font-heading">Espaço Protegido</span>
+<div class="flex items-baseline gap-2">
+<span class="font-heading text-3xl font-extrabold text-cozy-plum">12,4 GB</span>
+<span class="text-xs px-2.5 py-0.5 rounded-full bg-cozy-lilacSoft text-cozy-lilacDark border border-cozy-lilac/40 font-bold font-sans">-62% LZ4</span>
+</div>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-cozy-lilacSoft text-cozy-lilacDark flex items-center justify-center border border-cozy-lilac/30 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[26px]">folder_zip</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-cozy-border/50 flex items-center justify-between text-xs text-cozy-plumMuted">
+<span>284 snapshots arquivados</span>
+<span class="text-cozy-lilacDark font-bold font-mono bg-cozy-lilacSoft/60 px-2 py-0.5 rounded-md">Deduplicação ON</span>
+</div>
+</div>
+<!-- Card 4: Nuvem Primária -->
+<div class="relative overflow-hidden rounded-3xl bg-white p-5 border border-cozy-border cozy-card-shadow flex flex-col justify-between group hover:border-cozy-sky transition-all">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold uppercase tracking-wider text-cozy-plumLight font-heading">Nuvem Vinculada</span>
+<div class="flex items-baseline gap-2">
+<span class="font-heading text-2xl sm:text-3xl font-extrabold text-cozy-plum">OneDrive</span>
+<span class="text-xs px-2.5 py-0.5 rounded-full bg-cozy-skySoft text-cozy-skyDark border border-cozy-sky/40 font-bold font-sans">100% OK</span>
+</div>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-cozy-skySoft text-cozy-skyDark flex items-center justify-center border border-cozy-sky/40 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[26px]">cloud_done</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-cozy-border/50 flex items-center justify-between text-xs text-cozy-plumMuted">
+<span>42,8 GB livres na nuvem</span>
+<span class="text-cozy-plum font-mono font-semibold">12,4 / 100 GB</span>
+</div>
+</div>
+</section>
+<!-- 3. Layout de Duas Colunas (~70% Conteúdo Principal e ~30% Painel Direito) -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-7">
+<!-- Coluna Principal (8 cols) -->
+<section class="xl:col-span-8 flex flex-col gap-5 min-w-0">
+<!-- Section Header with Filters & Search -->
+<div class="rounded-3xl bg-white p-5 sm:p-6 border border-cozy-border cozy-card-shadow flex flex-col gap-4">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex items-baseline gap-2.5">
+<h2 class="font-heading text-xl sm:text-2xl font-extrabold text-cozy-plum flex items-center gap-2">
+<span>🎮</span> Jogos Monitorados
+                  </h2>
+<span class="text-cozy-plumLight font-mono text-xs">Ordenados por criticidade</span>
+</div>
+<!-- Quick Actions & Search inside list -->
+<div class="flex items-center gap-2">
+<div class="relative w-full sm:w-56">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-cozy-plumLight text-[17px]">search</span>
+<input class="w-full bg-[#FAF7F2] text-cozy-plum placeholder:text-cozy-plumLight text-xs pl-8 pr-3 py-1.5 rounded-full border border-cozy-border focus:border-cozy-lilac focus:ring-2 focus:ring-cozy-lilac/20 outline-none transition-all" id="gameSearchInput" placeholder="Filtrar nesta lista..." type="text"/>
+</div>
+<button class="w-8 h-8 flex items-center justify-center rounded-full bg-[#FAF7F2] hover:bg-cozy-almond text-cozy-plumMuted transition-colors border border-cozy-border" title="Atualizar lista">
+<span class="material-symbols-outlined text-[17px]">refresh</span>
+</button>
+</div>
+</div>
+<!-- Filter Pills (Soft Candy Pill Buttons) -->
+<div class="flex items-center gap-2 overflow-x-auto pb-1 select-none text-xs">
+<button class="filter-pill active px-4 py-1.5 rounded-full bg-gradient-to-r from-cozy-lilacSoft to-cozy-pinkSoft text-cozy-lilacDark font-bold border border-cozy-lilac/40 shadow-sm whitespace-nowrap">
+                  Todos (142)
+                </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-[#FAF7F2] hover:bg-cozy-roseSoft text-cozy-roseDark font-bold border border-rose-200/60 whitespace-nowrap flex items-center gap-1.5 transition-colors">
+<span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                  Críticos Sem Nuvem (38)
+                </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-[#FAF7F2] hover:bg-cozy-almond text-cozy-plumMuted font-semibold border border-cozy-border whitespace-nowrap transition-colors">
+                  Steam (84)
+                </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-[#FAF7F2] hover:bg-cozy-almond text-cozy-plumMuted font-semibold border border-cozy-border whitespace-nowrap transition-colors">
+                  Epic Games (14)
+                </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-[#FAF7F2] hover:bg-cozy-almond text-cozy-plumMuted font-semibold border border-cozy-border whitespace-nowrap transition-colors">
+                  GOG Galaxy (9)
+                </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-[#FAF7F2] hover:bg-cozy-almond text-cozy-plumMuted font-semibold border border-cozy-border whitespace-nowrap transition-colors">
+                  Emuladores / Outros (35)
+                </button>
+</div>
+</div>
+<!-- Lista de Jogos: Pillowy Soft Cards -->
+<div class="flex flex-col gap-3.5">
+<!-- GAME CARD 1: Hollow Knight: Silksong (Crítico Sem Nuvem) -->
+<div class="game-item rounded-3xl bg-white hover:bg-cozy-cream p-4 sm:p-5 border border-cozy-border hover:border-rose-200 transition-all cozy-card-shadow group flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-4 min-w-0">
+<!-- Thumbnail with cute rounded pill badge -->
+<div class="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden flex-shrink-0 bg-cozy-almond border border-cozy-border shadow-inner">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Dark moody video game key art of Hollow Knight Silksong featuring a needle-wielding red-cloaked hornet character in an underground bioluminescent kingdom with purple and cyan particle glows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvTVT79CcPKD62vVgGUeA6KjQMMffATksOw-WyOQT4DQ2LScpQpelE3jYSjg0dTYo1MK3YL6SHcOPTcYmzjDTvOIro1oZflh7ClYHOM2zSRowg8ilxu2mXHhI0HDcm0ULogfNTGR4_Idydar1mT2RbGqmRZHRok1ug16SzAkGbZ7_8BbBft_41NsgZ3Arrj5AZnNDHoQ0vQTUJsdVU80Wmy1vA5mdqHsEuIvIaMYAVmSyCoBS0LHlphrOmQLB8Xau1L_oAZXFrmYFy"/>
+<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-md bg-white/90 text-cozy-lilacDark font-mono text-[9px] font-bold shadow-xs">RPCS3/mG</span>
+</div>
+<!-- Details -->
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="font-heading text-base sm:text-lg text-cozy-plum font-extrabold truncate">Hollow Knight: Silksong</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-roseSoft text-cozy-roseDark border border-rose-200 text-xs font-bold flex items-center gap-1 shadow-xs">
+<span class="material-symbols-outlined text-[13px]">emergency</span> Prioridade Alta
+                      </span>
+<span class="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">cloud_off</span> Sem Nuvem
+                      </span>
+</div>
+<p class="text-xs text-cozy-plumMuted flex items-center gap-1.5 truncate">
+<span>Team Cherry • 2024</span>
+<span class="text-cozy-plumLight">•</span>
+<span class="px-2 py-0.2 rounded-md bg-cozy-almond text-cozy-plum font-mono text-[11px]">Sem Loja / Local</span>
+</p>
+<!-- Path with Folder Button -->
+<div class="flex items-center gap-1.5 text-cozy-plumLight font-mono text-xs max-w-full">
+<span class="material-symbols-outlined text-[14px] text-cozy-plumLight flex-shrink-0">folder</span>
+<span class="truncate max-w-[240px] sm:max-w-sm hover:text-cozy-plum transition-colors cursor-pointer select-all">%APPDATA%/TeamCherry/Silksong/Saves/</span>
+<button class="p-0.5 rounded hover:bg-cozy-almond text-cozy-plumMuted hover:text-cozy-plum transition-colors flex-shrink-0" title="Abrir pasta no Windows Explorer">
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Stats & Actions -->
+<div class="flex items-center justify-between md:justify-end gap-5 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-cozy-border/50">
+<div class="flex flex-col md:items-end gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plum font-mono text-xs font-bold">18 versões</span>
+<span class="text-cozy-plumMuted text-xs">• 4.2 MB</span>
+</div>
+<span class="text-cozy-plumMuted text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-cozy-lilac">schedule</span> há 42 min
+                    </span>
+</div>
+<!-- Cozy Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer select-none" title="Backup automático em tempo real">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-cozy-almond peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all after:shadow-sm peer-checked:bg-emerald-400"></div>
+</label>
+<!-- Bouncy Action Buttons -->
+<div class="flex items-center gap-1.5">
+<button class="w-9 h-9 rounded-2xl bg-cozy-sageSoft text-emerald-700 hover:bg-emerald-200 border border-emerald-200 transition-all flex items-center justify-center shadow-xs" title="Fazer backup imediato">
+<span class="material-symbols-outlined text-[18px]">save</span>
+</button>
+<button class="w-9 h-9 rounded-2xl bg-[#FAF7F2] text-cozy-plumMuted hover:bg-cozy-almond hover:text-cozy-plum border border-cozy-border transition-all flex items-center justify-center" title="Histórico de versões e restauração">
+<span class="material-symbols-outlined text-[18px]">restore</span>
+</button>
+</div>
+</div>
+</div>
+<!-- GAME CARD 2: Pokémon Emerald [mGBA] (Crítico Sem Nuvem) -->
+<div class="game-item rounded-3xl bg-white hover:bg-cozy-cream p-4 sm:p-5 border border-cozy-border hover:border-rose-200 transition-all cozy-card-shadow group flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-4 min-w-0">
+<div class="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden flex-shrink-0 bg-cozy-almond border border-cozy-border shadow-inner">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Retro handheld pixel art representation of a green serpentine legendary dragon rayquaza emerging from emerald clouds with vivid neon glowing aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClkqsEV0FthKPCwGaSM1vr3iHLkAAdGVktlcknnK3bTRFW92HcC6LTFTh4sVBy9dcOyk8pOqEhcrJKEPofTYE2mulSLP4nLJbPgQBx0B9d90bZgvgj2HL5y2yfru2b3nE5TfuKfwPOZnYbG_9pZxfRYqSnunOb_GyAWLIjTo19mVHULxTAUy8e2a1w10xMiKe0Z_A1b-EuKgEKgDZaK9F2yrPpiZAylNGae-bgkM60oWwfKKc-IOgdlAiv6XB4B5ODIF-4tCFA0aAz"/>
+<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-md bg-white/90 text-emerald-800 font-mono text-[9px] font-bold shadow-xs">mGBA</span>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="font-heading text-base sm:text-lg text-cozy-plum font-extrabold truncate">Pokémon Emerald [mGBA]</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-roseSoft text-cozy-roseDark border border-rose-200 text-xs font-bold flex items-center gap-1 shadow-xs">
+<span class="material-symbols-outlined text-[13px]">emergency</span> Prioridade Alta
+                      </span>
+<span class="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">cloud_off</span> Sem Nuvem
+                      </span>
+</div>
+<p class="text-xs text-cozy-plumMuted flex items-center gap-1.5 truncate">
+<span>Game Freak • Emulador mGBA v0.10</span>
+<span class="text-cozy-plumLight">•</span>
+<span class="px-2 py-0.2 rounded-md bg-cozy-lilacSoft text-cozy-lilacDark font-mono text-[11px]">Emulador Local</span>
+</p>
+<div class="flex items-center gap-1.5 text-cozy-plumLight font-mono text-xs max-w-full">
+<span class="material-symbols-outlined text-[14px] text-cozy-plumLight flex-shrink-0">folder</span>
+<span class="truncate max-w-[240px] sm:max-w-sm hover:text-cozy-plum transition-colors cursor-pointer select-all">D:\Emulators\mGBA\saves\pokemon_emerald.sav</span>
+<button class="p-0.5 rounded hover:bg-cozy-almond text-cozy-plumMuted hover:text-cozy-plum transition-colors flex-shrink-0" title="Abrir pasta no Windows Explorer">
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-5 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-cozy-border/50">
+<div class="flex flex-col md:items-end gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plum font-mono text-xs font-bold">32 versões</span>
+<span class="text-cozy-plumMuted text-xs">• 128 KB</span>
+</div>
+<span class="text-cozy-plumMuted text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-cozy-lilac">schedule</span> há 1 hora
+                    </span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none" title="Backup automático em tempo real">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-cozy-almond peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all after:shadow-sm peer-checked:bg-emerald-400"></div>
+</label>
+<div class="flex items-center gap-1.5">
+<button class="w-9 h-9 rounded-2xl bg-cozy-sageSoft text-emerald-700 hover:bg-emerald-200 border border-emerald-200 transition-all flex items-center justify-center shadow-xs" title="Fazer backup imediato">
+<span class="material-symbols-outlined text-[18px]">save</span>
+</button>
+<button class="w-9 h-9 rounded-2xl bg-[#FAF7F2] text-cozy-plumMuted hover:bg-cozy-almond hover:text-cozy-plum border border-cozy-border transition-all flex items-center justify-center" title="Histórico de versões e restauração">
+<span class="material-symbols-outlined text-[18px]">restore</span>
+</button>
+</div>
+</div>
+</div>
+<!-- GAME CARD 3: Elden Ring: Shadow of the Erdtree -->
+<div class="game-item rounded-3xl bg-white hover:bg-cozy-cream p-4 sm:p-5 border border-cozy-border hover:border-emerald-200 transition-all cozy-card-shadow group flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-4 min-w-0">
+<div class="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden flex-shrink-0 bg-cozy-almond border border-cozy-border shadow-inner">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Dramatic fantasy concept art of Elden Ring with a golden Erdtree glowing softly against a dark shattered landscape with a knight looking up at the sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjCtBWF-qaEwb7Xo32GI_GFECU03ybNIgsYR7ascRD8LCLDcgzCYUZzYT7Iz0S6LaEKt1nsHPJtkwHkhnp3QCd0i2qkww2w2RE6J-_CupcnCSrQnGLjffTYxFE41h-pspOBRqNUXMEmwdG00wM1uyWB1GGeCSm9BWxBoaX3_405bM6XLbjc9lbcq0sz77wlyRQwX-f9qZGPr6-Ko3j1XAIpCCsJIt_d2MISkpvwyJGagU8lBlKQnQkgraQVQj29SI3onAgbdocMWPL"/>
+<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-md bg-white/90 text-cozy-skyDark font-mono text-[9px] font-bold shadow-xs">Steam</span>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="font-heading text-base sm:text-lg text-cozy-plum font-extrabold truncate">Elden Ring: Shadow of the Erdtree</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plumMuted text-xs font-semibold">
+                        Prioridade Média
+                      </span>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-skySoft text-cozy-skyDark border border-cozy-sky/40 text-xs font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]" style="font-variation-settings: 'FILL' 1;">cloud_done</span> Steam Cloud
+                      </span>
+</div>
+<p class="text-xs text-cozy-plumMuted flex items-center gap-1.5 truncate">
+<span>FromSoftware • 2022/2024</span>
+<span class="text-cozy-plumLight">•</span>
+<span class="px-2 py-0.2 rounded-md bg-cozy-almond text-cozy-plum font-mono text-[11px]">Steam AppID 1245620</span>
+</p>
+<div class="flex items-center gap-1.5 text-cozy-plumLight font-mono text-xs max-w-full">
+<span class="material-symbols-outlined text-[14px] text-cozy-plumLight flex-shrink-0">folder</span>
+<span class="truncate max-w-[240px] sm:max-w-sm hover:text-cozy-plum transition-colors cursor-pointer select-all">%APPDATA%/EldenRing/76561198084221980/ER0000.sl2</span>
+<button class="p-0.5 rounded hover:bg-cozy-almond text-cozy-plumMuted hover:text-cozy-plum transition-colors flex-shrink-0" title="Abrir pasta no Windows Explorer">
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-5 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-cozy-border/50">
+<div class="flex flex-col md:items-end gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plum font-mono text-xs font-bold">24 versões</span>
+<span class="text-cozy-plumMuted text-xs">• 18.4 MB</span>
+</div>
+<span class="text-emerald-700 font-bold text-xs flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> há 4 min
+                    </span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none" title="Backup automático em tempo real">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-cozy-almond peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all after:shadow-sm peer-checked:bg-emerald-400"></div>
+</label>
+<div class="flex items-center gap-1.5">
+<button class="w-9 h-9 rounded-2xl bg-cozy-sageSoft text-emerald-700 hover:bg-emerald-200 border border-emerald-200 transition-all flex items-center justify-center shadow-xs" title="Fazer backup imediato">
+<span class="material-symbols-outlined text-[18px]">save</span>
+</button>
+<button class="w-9 h-9 rounded-2xl bg-[#FAF7F2] text-cozy-plumMuted hover:bg-cozy-almond hover:text-cozy-plum border border-cozy-border transition-all flex items-center justify-center" title="Histórico de versões e restauração">
+<span class="material-symbols-outlined text-[18px]">restore</span>
+</button>
+</div>
+</div>
+</div>
+<!-- GAME CARD 4: Baldur's Gate 3 -->
+<div class="game-item rounded-3xl bg-white hover:bg-cozy-cream p-4 sm:p-5 border border-cozy-border hover:border-cozy-lilac transition-all cozy-card-shadow group flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-4 min-w-0">
+<div class="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden flex-shrink-0 bg-cozy-almond border border-cozy-border shadow-inner">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="High fantasy cinematic wallpaper of Baldurs Gate 3 showing an illithid mind flayer parasite silhouette against a dark cosmic purple sky with glowing runes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVD1k5oLqXo5EF5nMIdsdxeK17NUdGBXxIImCzF0i_rfBlhE8cKHgtwsD5QygJWjMhRHUB1AFcA2ZAzsuLF3W_nNC2f2gzb1z8JO7cd0pfLlvisc2pGUwAXEI5BQhFOJLqhQqQyH2JxKr6NIsaxxkFHsG_5Xo48kEe_oOGghn3OPFW558QQd44mhOi5Zgmyvck5XWZlGRpOvRfWKPIhyZeOlRlLIHapyGgI4-r4-JdQiyZaTURUsNdBWSFApAYsTvFqil4H3aIWvW9"/>
+<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-md bg-white/90 text-cozy-lilacDark font-mono text-[9px] font-bold shadow-xs">GOG</span>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="font-heading text-base sm:text-lg text-cozy-plum font-extrabold truncate">Baldur's Gate 3</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plumMuted text-xs font-semibold">
+                        Prioridade Média
+                      </span>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-lilacSoft text-cozy-lilacDark border border-cozy-lilac/40 text-xs font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">cloud_done</span> GOG Cloud
+                      </span>
+</div>
+<p class="text-xs text-cozy-plumMuted flex items-center gap-1.5 truncate">
+<span>Larian Studios • 2023</span>
+<span class="text-cozy-plumLight">•</span>
+<span class="px-2 py-0.2 rounded-md bg-cozy-almond text-cozy-plum font-mono text-[11px]">GOG Galaxy</span>
+</p>
+<div class="flex items-center gap-1.5 text-cozy-plumLight font-mono text-xs max-w-full">
+<span class="material-symbols-outlined text-[14px] text-cozy-plumLight flex-shrink-0">folder</span>
+<span class="truncate max-w-[240px] sm:max-w-sm hover:text-cozy-plum transition-colors cursor-pointer select-all">%LOCALAPPDATA%/Larian Studios/Baldur's Gate 3/PlayerProfiles/</span>
+<button class="p-0.5 rounded hover:bg-cozy-almond text-cozy-plumMuted hover:text-cozy-plum transition-colors flex-shrink-0" title="Abrir pasta no Windows Explorer">
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-5 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-cozy-border/50">
+<div class="flex flex-col md:items-end gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plum font-mono text-xs font-bold">14 versões</span>
+<span class="text-cozy-plumMuted text-xs">• 420 MB</span>
+</div>
+<span class="text-cozy-plumMuted text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-cozy-lilac">schedule</span> há 2 horas
+                    </span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none" title="Backup automático em tempo real">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-cozy-almond peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all after:shadow-sm peer-checked:bg-emerald-400"></div>
+</label>
+<div class="flex items-center gap-1.5">
+<button class="w-9 h-9 rounded-2xl bg-cozy-sageSoft text-emerald-700 hover:bg-emerald-200 border border-emerald-200 transition-all flex items-center justify-center shadow-xs" title="Fazer backup imediato">
+<span class="material-symbols-outlined text-[18px]">save</span>
+</button>
+<button class="w-9 h-9 rounded-2xl bg-[#FAF7F2] text-cozy-plumMuted hover:bg-cozy-almond hover:text-cozy-plum border border-cozy-border transition-all flex items-center justify-center" title="Histórico de versões e restauração">
+<span class="material-symbols-outlined text-[18px]">restore</span>
+</button>
+</div>
+</div>
+</div>
+<!-- GAME CARD 5: Hades II -->
+<div class="game-item rounded-3xl bg-white hover:bg-cozy-cream p-4 sm:p-5 border border-cozy-border hover:border-cozy-peach transition-all cozy-card-shadow group flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-4 min-w-0">
+<div class="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden flex-shrink-0 bg-cozy-almond border border-cozy-border shadow-inner">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Greek mythological rogue-like illustration of Hades 2 featuring Melinoe surrounded by witch flames and ghostly green spectral energy in an underworld chamber" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuHR1xsTiR2aO1IsJhXDv_ULS-aiw2HGoRLxNWoHqOolILkJmNF4yCEsuCrowMLEbLbac97vooPb3wwe3HwYdMcRFwyWKfo89l9WsWvqZSdS9MK63qns2aJmGEjDGqPzh-8cz6TC6pPDhAxtruXQ_j2X99NcC8oajcYbY_gWllnW-bRWDCFzSoERvDds5_4va5w9MAZfTXnJvJpGFatNngBu8IM0Bv38NI9btVCM_0rOJr1T1XRXa_cxy_Y4BUpQeYkz7Ba_nTM2Rh"/>
+<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-md bg-white/90 text-cozy-peachDark font-mono text-[9px] font-bold shadow-xs">Epic</span>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="font-heading text-base sm:text-lg text-cozy-plum font-extrabold truncate">Hades II</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plumMuted text-xs font-semibold">
+                        Prioridade Baixa
+                      </span>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-peachSoft text-cozy-peachDark border border-cozy-peach/40 text-xs font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">cloud_done</span> Epic Cloud
+                      </span>
+</div>
+<p class="text-xs text-cozy-plumMuted flex items-center gap-1.5 truncate">
+<span>Supergiant Games • 2024</span>
+<span class="text-cozy-plumLight">•</span>
+<span class="px-2 py-0.2 rounded-md bg-cozy-almond text-cozy-plum font-mono text-[11px]">Epic Games Store</span>
+</p>
+<div class="flex items-center gap-1.5 text-cozy-plumLight font-mono text-xs max-w-full">
+<span class="material-symbols-outlined text-[14px] text-cozy-plumLight flex-shrink-0">folder</span>
+<span class="truncate max-w-[240px] sm:max-w-sm hover:text-cozy-plum transition-colors cursor-pointer select-all">%USERPROFILE%/Saved Games/Hades II/</span>
+<button class="p-0.5 rounded hover:bg-cozy-almond text-cozy-plumMuted hover:text-cozy-plum transition-colors flex-shrink-0" title="Abrir pasta no Windows Explorer">
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-5 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-cozy-border/50">
+<div class="flex flex-col md:items-end gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-almond text-cozy-plum font-mono text-xs font-bold">9 versões</span>
+<span class="text-cozy-plumMuted text-xs">• 6.8 MB</span>
+</div>
+<span class="text-cozy-plumMuted text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-cozy-peachDark">schedule</span> Ontem às 21:40
+                    </span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none" title="Backup automático em tempo real">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-cozy-almond peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all after:shadow-sm peer-checked:bg-emerald-400"></div>
+</label>
+<div class="flex items-center gap-1.5">
+<button class="w-9 h-9 rounded-2xl bg-cozy-sageSoft text-emerald-700 hover:bg-emerald-200 border border-emerald-200 transition-all flex items-center justify-center shadow-xs" title="Fazer backup imediato">
+<span class="material-symbols-outlined text-[18px]">save</span>
+</button>
+<button class="w-9 h-9 rounded-2xl bg-[#FAF7F2] text-cozy-plumMuted hover:bg-cozy-almond hover:text-cozy-plum border border-cozy-border transition-all flex items-center justify-center" title="Histórico de versões e restauração">
+<span class="material-symbols-outlined text-[18px]">restore</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Cozy Pagination / Bottom Counter Bar -->
+<div class="flex items-center justify-between p-4 rounded-3xl bg-white/70 border border-cozy-border text-cozy-plumMuted text-xs font-medium">
+<span>Exibindo 5 de 142 jogos monitorados</span>
+<div class="flex items-center gap-2">
+<button class="px-4 py-1.5 rounded-full bg-cozy-almond hover:bg-white text-cozy-plum border border-cozy-border/80 transition-colors font-bold">Carregar mais 20</button>
+<button class="px-4 py-1.5 rounded-full bg-cozy-lilacSoft hover:bg-cozy-lilac/30 text-cozy-lilacDark border border-cozy-lilac/30 transition-colors font-bold">Exibir todos</button>
+</div>
+</div>
+</section>
+<!-- Coluna Direita (4 cols) -->
+<aside class="xl:col-span-4 flex flex-col gap-6">
+<!-- Bloco 1: Atividade Recente (Timeline Doce e Arredondada) -->
+<section class="rounded-3xl bg-white p-5 sm:p-6 border border-cozy-border cozy-card-shadow flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cozy-lilacDark text-[22px]">auto_stories</span>
+<h3 class="font-heading text-lg font-extrabold text-cozy-plum">Atividade Recente</h3>
+</div>
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+</div>
+<!-- Vertical Timeline Items -->
+<div class="relative pl-5 flex flex-col gap-5 before:content-[''] before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-cozy-almond">
+<!-- Item 1 -->
+<div class="relative flex flex-col gap-1">
+<span class="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-emerald-400 ring-4 ring-white border border-emerald-500"></span>
+<div class="flex items-baseline justify-between gap-2">
+<span class="font-heading text-sm font-extrabold text-cozy-plum">Elden Ring</span>
+<span class="font-mono text-[11px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">há 5 min</span>
+</div>
+<p class="text-xs text-cozy-plumMuted leading-relaxed">
+                    Jogo encerrado. Backup de <span class="text-cozy-plum font-bold">18.4 MB</span> criado e espelhado com sucesso no <span class="text-cozy-skyDark font-bold">OneDrive</span>.
+                  </p>
+</div>
+<!-- Item 2 -->
+<div class="relative flex flex-col gap-1">
+<span class="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-cozy-pink ring-4 ring-white border border-pink-400"></span>
+<div class="flex items-baseline justify-between gap-2">
+<span class="font-heading text-sm font-extrabold text-cozy-plum">Hollow Knight</span>
+<span class="font-mono text-[11px] text-cozy-plumLight">há 42 min</span>
+</div>
+<p class="text-xs text-cozy-plumMuted leading-relaxed">
+                    Arquivos de progresso modificados localmente. Snapshot delta protegido (novo slot salvo).
+                  </p>
+</div>
+<!-- Item 3 -->
+<div class="relative flex flex-col gap-1">
+<span class="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-cozy-lilac ring-4 ring-white border border-purple-400"></span>
+<div class="flex items-baseline justify-between gap-2">
+<span class="font-heading text-sm font-extrabold text-cozy-plum">Baldur's Gate 3</span>
+<span class="font-mono text-[11px] text-cozy-plumLight">há 2 horas</span>
+</div>
+<p class="text-xs text-cozy-plumMuted leading-relaxed">
+                    Nova versão <span class="text-cozy-plum font-mono text-[11px] font-bold bg-cozy-almond px-1 rounded">#14</span> salva localmente. Compressão LZ4 reduziu de 1.1 GB para 420 MB.
+                  </p>
+</div>
+</div>
+<button class="mt-1 w-full py-2.5 rounded-2xl bg-[#FAF7F2] hover:bg-cozy-almond text-cozy-plum font-heading text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 border border-cozy-border">
+<span>Ver histórico completo de atividades</span>
+<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+</button>
+</section>
+<!-- Bloco 2: Provedores de Nuvem & Destinos -->
+<section class="rounded-3xl bg-white p-5 sm:p-6 border border-cozy-border cozy-card-shadow flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cozy-skyDark text-[22px]">cloud_sync</span>
+<h3 class="font-heading text-lg font-extrabold text-cozy-plum">Provedores de Nuvem</h3>
+</div>
+<button class="text-cozy-plumLight hover:text-cozy-plum p-1 rounded-full" title="Gerenciar destinos">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+</div>
+<div class="flex flex-col gap-3">
+<!-- OneDrive -->
+<div class="p-3.5 rounded-2xl bg-[#FAF7F2] border border-cozy-border/70 flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#38bdf8] text-[20px]">cloud</span>
+<span class="font-heading text-sm font-bold text-cozy-plum">OneDrive</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Conectado
+                    </span>
+</div>
+<!-- Pastel Progress Bar -->
+<div class="w-full bg-cozy-almond rounded-full h-2 overflow-hidden mt-0.5">
+<div class="bg-gradient-to-r from-cozy-sage via-cozy-sky to-[#38bdf8] h-full rounded-full" style="width: 12.4%;"></div>
+</div>
+<div class="flex items-center justify-between text-cozy-plumMuted font-mono text-[11px]">
+<span>12,4 GB usados</span>
+<span>100 GB totais</span>
+</div>
+</div>
+<!-- Google Drive -->
+<div class="p-3.5 rounded-2xl bg-[#FAF7F2] border border-cozy-border/70 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-emerald-600 text-[20px]">add_to_drive</span>
+<div class="flex flex-col">
+<span class="font-heading text-sm font-bold text-cozy-plum">Google Drive</span>
+<span class="text-xs text-cozy-plumMuted">Backup secundário ativo</span>
+</div>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-cozy-sageSoft text-emerald-700 border border-cozy-sage/40 text-[11px] font-bold">
+                    Espelho OK
+                  </span>
+</div>
+<!-- Dropbox (Desconectado) -->
+<div class="p-3.5 rounded-2xl bg-[#FAF7F2] border border-cozy-border/70 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 opacity-75">
+<span class="material-symbols-outlined text-cozy-plumLight text-[20px]">cloud_queue</span>
+<div class="flex flex-col">
+<span class="font-heading text-sm font-bold text-cozy-plum">Dropbox</span>
+<span class="text-xs text-cozy-plumLight">Não vinculado</span>
+</div>
+</div>
+<button class="px-3 py-1 rounded-full bg-white hover:bg-cozy-lilacSoft text-cozy-lilacDark border border-cozy-border hover:border-cozy-lilac font-heading text-xs font-bold transition-colors">
+                    Conectar
+                  </button>
+</div>
+<!-- Local Vault (HD Externo / Partição) -->
+<div class="p-3.5 rounded-2xl bg-[#FAF7F2] border border-cozy-border/70 flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-cozy-lilacDark text-[20px]">hard_drive_2</span>
+<div class="flex flex-col">
+<span class="font-heading text-sm font-bold text-cozy-plum">SaveVault Offline</span>
+<span class="font-mono text-[11px] text-cozy-plumLight">D:\SaveVault\</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-mono text-xs text-cozy-lilacDark font-bold block">842 GB livres</span>
+<span class="text-[11px] text-cozy-plumMuted">NVMe Externo</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bloco 3: Dica Gamer & Integridade de Arquivos -->
+<section class="rounded-3xl bg-gradient-to-br from-cozy-sageSoft/70 via-white to-cozy-peachSoft/40 p-5 sm:p-6 border border-cozy-sage/40 cozy-card-shadow flex flex-col gap-2.5">
+<div class="flex items-center gap-2 text-emerald-700">
+<span class="material-symbols-outlined text-[22px]">verified</span>
+<span class="font-heading text-sm sm:text-base font-extrabold text-cozy-plum">Integridade 100% Garantida</span>
+</div>
+<p class="text-xs text-cozy-plumMuted leading-relaxed">
+<strong class="text-emerald-800">Zero corrupções detectadas</strong> em 284 backups analisados. O algoritmo de checksum SHA-256 valida cada gravação antes de substituir qualquer arquivo mestre.
+              </p>
+<div class="pt-2 flex items-center justify-between text-cozy-plumLight font-mono text-[11px] border-t border-emerald-100/80">
+<span>Último check: Hoje às 14:15</span>
+<button class="text-cozy-lilacDark font-bold hover:underline cursor-pointer">Verificar agora</button>
+</div>
+</section>
+</aside>
+</div>
+</div>
+<!-- Simple interactive client-side behaviors for desktop feedback -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+          // Scan PC button effect
+          const scanBtn = document.getElementById('scanPcBtn');
+          if (scanBtn) {
+            scanBtn.addEventListener('click', () => {
+              const originalContent = scanBtn.innerHTML;
+              scanBtn.innerHTML = `
+                <span class="material-symbols-outlined text-[20px] animate-spin">autorenew</span>
+                <span>Escaneando diretórios...</span>
+              `;
+              setTimeout(() => {
+                scanBtn.innerHTML = originalContent;
+              }, 1600);
+            });
+          }
+
+          // Force Sync button feedback
+          const syncBtn = document.getElementById('forceSyncBtn');
+          if (syncBtn) {
+            syncBtn.addEventListener('click', () => {
+              const originalContent = syncBtn.innerHTML;
+              syncBtn.innerHTML = `
+                <span class="material-symbols-outlined text-[20px] animate-spin text-cozy-lilacDark">sync</span>
+                <span>Sincronizando com nuvens...</span>
+              `;
+              setTimeout(() => {
+                syncBtn.innerHTML = `
+                  <span class="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+                  <span class="text-emerald-700">Tudo atualizado! ✨</span>
+                `;
+                setTimeout(() => {
+                  syncBtn.innerHTML = originalContent;
+                }, 1400);
+              }, 1200);
+            });
+          }
+
+          // Interactive search filtering
+          const searchInput = document.getElementById('gameSearchInput');
+          const gameItems = document.querySelectorAll('.game-item');
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+              const term = e.target.value.toLowerCase();
+              gameItems.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.style.display = text.includes(term) ? 'flex' : 'none';
+              });
+            });
+          }
+
+          // Filter pill toggles
+          const filterPills = document.querySelectorAll('.filter-pill');
+          filterPills.forEach(pill => {
+            pill.addEventListener('click', () => {
+              filterPills.forEach(p => {
+                p.classList.remove('bg-gradient-to-r', 'from-cozy-lilacSoft', 'to-cozy-pinkSoft', 'text-cozy-lilacDark', 'border-cozy-lilac/40', 'shadow-sm');
+                p.classList.add('bg-[#FAF7F2]', 'text-cozy-plumMuted', 'border-cozy-border');
+              });
+              pill.classList.remove('bg-[#FAF7F2]', 'text-cozy-plumMuted', 'border-cozy-border');
+              pill.classList.add('bg-gradient-to-r', 'from-cozy-lilacSoft', 'to-cozy-pinkSoft', 'text-cozy-lilacDark', 'border-cozy-lilac/40', 'shadow-sm');
+            });
+          });
+        });
+      </script>
+</main>
+</div>
+</body></html>

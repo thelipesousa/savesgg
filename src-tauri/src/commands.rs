@@ -88,46 +88,14 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
     };
     let result = core_scan(&ctx, &manifest, &installed, &opts);
     let dests = list_destinations(&cfg);
-    let hist = history(&dests);
-    let sync = detect_sync_roots();
-    let now = Utc::now();
-    let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
-    let mut pairs: Vec<_> = result
-        .games
-        .iter()
-        .filter(visible)
-        .map(|g| (g.clone(), assess(g, &sync, &hist, now)))
-        .collect();
-    sort_for_display(&mut pairs);
-    let mut views: Vec<GameView> = pairs
-        .iter()
-        .map(|(g, a)| {
-            game_view(
-                g,
-                a,
-                &ctx,
-                hist.last_backup(&g.id),
-                false,
-                cfg.confirmed_games.contains(&g.id),
-            )
-        })
-        .collect();
-    for g in result.over_limit.iter().filter(visible) {
-        let a = assess(g, &sync, &hist, now);
-        views.push(game_view(
-            g,
-            &a,
-            &ctx,
-            hist.last_backup(&g.id),
-            true,
-            cfg.confirmed_games.contains(&g.id),
-        ));
-    }
-    let risk_ids: std::collections::BTreeSet<String> = views
-        .iter()
-        .filter(|v| !v.grande && v.priority == saveguard_core::protection::Priority::Alta)
-        .map(|v| v.id.clone())
-        .collect();
+    let (views, risk_ids) = make_views(
+        &result,
+        &ctx,
+        &cfg,
+        &history(&dests),
+        &detect_sync_roots(),
+        Utc::now(),
+    );
     let at_risk = risk_ids.len();
     *state.at_risk_ids.lock().unwrap_or_else(|e| e.into_inner()) = risk_ids;
     *state.last_scan.lock().unwrap_or_else(|e| e.into_inner()) =
@@ -141,6 +109,86 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
         .unwrap_or_else(|e| e.into_inner())
         .at_risk = at_risk;
     Ok(views)
+}
+
+/// Monta a lista da tela a partir de uma varredura, com a configuração (jogos
+/// descartados/confirmados) e o histórico de backups de agora. Devolve também os
+/// jogos sem cópia fora do PC.
+pub fn make_views(
+    result: &saveguard_core::scan::ScanResult,
+    ctx: &saveguard_core::paths::PathContext,
+    cfg: &saveguard_core::config::Config,
+    hist: &dyn BackupHistory,
+    sync: &[saveguard_core::sync_folders::SyncRoot],
+    now: DateTime<Utc>,
+) -> (Vec<GameView>, std::collections::BTreeSet<String>) {
+    let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
+    let mut pairs: Vec<_> = result
+        .games
+        .iter()
+        .filter(visible)
+        .map(|g| (g.clone(), assess(g, sync, hist, now)))
+        .collect();
+    sort_for_display(&mut pairs);
+    let mut views: Vec<GameView> = pairs
+        .iter()
+        .map(|(g, a)| {
+            game_view(
+                g,
+                a,
+                ctx,
+                hist.last_backup(&g.id),
+                false,
+                cfg.confirmed_games.contains(&g.id),
+            )
+        })
+        .collect();
+    for g in result.over_limit.iter().filter(visible) {
+        let a = assess(g, sync, hist, now);
+        views.push(game_view(
+            g,
+            &a,
+            ctx,
+            hist.last_backup(&g.id),
+            true,
+            cfg.confirmed_games.contains(&g.id),
+        ));
+    }
+    let risk = views
+        .iter()
+        .filter(|v| !v.grande && v.priority == saveguard_core::protection::Priority::Alta)
+        .map(|v| v.id.clone())
+        .collect();
+    (views, risk)
+}
+
+/// Lista da última varredura (a do motor ao abrir o app), sem escanear o disco de novo,
+/// mas recalculada com a configuração e os backups de agora (descartes, backups feitos).
+#[tauri::command]
+pub async fn cached_scan(app: tauri::AppHandle) -> Res<Option<Vec<GameView>>> {
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let Some(data) = state
+            .last_scan
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+        else {
+            return Ok(None);
+        };
+        let cfg = state.config();
+        let dests = list_destinations(&cfg);
+        let (views, _) = make_views(
+            &data.result,
+            &data.ctx,
+            &cfg,
+            &history(&dests),
+            &detect_sync_roots(),
+            Utc::now(),
+        );
+        Ok(Some(views))
+    })
+    .await
 }
 
 /// Varre o PC e devolve os jogos já ordenados por prioridade.
@@ -435,16 +483,48 @@ pub struct SettingsView {
     pub autostart: bool,
     pub auto_paused: bool,
     pub keep_versions: usize,
+    pub theme: String,
+    pub game_view: String,
+    pub wizard_done: bool,
+}
+
+/// Aceita só valores de uma lista fechada (tema, exibição).
+pub fn validate_choice(value: &str, allowed: &[&str]) -> Res<String> {
+    allowed
+        .iter()
+        .find(|a| **a == value)
+        .map(|a| a.to_string())
+        .ok_or_else(|| format!("opção inválida: {value}"))
+}
+
+#[tauri::command]
+pub fn set_theme(state: State<'_, AppState>, theme: String) -> Res<()> {
+    let t = validate_choice(&theme, &saveguard_core::config::TEMAS)?;
+    state.update_config(|c| c.theme = t)
+}
+
+#[tauri::command]
+pub fn set_game_view(state: State<'_, AppState>, view: String) -> Res<()> {
+    let v = validate_choice(&view, &saveguard_core::config::EXIBICOES)?;
+    state.update_config(|c| c.game_view = v)
+}
+
+#[tauri::command]
+pub fn complete_wizard(state: State<'_, AppState>) -> Res<()> {
+    state.update_config(|c| c.wizard_done = true)
 }
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> SettingsView {
     let c = state.config();
     SettingsView {
-        auto_destinations: c.auto_destinations,
+        auto_destinations: c.auto_destinations.clone(),
         autostart: c.autostart,
         auto_paused: c.auto_paused,
         keep_versions: c.keep_versions,
+        theme: c.theme_or_default().to_string(),
+        game_view: c.game_view_or_default().to_string(),
+        wizard_done: c.wizard_done,
     }
 }
 
@@ -488,4 +568,65 @@ pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Hist(Option<DateTime<Utc>>);
+    impl BackupHistory for Hist {
+        fn last_backup(&self, id: &str) -> Option<DateTime<Utc>> {
+            if id == "a" { self.0 } else { None }
+        }
+    }
+
+    fn jogo(id: &str) -> saveguard_core::scan::DetectedGame {
+        saveguard_core::scan::DetectedGame {
+            id: id.into(),
+            name: id.into(),
+            store: saveguard_core::manifest::Store::SemLoja,
+            save_roots: vec![],
+            files: vec![],
+            total_bytes: 0,
+            cloud: Default::default(),
+            source: saveguard_core::scan::Source::Manifesto,
+            exe_hint: None,
+            base: None,
+            root: None,
+            store_game_id: None,
+            patterns: vec![],
+            steam_app_id: None,
+        }
+    }
+
+    #[test]
+    fn lista_reflete_config_e_backups_de_agora() {
+        let result = saveguard_core::scan::ScanResult {
+            games: vec![jogo("a"), jogo("b"), jogo("descartado")],
+            over_limit: vec![],
+        };
+        let cfg = saveguard_core::config::Config {
+            ignored_games: vec!["descartado".into()],
+            ..Default::default()
+        };
+        let ctx = saveguard_core::paths::PathContext::from_system();
+        let agora = Utc::now();
+        let (views, risco) = make_views(&result, &ctx, &cfg, &Hist(Some(agora)), &[], agora);
+        let ids: Vec<_> = views.iter().map(|v| v.id.as_str()).collect();
+        assert!(!ids.contains(&"descartado"), "{ids:?}");
+        let a = views.iter().find(|v| v.id == "a").unwrap();
+        assert!(a.last_backup.is_some());
+        assert_eq!(a.priority, saveguard_core::protection::Priority::Baixa);
+        assert!(!risco.contains("a") && risco.contains("b"));
+    }
+
+    #[test]
+    fn valida_tema_e_exibicao() {
+        use saveguard_core::config::{EXIBICOES, TEMAS};
+        assert!(validate_choice("pastel", &TEMAS).is_ok());
+        assert!(validate_choice("azul", &TEMAS).is_err());
+        assert!(validate_choice("grade", &EXIBICOES).is_ok());
+        assert!(validate_choice("", &EXIBICOES).is_err());
+    }
 }
