@@ -6,6 +6,7 @@
   import type { AutoStatusView } from "../lib/types";
   import GameRow from "../components/GameRow.svelte";
   import GameCard from "../components/GameCard.svelte";
+  import AdicionarJogo from "../components/AdicionarJogo.svelte";
   import InicioConsole from "../components/InicioConsole.svelte";
   import DestinationPicker from "../components/DestinationPicker.svelte";
   import StatusAutomatico from "../components/StatusAutomatico.svelte";
@@ -138,6 +139,18 @@
     }
   }
 
+  let adicionando = $state(false);
+
+  async function removerManual(id: string) {
+    try {
+      await api.removeManualGame(id);
+      games = games.filter((g) => g.id !== id);
+      selected = selected.filter((s) => s !== id);
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
+
   const nomeDe = (id: string) => games.find((g) => g.id === id)?.name ?? id;
   const criados = $derived(resultado?.filter((r) => r.status === "criado").length ?? 0);
   const iguais = $derived(resultado?.filter((r) => r.status === "sem_mudanca").length ?? 0);
@@ -167,6 +180,22 @@
 
 {#if erro}
   <p class="erro" role="alert">{erro}</p>
+{/if}
+
+<div class="linha-adicionar">
+  {#if !adicionando}
+    <button type="button" class="botao-secundario" onclick={() => (adicionando = true)}>Adicionar jogo</button>
+  {/if}
+</div>
+{#if adicionando}
+  <AdicionarJogo
+    onadicionado={(lista) => {
+      games = lista;
+      scanned = true;
+      adicionando = false;
+    }}
+    onfechar={() => (adicionando = false)}
+  />
 {/if}
 
 {#if copiando}
@@ -225,14 +254,14 @@
     <ul class="grade">
       {#each normais as g (g.id)}
         <GameCard game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
-          onconfirm={(keep) => confirmar(g.id, keep)} />
+          onconfirm={(keep) => confirmar(g.id, keep)} onremove={() => removerManual(g.id)} />
       {/each}
     </ul>
   {:else}
     <ul class="lista">
       {#each normais as g (g.id)}
         <GameRow game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
-          onconfirm={(keep) => confirmar(g.id, keep)} />
+          onconfirm={(keep) => confirmar(g.id, keep)} onremove={() => removerManual(g.id)} />
       {/each}
     </ul>
   {/if}
@@ -256,6 +285,11 @@
 {/if}
 
 <style>
+  .linha-adicionar {
+    display: flex;
+    justify-content: flex-end;
+    margin: 8px 0;
+  }
   .banner {
     display: flex;
     align-items: center;

@@ -110,3 +110,8 @@ export interface LoteItemView {
   game_name: string;
   resultado: LoteResultado;
 }
+
+export interface IgnoredView {
+  id: string;
+  name: string;
+}
