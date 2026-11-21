@@ -8,7 +8,7 @@ const dests: Destination[] = [
     id: "sync:c:/users/ana/onedrive",
     label: "OneDrive",
     kind: { tipo: "pasta_sincronizada", provedor: "one_drive" },
-    root: "C:/Users/Ana/OneDrive/SaveGuard Backups",
+    root: "C:/Users/Ana/OneDrive/SavesGG Backups",
     available: true,
     free_bytes: null,
     has_backup: false,

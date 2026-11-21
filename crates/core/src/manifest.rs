@@ -189,11 +189,11 @@ mod tests {
         assert_eq!(m.games["Jogo"].save_paths_for(None), vec!["<base>/s.sav"]);
     }
 
-    /// Lê o manifesto completo: `SAVEGUARD_MANIFEST=<arquivo> cargo test -- --ignored`.
+    /// Lê o manifesto completo: `SAVESGG_MANIFEST=<arquivo> cargo test -- --ignored`.
     #[test]
     #[ignore]
     fn parse_manifesto_real() {
-        let path = std::env::var("SAVEGUARD_MANIFEST").expect("defina SAVEGUARD_MANIFEST");
+        let path = std::env::var("SAVESGG_MANIFEST").expect("defina SAVESGG_MANIFEST");
         let t = std::time::Instant::now();
         let m = parse(&std::fs::read_to_string(path).unwrap()).unwrap();
         eprintln!("{} jogos em {:?}", m.games.len(), t.elapsed());

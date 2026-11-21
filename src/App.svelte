@@ -38,7 +38,7 @@
 {:else}
 <div class="app">
   <nav class="lateral" aria-label="Menu principal">
-    <h1 class="marca">🛡️ SaveGuard</h1>
+    <h1 class="marca">🛡️ SavesGG</h1>
     <ul>
       {#each menu as m (m.id)}
         <li>

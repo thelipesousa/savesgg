@@ -73,7 +73,7 @@ pub fn tray_icon_rgba(state: TrayState) -> (Vec<u8>, u32, u32) {
 }
 
 pub fn tray_tooltip(s: &AutoStatusView) -> String {
-    let base = "SaveGuard — ";
+    let base = "SavesGG — ";
     if s.paused {
         return format!("{base}backup automático pausado");
     }
@@ -117,7 +117,7 @@ fn menu(app: &AppHandle, s: &AutoStatusView) -> tauri::Result<Menu<tauri::Wry>> 
     m.append(&MenuItem::with_id(
         app,
         "abrir",
-        "Abrir SaveGuard",
+        "Abrir SavesGG",
         true,
         None::<&str>,
     )?)?;
@@ -173,7 +173,7 @@ fn on_menu(app: &AppHandle, id: &str) {
                         "Todos os saves foram copiados.".to_string()
                     } else {
                         format!(
-                            "{erros} jogo(s) não puderam ser copiados. Abra o SaveGuard para ver."
+                            "{erros} jogo(s) não puderam ser copiados. Abra o SavesGG para ver."
                         )
                     };
                     crate::notify_user(&app, "Cópia para o disco", &msg);

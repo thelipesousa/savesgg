@@ -1,8 +1,8 @@
 //! Fila de pendentes: backups automáticos feitos enquanto o destino estava fora
 //! (pendrive desplugado, pasta da nuvem sumida) e enviados quando ele volta.
 //!
-//! Cada destino tem uma pasta própria em `%LOCALAPPDATA%\SaveGuard\pendentes\<hash>`,
-//! com o mesmo formato de um destino normal (`SaveGuard\<jogo>\<versão>.zip/.json`).
+//! Cada destino tem uma pasta própria em `%LOCALAPPDATA%\SavesGG\pendentes\<hash>`,
+//! com o mesmo formato de um destino normal (`SavesGG\<jogo>\<versão>.zip/.json`).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ pub fn pending_root(base: &Path, destination_id: &str) -> PathBuf {
     base.join(&blake3::hash(destination_id.as_bytes()).to_hex()[..16])
 }
 
-/// Versões completas (`.zip` com `.json`) de uma pasta `SaveGuard`.
+/// Versões completas (`.zip` com `.json`) de uma pasta `SavesGG`.
 pub(crate) fn versions(root: &Path) -> Vec<(String, PathBuf, PathBuf)> {
     let Ok(games) = fs::read_dir(backup_root(root)) else {
         return Vec::new();
@@ -175,10 +175,7 @@ mod tests {
         assert_eq!(flush_pending(&p, &dest).unwrap(), 1);
         let idx = LibraryIndex::load(&dest).unwrap();
         assert!(idx.games["jogo"].iter().any(|x| x.stem == r.stem));
-        assert!(
-            dest.join(format!("SaveGuard/jogo/{}.zip", r.stem))
-                .is_file()
-        );
+        assert!(dest.join(format!("SavesGG/jogo/{}.zip", r.stem)).is_file());
         assert_eq!(pending_count(&p), 0);
     }
 
@@ -191,10 +188,10 @@ mod tests {
         fs::create_dir_all(&dest).unwrap();
         backup_game(&f.game, &f.ctx, &p, 10, now()).unwrap();
         // a mesma versão já chegou ao destino por outro caminho
-        let src = p.join("SaveGuard/jogo");
-        fs::create_dir_all(dest.join("SaveGuard/jogo")).unwrap();
+        let src = p.join("SavesGG/jogo");
+        fs::create_dir_all(dest.join("SavesGG/jogo")).unwrap();
         for e in fs::read_dir(&src).unwrap().flatten() {
-            fs::copy(e.path(), dest.join("SaveGuard/jogo").join(e.file_name())).unwrap();
+            fs::copy(e.path(), dest.join("SavesGG/jogo").join(e.file_name())).unwrap();
         }
         assert_eq!(flush_pending(&p, &dest).unwrap(), 0);
         assert_eq!(pending_count(&p), 0);

@@ -1,4 +1,4 @@
-//! Comandos chamados pela interface. Finos: a lógica fica em `saveguard-core`.
+//! Comandos chamados pela interface. Finos: a lógica fica em `savesgg-core`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -9,18 +9,18 @@ use serde::Serialize;
 use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
-use saveguard_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
-use saveguard_core::destinations::{
+use savesgg_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
+use savesgg_core::destinations::{
     Destination, DestinationKind, counts_as_off_pc, list_destinations,
 };
-use saveguard_core::protection::{BackupHistory, assess, sort_for_display};
-use saveguard_core::restore::{
+use savesgg_core::protection::{BackupHistory, assess, sort_for_display};
+use savesgg_core::restore::{
     RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan,
     resolve_overrides, vars_for,
 };
-use saveguard_core::scan::{ScanOptions, find_emulator_roots, scan as core_scan};
-use saveguard_core::stores::detect_all;
-use saveguard_core::sync_folders::detect_sync_roots;
+use savesgg_core::scan::{ScanOptions, find_emulator_roots, scan as core_scan};
+use savesgg_core::stores::detect_all;
+use savesgg_core::sync_folders::detect_sync_roots;
 
 use crate::manifest_source;
 use crate::state::{AppState, ScanData, current_ctx};
@@ -115,14 +115,14 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
 /// descartados/confirmados) e o histórico de backups de agora. Devolve também os
 /// jogos sem cópia fora do PC.
 pub fn make_views(
-    result: &saveguard_core::scan::ScanResult,
-    ctx: &saveguard_core::paths::PathContext,
-    cfg: &saveguard_core::config::Config,
+    result: &savesgg_core::scan::ScanResult,
+    ctx: &savesgg_core::paths::PathContext,
+    cfg: &savesgg_core::config::Config,
     hist: &dyn BackupHistory,
-    sync: &[saveguard_core::sync_folders::SyncRoot],
+    sync: &[savesgg_core::sync_folders::SyncRoot],
     now: DateTime<Utc>,
 ) -> (Vec<GameView>, std::collections::BTreeSet<String>) {
-    let visible = |g: &&saveguard_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
+    let visible = |g: &&savesgg_core::scan::DetectedGame| !cfg.ignored_games.contains(&g.id);
     let mut pairs: Vec<_> = result
         .games
         .iter()
@@ -156,7 +156,7 @@ pub fn make_views(
     }
     let risk = views
         .iter()
-        .filter(|v| !v.grande && v.priority == saveguard_core::protection::Priority::Alta)
+        .filter(|v| !v.grande && v.priority == savesgg_core::protection::Priority::Alta)
         .map(|v| v.id.clone())
         .collect();
     (views, risk)
@@ -244,7 +244,7 @@ pub struct BackupResultView {
     pub message: Option<String>,
 }
 
-fn find_destinations(cfg: &saveguard_core::config::Config, ids: &[String]) -> Vec<Destination> {
+fn find_destinations(cfg: &savesgg_core::config::Config, ids: &[String]) -> Vec<Destination> {
     list_destinations(cfg)
         .into_iter()
         .filter(|d| ids.contains(&d.id))
@@ -285,7 +285,7 @@ pub fn backup_blocking(
             // o motor automático por minutos.
             let lock = state.locks.lock(&d.id);
             let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
-            let g = saveguard_core::scan::refresh_files(g);
+            let g = savesgg_core::scan::refresh_files(g);
             let r = backup_game(&g, &data.ctx, &d.root, cfg.keep_for(id), Utc::now());
             let (status, message) = match r {
                 Ok(BackupOutcome::Criado(_)) => ("criado", None),
@@ -314,7 +314,7 @@ pub async fn backup_now(
 
 /// Jogos que entram em "copiar tudo": sem os ignorados e sem possíveis saves ou
 /// grandes demais que o usuário ainda não confirmou.
-pub fn all_backup_ids(data: &ScanData, cfg: &saveguard_core::config::Config) -> Vec<String> {
+pub fn all_backup_ids(data: &ScanData, cfg: &savesgg_core::config::Config) -> Vec<String> {
     data.result
         .games
         .iter()
@@ -322,7 +322,7 @@ pub fn all_backup_ids(data: &ScanData, cfg: &saveguard_core::config::Config) -> 
         .filter(|g| !cfg.ignored_games.contains(&g.id))
         .filter(|g| {
             let grande = data.result.over_limit.iter().any(|o| o.id == g.id);
-            let precisa_confirmar = g.source == saveguard_core::scan::Source::Heuristica || grande;
+            let precisa_confirmar = g.source == savesgg_core::scan::Source::Heuristica || grande;
             !precisa_confirmar || cfg.confirmed_games.contains(&g.id)
         })
         .map(|g| g.id.clone())
@@ -499,13 +499,13 @@ pub fn validate_choice(value: &str, allowed: &[&str]) -> Res<String> {
 
 #[tauri::command]
 pub fn set_theme(state: State<'_, AppState>, theme: String) -> Res<()> {
-    let t = validate_choice(&theme, &saveguard_core::config::TEMAS)?;
+    let t = validate_choice(&theme, &savesgg_core::config::TEMAS)?;
     state.update_config(|c| c.theme = t)
 }
 
 #[tauri::command]
 pub fn set_game_view(state: State<'_, AppState>, view: String) -> Res<()> {
-    let v = validate_choice(&view, &saveguard_core::config::EXIBICOES)?;
+    let v = validate_choice(&view, &savesgg_core::config::EXIBICOES)?;
     state.update_config(|c| c.game_view = v)
 }
 
@@ -581,16 +581,16 @@ mod tests {
         }
     }
 
-    fn jogo(id: &str) -> saveguard_core::scan::DetectedGame {
-        saveguard_core::scan::DetectedGame {
+    fn jogo(id: &str) -> savesgg_core::scan::DetectedGame {
+        savesgg_core::scan::DetectedGame {
             id: id.into(),
             name: id.into(),
-            store: saveguard_core::manifest::Store::SemLoja,
+            store: savesgg_core::manifest::Store::SemLoja,
             save_roots: vec![],
             files: vec![],
             total_bytes: 0,
             cloud: Default::default(),
-            source: saveguard_core::scan::Source::Manifesto,
+            source: savesgg_core::scan::Source::Manifesto,
             exe_hint: None,
             base: None,
             root: None,
@@ -602,28 +602,28 @@ mod tests {
 
     #[test]
     fn lista_reflete_config_e_backups_de_agora() {
-        let result = saveguard_core::scan::ScanResult {
+        let result = savesgg_core::scan::ScanResult {
             games: vec![jogo("a"), jogo("b"), jogo("descartado")],
             over_limit: vec![],
         };
-        let cfg = saveguard_core::config::Config {
+        let cfg = savesgg_core::config::Config {
             ignored_games: vec!["descartado".into()],
             ..Default::default()
         };
-        let ctx = saveguard_core::paths::PathContext::from_system();
+        let ctx = savesgg_core::paths::PathContext::from_system();
         let agora = Utc::now();
         let (views, risco) = make_views(&result, &ctx, &cfg, &Hist(Some(agora)), &[], agora);
         let ids: Vec<_> = views.iter().map(|v| v.id.as_str()).collect();
         assert!(!ids.contains(&"descartado"), "{ids:?}");
         let a = views.iter().find(|v| v.id == "a").unwrap();
         assert!(a.last_backup.is_some());
-        assert_eq!(a.priority, saveguard_core::protection::Priority::Baixa);
+        assert_eq!(a.priority, savesgg_core::protection::Priority::Baixa);
         assert!(!risco.contains("a") && risco.contains("b"));
     }
 
     #[test]
     fn valida_tema_e_exibicao() {
-        use saveguard_core::config::{EXIBICOES, TEMAS};
+        use savesgg_core::config::{EXIBICOES, TEMAS};
         assert!(validate_choice("pastel", &TEMAS).is_ok());
         assert!(validate_choice("azul", &TEMAS).is_err());
         assert!(validate_choice("grade", &EXIBICOES).is_ok());

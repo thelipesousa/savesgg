@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use tauri::{AppHandle, Emitter, Manager};
 
-use saveguard_core::destinations::{Destination, DestinationKind};
+use savesgg_core::destinations::{Destination, DestinationKind};
 
 use crate::state::AppState;
 
@@ -49,12 +49,12 @@ impl DriveWatcher {
 pub fn aviso(d: &Destination) -> String {
     if d.has_backup {
         format!(
-            "{} conectado — abra o SaveGuard para atualizar o backup.",
+            "{} conectado — abra o SavesGG para atualizar o backup.",
             d.label
         )
     } else {
         format!(
-            "{} conectado — abra o SaveGuard para copiar seus saves.",
+            "{} conectado — abra o SavesGG para copiar seus saves.",
             d.label
         )
     }
@@ -106,7 +106,7 @@ pub fn poll(app: &AppHandle, dests: &[Destination]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saveguard_core::destinations::{Destination, DestinationKind};
+    use savesgg_core::destinations::{Destination, DestinationKind};
     use std::path::PathBuf;
 
     fn disco(id: &str) -> Destination {

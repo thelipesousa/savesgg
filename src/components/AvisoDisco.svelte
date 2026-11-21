@@ -36,7 +36,7 @@
     {#if resultado}
       <span>{resultado}</span>
     {:else if disco.has_backup}
-      <span class="muted">Ele já tem um backup do SaveGuard. Atualizar com os saves de agora?</span>
+      <span class="muted">Ele já tem um backup do SavesGG. Atualizar com os saves de agora?</span>
     {:else}
       <span class="muted">Copiar todos os saves para ele?</span>
     {/if}

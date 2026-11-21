@@ -12,7 +12,7 @@ use super::snapshot::SnapshotMeta;
 use crate::CoreError;
 use crate::protection::BackupHistory;
 
-pub const PASTA: &str = "SaveGuard";
+pub const PASTA: &str = "SavesGG";
 pub const INDICE: &str = "biblioteca.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl Default for LibraryIndex {
     }
 }
 
-/// `<destino>\SaveGuard`.
+/// `<destino>\SavesGG`.
 pub fn root(dest_root: &Path) -> PathBuf {
     dest_root.join(PASTA)
 }

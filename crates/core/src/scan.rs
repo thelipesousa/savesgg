@@ -1061,11 +1061,11 @@ mod tests {
 
 #[cfg(test)]
 mod pc_real {
-    /// `SAVEGUARD_MANIFEST=<arquivo> cargo test --release -- --ignored varre_pc_real --nocapture`
+    /// `SAVESGG_MANIFEST=<arquivo> cargo test --release -- --ignored varre_pc_real --nocapture`
     #[test]
     #[ignore]
     fn varre_pc_real() {
-        let path = std::env::var("SAVEGUARD_MANIFEST").expect("defina SAVEGUARD_MANIFEST");
+        let path = std::env::var("SAVESGG_MANIFEST").expect("defina SAVESGG_MANIFEST");
         let m = crate::manifest::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
         let ctx = crate::paths::PathContext::from_system();
         let t = std::time::Instant::now();
