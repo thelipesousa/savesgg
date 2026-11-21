@@ -75,6 +75,8 @@ pub struct AutoStatusView {
     pub at_risk: usize,
     pub copying: bool,
     pub last_error: Option<String>,
+    /// Envio de cada conta de nuvem.
+    pub nuvem: Vec<crate::nuvem::StatusNuvem>,
 }
 
 /// Faz o backup de um jogo numa pasta de pendentes do destino que está fora.
@@ -423,7 +425,10 @@ pub fn spawn(app: AppHandle) {
                 }
                 let cfg = state.config();
                 let mask = savesgg_core::destinations::drive_mask();
-                let dest_cfg = (cfg.auto_destinations.clone(), cfg.custom_folders.clone());
+                // As contas de nuvem também mudam a lista de destinos.
+                let mut pastas_e_contas = cfg.custom_folders.clone();
+                pastas_e_contas.extend(cfg.contas_nuvem.iter().map(|c| PathBuf::from(c.destino_id())));
+                let dest_cfg = (cfg.auto_destinations.clone(), pastas_e_contas);
                 let cfg_changed = last_dest_cfg.as_ref() != Some(&dest_cfg);
                 if needs_dest_refresh(last_mask, mask, last_dest_refresh, now_s, cfg_changed) {
                     dests = list_destinations(&cfg);
@@ -461,6 +466,7 @@ pub fn spawn(app: AppHandle) {
                         for o in &out {
                             log::info!("backup automático: {o:?}");
                         }
+                        state.enviador.avisar();
                         let copied = out.iter().any(|o| matches!(o, AutoOutcome::Copiado { .. }));
                         let mut err = None;
                         for o in &out {

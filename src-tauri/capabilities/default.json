@@ -38,6 +38,11 @@
     "allow-remove-manual-game",
     "allow-ignored-games",
     "allow-open-logs-folder",
+    "allow-login-nuvem-disponivel",
+    "allow-entrar-nuvem",
+    "allow-sair-nuvem",
+    "allow-enviar-agora",
+    "allow-atualizar-da-nuvem-cmd",
     "updater:default",
     "process:allow-restart"
   ]
