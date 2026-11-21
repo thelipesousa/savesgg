@@ -3,11 +3,11 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use saveguard_core::manifest::Store;
-use saveguard_core::paths::{PathContext, contract};
-use saveguard_core::protection::{Assessment, Priority, Protection};
-use saveguard_core::scan::{DetectedGame, Source};
-use saveguard_core::sync_folders::SyncProvider;
+use savesgg_core::manifest::Store;
+use savesgg_core::paths::{PathContext, contract};
+use savesgg_core::protection::{Assessment, Priority, Protection};
+use savesgg_core::scan::{DetectedGame, Source};
+use savesgg_core::sync_folders::SyncProvider;
 
 /// Um jogo como a interface mostra. Caminhos vão com marcadores (sem nome de usuário).
 #[derive(Debug, Clone, Serialize)]
@@ -50,7 +50,7 @@ pub fn protection_label(p: &Protection) -> String {
         .to_string(),
         Protection::NuvemNaoConfirmada => "Nuvem não confirmada".to_string(),
         Protection::PastaSincronizada(p) => format!("Pasta do {}", provider_name(*p)),
-        Protection::BackupDoApp(_) => "Backup do SaveGuard".to_string(),
+        Protection::BackupDoApp(_) => "Backup do SavesGG".to_string(),
     }
 }
 
@@ -85,11 +85,11 @@ pub fn game_view(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
-    use saveguard_core::manifest::{CloudFlags, Store};
-    use saveguard_core::paths::PathContext;
-    use saveguard_core::protection::{Assessment, Priority, Protection};
-    use saveguard_core::scan::{DetectedGame, Source};
-    use saveguard_core::sync_folders::SyncProvider;
+    use savesgg_core::manifest::{CloudFlags, Store};
+    use savesgg_core::paths::PathContext;
+    use savesgg_core::protection::{Assessment, Priority, Protection};
+    use savesgg_core::scan::{DetectedGame, Source};
+    use savesgg_core::sync_folders::SyncProvider;
     use std::path::PathBuf;
 
     fn ctx() -> PathContext {
@@ -157,7 +157,7 @@ mod tests {
         );
         assert_eq!(
             protection_label(&Protection::BackupDoApp(d)),
-            "Backup do SaveGuard"
+            "Backup do SavesGG"
         );
     }
 

@@ -70,7 +70,7 @@ pub fn run() {
             commands::cached_scan,
         ])
         .run(tauri::generate_context!())
-        .expect("erro ao iniciar o SaveGuard");
+        .expect("erro ao iniciar o SavesGG");
 }
 
 /// Chamado quando o estado do backup automático muda (a bandeja se atualiza aqui).

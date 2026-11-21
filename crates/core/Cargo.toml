@@ -1,5 +1,5 @@
 [package]
-name = "saveguard-core"
+name = "savesgg-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

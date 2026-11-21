@@ -123,7 +123,7 @@
       {#if erro}<p class="erro" role="alert">{erro}</p>{/if}
 
       {#if passo === 0}
-        <h1>Bem-vindo ao SaveGuard</h1>
+        <h1>Bem-vindo ao SavesGG</h1>
         <p class="muted">
           Vou procurar os saves dos seus jogos neste PC, mostrar quais não têm cópia fora dele e copiar
           sozinho sempre que você fechar um jogo. Leva só um minuto.

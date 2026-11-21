@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    saveguard_lib::run()
+    savesgg_lib::run()
 }
