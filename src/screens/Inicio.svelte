@@ -220,7 +220,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    background: linear-gradient(120deg, #0f3b2c, var(--superficie) 60%);
+    background: var(--banner);
   }
   .banner h1 {
     font-size: 1.6em;

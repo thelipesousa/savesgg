@@ -81,6 +81,9 @@ export interface SettingsView {
   autostart: boolean;
   auto_paused: boolean;
   keep_versions: number;
+  theme: string;
+  game_view: "lista" | "grade";
+  wizard_done: boolean;
 }
 
 export interface AutoStatusView {

@@ -21,15 +21,15 @@
     font-weight: 600;
   }
   .alta {
-    background: rgb(255 90 95 / 0.15);
+    background: var(--alerta-fundo);
     color: var(--alerta);
   }
   .media {
-    background: rgb(255 181 71 / 0.15);
+    background: var(--aviso-fundo);
     color: var(--aviso);
   }
   .baixa {
-    background: rgb(25 230 160 / 0.12);
+    background: var(--ok-fundo);
     color: var(--ok);
   }
 </style>

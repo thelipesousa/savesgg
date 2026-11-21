@@ -213,6 +213,6 @@
     color: var(--aviso);
   }
   .ok {
-    border-color: rgb(25 230 160 / 0.4);
+    border-color: var(--ok);
   }
 </style>

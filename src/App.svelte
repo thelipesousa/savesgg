@@ -4,7 +4,15 @@
   import Sobre from "./screens/Sobre.svelte";
   import Configuracoes from "./screens/Configuracoes.svelte";
 
+  import { api } from "./lib/api";
+  import { aplicarTema } from "./lib/tema";
+
   type Tela = "inicio" | "restaurar" | "configuracoes" | "sobre";
+
+  aplicarTema("gamer");
+  $effect(() => {
+    api.getSettings().then((s) => aplicarTema(s?.theme ?? "gamer")).catch(() => {});
+  });
   let tela = $state<Tela>("inicio");
 
   const menu: { id: Tela; texto: string; icone: string }[] = [
@@ -15,7 +23,7 @@
   ];
 </script>
 
-<div class="app" data-theme="gamer">
+<div class="app">
   <nav class="lateral" aria-label="Menu principal">
     <h1 class="marca">🛡️ SaveGuard</h1>
     <ul>
@@ -78,7 +86,7 @@
     color: var(--texto);
   }
   .lateral button.ativo {
-    background: rgb(25 230 160 / 0.12);
+    background: var(--ok-fundo);
     color: var(--destaque);
   }
   .conteudo {

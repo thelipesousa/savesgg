@@ -120,10 +120,10 @@
   }
   .chip.aviso {
     color: var(--aviso);
-    border-color: rgb(255 181 71 / 0.4);
+    border-color: var(--aviso);
   }
   .chip.sem {
     color: var(--alerta);
-    border-color: rgb(255 90 95 / 0.4);
+    border-color: var(--alerta);
   }
 </style>
