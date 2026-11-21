@@ -52,6 +52,28 @@ fn provider_label(p: SyncProvider) -> &'static str {
     }
 }
 
+/// Raiz de destino (pasta que contém `SavesGGiblioteca.json`) a partir de uma pasta
+/// escolhida pelo usuário: a própria raiz, a pasta `SavesGG` (ou a antiga `SaveGuard`)
+/// ou a raiz da nuvem que tem `SavesGG Backups`. Migra o nome antigo antes de olhar.
+pub fn resolve_backup_folder(picked: &Path) -> Option<PathBuf> {
+    let mut candidatos = vec![picked.to_path_buf()];
+    let nome = picked
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase());
+    let e_pasta_do_app = nome.as_deref().is_some_and(|n| {
+        n == crate::backup::library_folder_name().to_lowercase()
+            || n == crate::legado::PASTA_ANTIGA.to_lowercase()
+    });
+    if e_pasta_do_app && let Some(pai) = picked.parent() {
+        candidatos.push(pai.to_path_buf());
+    }
+    candidatos.push(picked.join(PASTA_NA_NUVEM));
+    candidatos.into_iter().find(|c| {
+        crate::legado::migrar_destino(c);
+        has_backup(c)
+    })
+}
+
 /// Monta a lista de destinos a partir do que foi detectado (função pura, testável).
 pub fn build_destinations(
     sync: &[SyncRoot],
@@ -307,6 +329,58 @@ mod win {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn indice_em(dir: &std::path::Path) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(dir.join("biblioteca.json"), "{}").unwrap();
+    }
+
+    #[test]
+    fn pasta_com_savesgg_dentro() {
+        let t = tempfile::tempdir().unwrap();
+        indice_em(&t.path().join("SavesGG"));
+        assert_eq!(
+            resolve_backup_folder(t.path()),
+            Some(t.path().to_path_buf())
+        );
+    }
+
+    #[test]
+    fn pasta_escolheu_a_propria_savesgg() {
+        let t = tempfile::tempdir().unwrap();
+        indice_em(&t.path().join("SavesGG"));
+        assert_eq!(
+            resolve_backup_folder(&t.path().join("SavesGG")),
+            Some(t.path().to_path_buf())
+        );
+    }
+
+    #[test]
+    fn pasta_escolheu_savesgg_backups() {
+        let t = tempfile::tempdir().unwrap();
+        let b = t.path().join("SavesGG Backups");
+        indice_em(&b.join("SavesGG"));
+        assert_eq!(resolve_backup_folder(&b), Some(b.clone()));
+        // escolher a raiz da nuvem também acha a subpasta
+        assert_eq!(resolve_backup_folder(t.path()), Some(b));
+    }
+
+    #[test]
+    fn pasta_antiga_saveguard_migra() {
+        let t = tempfile::tempdir().unwrap();
+        indice_em(&t.path().join("SaveGuard"));
+        assert_eq!(
+            resolve_backup_folder(t.path()),
+            Some(t.path().to_path_buf())
+        );
+        assert!(t.path().join("SavesGG/biblioteca.json").is_file());
+    }
+
+    #[test]
+    fn pasta_sem_backup() {
+        let t = tempfile::tempdir().unwrap();
+        assert_eq!(resolve_backup_folder(t.path()), None);
+    }
     use crate::sync_folders::{SyncProvider, SyncRoot};
     use std::fs;
     use std::path::PathBuf;

@@ -22,6 +22,7 @@ fn main() {
         "complete_wizard",
         "cached_scan",
         "restore_many",
+        "open_backup_folder",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

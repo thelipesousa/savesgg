@@ -224,6 +224,41 @@ pub async fn add_custom_folder(
     Ok(list_destinations(&cfg).into_iter().find(|d| d.root == path))
 }
 
+/// Abre o seletor e usa a pasta como origem de restauração só nesta sessão.
+#[tauri::command]
+pub async fn open_backup_folder(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Res<Option<Destination>> {
+    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let picked = picked
+        .into_path()
+        .map_err(|_| "pasta inválida".to_string())?;
+    let root = blocking(move || Ok(savesgg_core::destinations::resolve_backup_folder(&picked)))
+        .await?
+        .ok_or_else(|| "Nenhum backup do SavesGG nesta pasta".to_string())?;
+    {
+        let mut abertas = state
+            .pastas_abertas
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if !abertas.contains(&root) {
+            abertas.push(root.clone());
+        }
+    }
+    Ok(Some(Destination {
+        id: id_pasta_aberta(&root),
+        label: "Pasta escolhida".into(),
+        kind: savesgg_core::destinations::DestinationKind::PastaLocal,
+        root,
+        available: true,
+        free_bytes: None,
+        has_backup: true,
+    }))
+}
+
 /// Seletor de pasta genérico (restauração de itens não resolvidos).
 #[tauri::command]
 pub async fn pick_folder(app: tauri::AppHandle) -> Res<Option<String>> {
@@ -368,7 +403,22 @@ pub struct GameSnapshotsView {
     pub snapshots: Vec<SnapshotView>,
 }
 
+/// Id de uma pasta aberta na tela Restaurar.
+pub fn id_pasta_aberta(root: &std::path::Path) -> String {
+    format!("aberta:{}", savesgg_core::paths::norm(root).to_lowercase())
+}
+
 fn destination_root(state: &AppState, destination_id: &str) -> Res<PathBuf> {
+    if destination_id.starts_with("aberta:") {
+        return state
+            .pastas_abertas
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .find(|p| id_pasta_aberta(p) == destination_id && p.is_dir())
+            .cloned()
+            .ok_or_else(|| "pasta indisponível".to_string());
+    }
     let cfg = state.config();
     find_destinations(&cfg, &[destination_id.to_string()])
         .into_iter()

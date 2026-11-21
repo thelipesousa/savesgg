@@ -111,4 +111,36 @@ describe("Restaurar", () => {
       }),
     );
   });
+
+  test("abre uma pasta avulsa e lista os backups dela", async () => {
+    jogos = [{ game_id: "hades", game_name: "Hades", snapshots: [snap("2026-11-20_10-00-00")] }];
+    extras.open_backup_folder = () => ({
+      id: "aberta:d:/backup antigo",
+      label: "Pasta escolhida",
+      kind: { tipo: "pasta_local" },
+      root: "D:/Backup antigo",
+      available: true,
+      free_bytes: null,
+      has_backup: true,
+    });
+    responder();
+    render(Restaurar);
+    await fireEvent.click(await screen.findByRole("button", { name: "Procurar backup em outra pasta…" }));
+    expect(await screen.findByText("Pasta escolhida")).toBeTruthy();
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("list_snapshots", { destinationId: "aberta:d:/backup antigo" }),
+    );
+  });
+
+  test("pasta sem backup mostra o erro", async () => {
+    responder();
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "list_destinations_cmd") return Promise.resolve([pendrive]);
+      if (cmd === "open_backup_folder") return Promise.reject("Nenhum backup do SavesGG nesta pasta");
+      return Promise.resolve(null);
+    });
+    render(Restaurar);
+    await fireEvent.click(await screen.findByRole("button", { name: "Procurar backup em outra pasta…" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Nenhum backup do SavesGG nesta pasta");
+  });
 });

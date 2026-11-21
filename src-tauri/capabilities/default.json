@@ -29,6 +29,7 @@
     "allow-set-game-view",
     "allow-complete-wizard",
     "allow-cached-scan",
-    "allow-restore-many"
+    "allow-restore-many",
+    "allow-open-backup-folder"
   ]
 }

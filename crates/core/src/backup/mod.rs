@@ -17,6 +17,11 @@ use std::path::{Path, PathBuf};
 
 pub use chrono::{DateTime, Utc};
 pub use library::{LibraryIndex, SnapshotRef, root as backup_root};
+
+/// Nome da pasta do app dentro de um destino (`SavesGG`).
+pub fn library_folder_name() -> &'static str {
+    library::PASTA
+}
 pub use snapshot::{FileEntry, SnapshotMeta};
 
 use crate::CoreError;

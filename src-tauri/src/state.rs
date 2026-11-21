@@ -46,6 +46,8 @@ pub struct AppState {
     pub drive_watcher: Mutex<crate::drives::DriveWatcher>,
     /// Jogos sem cópia fora do PC (cor da bandeja); atualizado a cada backup.
     pub at_risk_ids: Mutex<std::collections::BTreeSet<String>>,
+    /// Pastas de backup abertas na tela Restaurar (só nesta sessão; não viram destino).
+    pub pastas_abertas: Mutex<Vec<PathBuf>>,
 }
 
 /// Traz a configuração e a fila do 0.1.0 (SaveGuard) para as pastas do SavesGG.
@@ -84,6 +86,7 @@ impl AppState {
             plugged: Mutex::new(Vec::new()),
             drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
             at_risk_ids: Mutex::new(std::collections::BTreeSet::new()),
+            pastas_abertas: Mutex::new(Vec::new()),
         }
     }
 

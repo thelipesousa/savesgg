@@ -17,9 +17,13 @@
   let progresso = $state<{ feitos: number; total: number; jogo: string } | null>(null);
   let resumo = $state<LoteItemView[] | null>(null);
 
+  /** Pastas abertas nesta sessão (somem ao recarregar a lista de destinos detectados). */
+  let abertas = $state<Destination[]>([]);
+
   async function carregarDestinos() {
     try {
-      destinos = (await api.listDestinations()).filter((d) => d.available && d.has_backup);
+      const achados = (await api.listDestinations()).filter((d) => d.available && d.has_backup);
+      destinos = [...achados, ...abertas.filter((a) => !achados.some((d) => d.id === a.id))];
     } catch (e) {
       erro = errorMessage(e);
     }
@@ -28,6 +32,19 @@
   $effect(() => {
     carregarDestinos();
   });
+
+  async function abrirPasta() {
+    erro = null;
+    try {
+      const d = await api.openBackupFolder();
+      if (!d) return;
+      if (!abertas.some((a) => a.id === d.id)) abertas = [...abertas, d];
+      if (!destinos.some((x) => x.id === d.id)) destinos = [...destinos, d];
+      await escolherDestino(d.id);
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
 
   async function escolherDestino(id: string) {
     destinoId = id;
@@ -144,6 +161,7 @@
     <p class="muted">Nenhum backup encontrado. Plugue o pendrive/HD ou confira a pasta da nuvem.</p>
     <button type="button" class="botao-secundario" onclick={carregarDestinos}>Procurar de novo</button>
   {/if}
+  <button type="button" class="botao-secundario" onclick={abrirPasta}>Procurar backup em outra pasta…</button>
   {#each destinos as d (d.id)}
     <button type="button" class="cartao destino" class:ativo={d.id === destinoId} onclick={() => escolherDestino(d.id)}>
       <strong>{d.label}</strong>
