@@ -7,6 +7,37 @@ Feito com **Tauri 2 + Rust** (motor) e **Svelte + TypeScript + Tailwind** (inter
 - Design aprovado: [`docs/superpowers/specs/2026-11-20-saveguard-design.md`](docs/superpowers/specs/2026-11-20-saveguard-design.md)
 - Referências visuais (Google Stitch): [`design/stitch/`](design/stitch/)
 
+## Como rodar
+
+Requisitos: Windows 10/11, [Rust](https://rustup.rs) estável, Node 22 e o WebView2 (já vem no Windows).
+
+```powershell
+npm install
+./scripts/atualizar-manifesto.ps1   # baixa o manifesto de saves embutido no app
+npm run tauri dev                   # abre o app em modo de desenvolvimento
+```
+
+Testes: `cargo test --workspace` (motor e comandos) e `npm run test -- --run` (interface).
+Testes com os dados reais do seu PC (não alteram os saves): veja os comandos `--ignored` nos arquivos
+`crates/core/src/scan.rs` e `crates/core/tests/ponta_a_ponta_real.rs`.
+
+## Backup automático
+
+- **Quando copia:** 10 s depois de você fechar o jogo (mesmo se ele travar) ou, para jogos sem executável conhecido, 2 min depois de a pasta do save parar de mudar. Com o jogo aberto, nada é copiado: a cópia espera o fechamento para não pesar e não pegar arquivo pela metade.
+- **Para onde:** os destinos marcados em **Configurações → Destinos do backup automático**. O backup manual ("Fazer backup dos selecionados") continua perguntando o destino toda vez.
+- **Destino fora do ar** (pendrive desplugado, pasta da nuvem sumida): o backup fica na fila em `%LOCALAPPDATA%\SaveGuard\pendentes` e é enviado sozinho quando o destino volta.
+- **Bandeja:** fechar a janela deixa o SaveGuard na bandeja. O ícone mostra o estado (verde protegido, vermelho com jogo sem cópia fora do PC, azul copiando, cinza pausado) e o menu tem backup agora, pausar/retomar, copiar tudo para um disco plugado e sair.
+- **Pendrive/HD:** ao plugar, aparece uma notificação e um aviso no Início para copiar tudo (ou atualizar o backup que já está nele).
+- **Iniciar com o Windows:** ligado por padrão, abrindo minimizado na bandeja. Desligue em **Configurações → Iniciar com o Windows**. Só vale no app instalado (em desenvolvimento não é registrado).
+- **Possíveis saves** (heurística) e jogos acima de 2 GB só entram no automático depois de confirmados.
+
+## Temas e assistente
+
+- **Assistente da primeira execução:** ao abrir pela primeira vez, o SaveGuard escaneia o PC, mostra quantos jogos já estão protegidos e quantos não têm cópia fora do PC, pergunta para onde mandar os saves (destinos do backup automático) e deixa escolher o tema. Dá para pular; ele não volta depois de concluído.
+- **5 temas**, trocados na hora em **Configurações → Aparência**: Gamer (escuro verde-neon), Pastel (claro e fofinho), Windows 11 (claro e limpo), Cyberpunk (neon ciano e rosa) e Console (jogo em destaque e carrossel de capas, navegável pelas setas).
+- **Lista ou grade de capas** para os jogos, também em Aparência.
+- **Capas:** vêm da Steam pelo AppID do jogo (`cdn.cloudflare.steamstatic.com`). Sem internet ou sem capa, aparece um cartão com a inicial do jogo. As referências visuais (Google Stitch) e capturas reais ficam em `design/`.
+
 ## Fluxo de branches
 
 - `main`: produção e branch padrão; só código estável, é dela que sai o release.
