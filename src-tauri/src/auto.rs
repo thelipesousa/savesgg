@@ -565,6 +565,7 @@ mod tests {
             root: None,
             store_game_id: None,
             patterns: vec![save.to_string_lossy().replace('\\', "/")],
+            steam_app_id: None,
         };
         let scan = ScanData {
             result: ScanResult {

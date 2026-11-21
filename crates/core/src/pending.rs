@@ -152,6 +152,7 @@ mod tests {
             root: None,
             store_game_id: None,
             patterns: Vec::new(),
+            steam_app_id: None,
         };
         Fx { t, ctx, game }
     }

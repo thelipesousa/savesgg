@@ -435,16 +435,48 @@ pub struct SettingsView {
     pub autostart: bool,
     pub auto_paused: bool,
     pub keep_versions: usize,
+    pub theme: String,
+    pub game_view: String,
+    pub wizard_done: bool,
+}
+
+/// Aceita só valores de uma lista fechada (tema, exibição).
+pub fn validate_choice(value: &str, allowed: &[&str]) -> Res<String> {
+    allowed
+        .iter()
+        .find(|a| **a == value)
+        .map(|a| a.to_string())
+        .ok_or_else(|| format!("opção inválida: {value}"))
+}
+
+#[tauri::command]
+pub fn set_theme(state: State<'_, AppState>, theme: String) -> Res<()> {
+    let t = validate_choice(&theme, &saveguard_core::config::TEMAS)?;
+    state.update_config(|c| c.theme = t)
+}
+
+#[tauri::command]
+pub fn set_game_view(state: State<'_, AppState>, view: String) -> Res<()> {
+    let v = validate_choice(&view, &saveguard_core::config::EXIBICOES)?;
+    state.update_config(|c| c.game_view = v)
+}
+
+#[tauri::command]
+pub fn complete_wizard(state: State<'_, AppState>) -> Res<()> {
+    state.update_config(|c| c.wizard_done = true)
 }
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> SettingsView {
     let c = state.config();
     SettingsView {
-        auto_destinations: c.auto_destinations,
+        auto_destinations: c.auto_destinations.clone(),
         autostart: c.autostart,
         auto_paused: c.auto_paused,
         keep_versions: c.keep_versions,
+        theme: c.theme_or_default().to_string(),
+        game_view: c.game_view_or_default().to_string(),
+        wizard_done: c.wizard_done,
     }
 }
 
@@ -488,4 +520,18 @@ pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valida_tema_e_exibicao() {
+        use saveguard_core::config::{EXIBICOES, TEMAS};
+        assert!(validate_choice("pastel", &TEMAS).is_ok());
+        assert!(validate_choice("azul", &TEMAS).is_err());
+        assert!(validate_choice("grade", &EXIBICOES).is_ok());
+        assert!(validate_choice("", &EXIBICOES).is_err());
+    }
 }

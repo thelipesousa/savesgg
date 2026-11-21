@@ -267,6 +267,7 @@ pub fn apply_restore(
             root: None,
             store_game_id: None,
             patterns: Vec::new(),
+            steam_app_id: None,
         };
         let r = match backup_game(&game, ctx, dest_root, usize::MAX, now)? {
             BackupOutcome::Criado(r) => r,
@@ -360,6 +361,7 @@ mod tests {
             root: None,
             store_game_id: None,
             patterns: Vec::new(),
+            steam_app_id: None,
         };
         let BackupOutcome::Criado(r) = backup_game(&game, &a, &dest, 10, now()).unwrap() else {
             panic!()
