@@ -140,7 +140,18 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .at_risk = at_risk;
+    *state.last_views.lock().unwrap_or_else(|e| e.into_inner()) = Some(views.clone());
     Ok(views)
+}
+
+/// Resultado da última varredura (a do motor ao abrir o app), sem escanear de novo.
+#[tauri::command]
+pub fn cached_scan(state: State<'_, AppState>) -> Option<Vec<GameView>> {
+    state
+        .last_views
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
 }
 
 /// Varre o PC e devolve os jogos já ordenados por prioridade.

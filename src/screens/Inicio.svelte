@@ -18,6 +18,16 @@
 
   $effect(() => {
     api.autoStatus().then((s) => (status = s)).catch(() => {});
+    // O motor já escaneou ao abrir o app: mostra sem pedir para escanear de novo.
+    api
+      .cachedScan()
+      .then((v) => {
+        if (Array.isArray(v) && !scanned) {
+          games = v;
+          scanned = true;
+        }
+      })
+      .catch(() => {});
     api
       .getSettings()
       .then((s) => {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cached-scan"
+description = "Enables the cached_scan command without any pre-configured scope."
+commands.allow = ["cached_scan"]
+
+[[permission]]
+identifier = "deny-cached-scan"
+description = "Denies the cached_scan command without any pre-configured scope."
+commands.deny = ["cached_scan"]

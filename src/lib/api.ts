@@ -12,6 +12,7 @@ import type {
 
 export const api = {
   scan: () => invoke<GameView[]>("scan"),
+  cachedScan: () => invoke<GameView[] | null>("cached_scan"),
   listDestinations: () => invoke<Destination[]>("list_destinations_cmd"),
   addCustomFolder: () => invoke<Destination | null>("add_custom_folder"),
   pickFolder: () => invoke<string | null>("pick_folder"),

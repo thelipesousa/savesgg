@@ -19,6 +19,7 @@
   const visiveis = $derived((jogos ?? []).filter((g) => !g.grande));
   const protegidos = $derived(visiveis.filter((g) => g.priority === "baixa").length);
   const emRisco = $derived(visiveis.filter((g) => g.priority === "alta").length);
+  const incertos = $derived(visiveis.filter((g) => g.priority === "media").length);
 
   async function tentar(acao: () => Promise<void>) {
     ocupado = true;
@@ -127,6 +128,9 @@
             <span>Encontrei <strong>{visiveis.length} {visiveis.length === 1 ? "jogo" : "jogos"}</strong>:</span>
             <span class="chip ok">{protegidos} {protegidos === 1 ? "já protegido" : "já protegidos"}</span>
             <span class="chip risco">{emRisco} sem cópia fora do PC</span>
+            {#if incertos > 0}
+              <span class="chip">{incertos} com proteção incerta</span>
+            {/if}
           </div>
           <ul class="jogos">
             {#each visiveis.slice(0, 8) as g (g.id)}

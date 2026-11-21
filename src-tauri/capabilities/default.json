@@ -27,6 +27,7 @@
     "core:event:default",
     "allow-set-theme",
     "allow-set-game-view",
-    "allow-complete-wizard"
+    "allow-complete-wizard",
+    "allow-cached-scan"
   ]
 }
