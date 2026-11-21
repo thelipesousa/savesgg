@@ -56,6 +56,7 @@
   </div>
   <div class="numeros">
     <span>{game.files} {game.files === 1 ? "arquivo" : "arquivos"} · {formatBytes(game.total_bytes)}</span>
+    {#if game.last_played}<span class="muted">Jogado {formatRelative(game.last_played)}</span>{/if}
     <span class="muted">Último backup: {formatRelative(game.last_backup)}</span>
     {#if game.source === "manual" && onremove}
       <button type="button" class="botao-secundario remover" onclick={remover}>Remover</button>

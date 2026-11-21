@@ -100,9 +100,16 @@ pub fn assess(
     }
 }
 
-/// Alta → Média → Baixa; dentro de cada uma, por nome.
+/// Alta → Média → Baixa; dentro de cada uma, o jogado mais recentemente primeiro
+/// (sem data vai para o fim) e depois por nome.
 pub fn sort_for_display(items: &mut [(DetectedGame, Assessment)]) {
-    items.sort_by_key(|(g, a)| (a.priority, g.name.to_lowercase()));
+    items.sort_by_key(|(g, a)| {
+        (
+            a.priority,
+            std::cmp::Reverse(g.last_modified),
+            g.name.to_lowercase(),
+        )
+    });
 }
 
 #[cfg(test)]
@@ -142,6 +149,7 @@ mod tests {
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         }
     }
 
@@ -295,5 +303,29 @@ mod tests {
         sort_for_display(&mut v);
         let names: Vec<_> = v.iter().map(|(g, _)| g.name.as_str()).collect();
         assert_eq!(names, ["alfa", "Zeta", "m", "b"]);
+    }
+
+    #[test]
+    fn ordena_por_prioridade_depois_ultimo_jogado() {
+        let mk = |name: &str, horas: Option<i64>| {
+            let mut g = game(Store::SemLoja, CloudFlags::default(), ROOT);
+            g.name = name.into();
+            g.last_modified = horas.map(|h| now() - Duration::hours(h));
+            (
+                g,
+                Assessment {
+                    priority: Priority::Alta,
+                    protections: vec![],
+                },
+            )
+        };
+        let mut v = vec![
+            mk("antigo", Some(48)),
+            mk("sem data", None),
+            mk("recente", Some(1)),
+        ];
+        sort_for_display(&mut v);
+        let names: Vec<_> = v.iter().map(|(g, _)| g.name.as_str()).collect();
+        assert_eq!(names, ["recente", "antigo", "sem data"]);
     }
 }

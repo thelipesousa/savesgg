@@ -3,6 +3,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
+use chrono::{DateTime, Utc};
 use globset::GlobBuilder;
 use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
@@ -48,6 +49,8 @@ pub struct DetectedGame {
     pub patterns: Vec<String>,
     /// AppID da Steam (capa do jogo), do manifesto ou da loja.
     pub steam_app_id: Option<u32>,
+    /// Data de modificação do arquivo de save mais novo (≈ último jogado).
+    pub last_modified: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -304,11 +307,7 @@ fn build_game(
     if files.is_empty() {
         return None;
     }
-    let total_bytes = files
-        .iter()
-        .filter_map(|f| f.metadata().ok())
-        .map(|m| m.len())
-        .sum();
+    let (total_bytes, last_modified) = size_and_newest(&files);
     Some(DetectedGame {
         id,
         name,
@@ -324,6 +323,7 @@ fn build_game(
         store_game_id: None,
         patterns: Vec::new(),
         steam_app_id: None,
+        last_modified,
     })
 }
 
@@ -376,6 +376,20 @@ impl<'a> InstalledIndex<'a> {
     }
 }
 
+/// Soma dos tamanhos e data de modificação mais nova de um conjunto de arquivos.
+fn size_and_newest(files: &BTreeSet<PathBuf>) -> (u64, Option<DateTime<Utc>>) {
+    let mut total = 0;
+    let mut newest: Option<DateTime<Utc>> = None;
+    for m in files.iter().filter_map(|f| f.metadata().ok()) {
+        total += m.len();
+        if let Ok(t) = m.modified() {
+            let t: DateTime<Utc> = t.into();
+            newest = Some(newest.map_or(t, |n| n.max(t)));
+        }
+    }
+    (total, newest)
+}
+
 /// Refaz a lista de arquivos de um jogo a partir dos padrões que o acharam
 /// (saves criados ou apagados depois da varredura). Sem padrões, devolve igual.
 pub fn refresh_files(g: &DetectedGame) -> DetectedGame {
@@ -389,11 +403,7 @@ pub fn refresh_files(g: &DetectedGame) -> DetectedGame {
         collect(&mut cache, p, &mut files, &mut roots);
     }
     let mut n = g.clone();
-    n.total_bytes = files
-        .iter()
-        .filter_map(|f| f.metadata().ok())
-        .map(|m| m.len())
-        .sum();
+    (n.total_bytes, n.last_modified) = size_and_newest(&files);
     n.files = files.into_iter().collect();
     if !roots.is_empty() {
         n.save_roots = roots.into_iter().collect();
@@ -1035,6 +1045,39 @@ Jogo"
         assert_eq!(g.source, Source::Manual);
         assert_eq!(g.files.len(), 2);
         assert_eq!(g.save_roots, vec![dir]);
+    }
+
+    #[test]
+    fn last_modified_e_o_arquivo_mais_novo() {
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        let dir = t.path().join("Jogos/MeuJogo/saves");
+        touch(&dir.join("velho.sav"), 1);
+        touch(&dir.join("novo.sav"), 1);
+        let base =
+            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_790_000_000);
+        let set = |nome: &str, s: u64| {
+            fs::File::options()
+                .write(true)
+                .open(dir.join(nome))
+                .unwrap()
+                .set_modified(base + std::time::Duration::from_secs(s))
+                .unwrap();
+        };
+        set("velho.sav", 0);
+        set("novo.sav", 3600);
+        let opts = ScanOptions {
+            manual: vec![ManualGame {
+                name: "Meu Jogo".into(),
+                save_dir: dir.clone(),
+                exe: None,
+            }],
+            ..Default::default()
+        };
+        let r = scan(&c, &manifest(), &[], &opts);
+        let g = r.games.iter().find(|g| g.id == "meu-jogo").unwrap();
+        let esperado: DateTime<Utc> = (base + std::time::Duration::from_secs(3600)).into();
+        assert_eq!(g.last_modified, Some(esperado));
     }
 
     #[test]

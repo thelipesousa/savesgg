@@ -927,6 +927,7 @@ mod tests {
             store_game_id: None,
             patterns: vec![],
             steam_app_id: None,
+            last_modified: None,
         }
     }
 

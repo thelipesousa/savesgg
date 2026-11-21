@@ -37,6 +37,7 @@
       </span>
     {/if}
   {/if}
+  {#if game.last_played}<span class="muted pequeno">Jogado {formatRelative(game.last_played)}</span>{/if}
   <span class="muted pequeno">Último backup: {formatRelative(game.last_backup)}</span>
   {#if game.source === "manual" && onremove}
     <button type="button" class="botao-secundario" onclick={remover}>Remover</button>

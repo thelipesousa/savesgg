@@ -18,6 +18,7 @@ export interface GameView {
   grande: boolean;
   confirmado: boolean;
   cover_url: string | null;
+  last_played?: string | null;
 }
 
 export type DestinationKind =
