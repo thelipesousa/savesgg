@@ -3,15 +3,25 @@
   import Restaurar from "./screens/Restaurar.svelte";
   import Sobre from "./screens/Sobre.svelte";
   import Configuracoes from "./screens/Configuracoes.svelte";
+  import Assistente from "./screens/Assistente.svelte";
 
   import { api } from "./lib/api";
   import { aplicarTema } from "./lib/tema";
 
   type Tela = "inicio" | "restaurar" | "configuracoes" | "sobre";
 
+  let assistente = $state(false);
+
   aplicarTema("gamer");
   $effect(() => {
-    api.getSettings().then((s) => aplicarTema(s?.theme ?? "gamer")).catch(() => {});
+    api
+      .getSettings()
+      .then((s) => {
+        aplicarTema(s?.theme ?? "gamer");
+        // Só some depois de concluir ou pular (fechar no meio mostra de novo).
+        assistente = s?.wizard_done === false;
+      })
+      .catch(() => {});
   });
   let tela = $state<Tela>("inicio");
 
@@ -23,6 +33,9 @@
   ];
 </script>
 
+{#if assistente}
+  <Assistente onfinish={() => (assistente = false)} />
+{:else}
 <div class="app">
   <nav class="lateral" aria-label="Menu principal">
     <h1 class="marca">🛡️ SaveGuard</h1>
@@ -49,6 +62,7 @@
     {/if}
   </main>
 </div>
+{/if}
 
 <style>
   .app {
