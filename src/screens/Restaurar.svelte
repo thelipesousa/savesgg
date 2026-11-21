@@ -59,6 +59,15 @@
     erro = null;
     resumo = null;
     try {
+      // Conta de nuvem: traz da nuvem as versões que ainda não estão neste PC.
+      const destino = destinos.find((d) => d.id === id);
+      if (destino?.kind.tipo === "nuvem") {
+        try {
+          await api.atualizarDaNuvem(id);
+        } catch (e) {
+          erro = `Não deu para atualizar da nuvem: ${errorMessage(e)}`;
+        }
+      }
       jogos = await api.listSnapshots(id);
       marcados = new Set(jogos.map((j) => j.game_id));
     } catch (e) {
