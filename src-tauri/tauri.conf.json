@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SaveGuard",
+  "productName": "SavesGG",
   "version": "0.1.0",
-  "identifier": "com.saveguard.app",
+  "identifier": "com.savesgg.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "SaveGuard",
+        "title": "SavesGG",
         "width": 1280,
         "height": 820,
         "minWidth": 960,

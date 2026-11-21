@@ -1,5 +1,5 @@
 [package]
-name = "saveguard"
+name = "savesgg"
 version = "0.1.0"
 description = "Backup contínuo de saves de jogos"
 authors = ["thelipesousa"]
@@ -12,7 +12,7 @@ license.workspace = true
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "saveguard_lib"
+name = "savesgg_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
-saveguard-core = { path = "../crates/core" }
+savesgg-core = { path = "../crates/core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4.45", features = ["serde"] }

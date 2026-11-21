@@ -1,4 +1,4 @@
-//! Configuração do app em `%APPDATA%\SaveGuard\config.json`.
+//! Configuração do app em `%APPDATA%\SavesGG\config.json`.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -59,11 +59,11 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Caminho padrão: `%APPDATA%\SaveGuard\config.json`.
+    /// Caminho padrão: `%APPDATA%\SavesGG\config.json`.
     pub fn default_path() -> PathBuf {
         dirs::data_dir()
             .unwrap_or_default()
-            .join("SaveGuard")
+            .join("SavesGG")
             .join("config.json")
     }
 

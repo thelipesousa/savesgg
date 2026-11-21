@@ -9,7 +9,7 @@ use crate::paths::norm;
 use crate::sync_folders::{SyncProvider, SyncRoot};
 
 /// Subpasta criada dentro das pastas sincronizadas.
-pub const PASTA_NA_NUVEM: &str = "SaveGuard Backups";
+pub const PASTA_NA_NUVEM: &str = "SavesGG Backups";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "tipo", content = "provedor", rename_all = "snake_case")]
@@ -160,11 +160,16 @@ pub fn drive_mask() -> u32 {
 /// Todos os destinos deste PC: pastas sincronizadas, discos externos e pastas da configuração.
 #[cfg(windows)]
 pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
-    build_destinations(
-        &crate::sync_folders::detect_sync_roots(),
-        &win::external_drives(),
-        &cfg.custom_folders,
-    )
+    let sync = crate::sync_folders::detect_sync_roots();
+    let drives = win::external_drives();
+    // Backups do 0.1.0 (SaveGuard) passam para o nome novo antes de procurar.
+    for s in &sync {
+        crate::legado::migrar_pasta_sincronizada(&s.path);
+    }
+    for d in drives.iter().map(|d| &d.root).chain(&cfg.custom_folders) {
+        crate::legado::migrar_destino(d);
+    }
+    build_destinations(&sync, &drives, &cfg.custom_folders)
 }
 
 #[cfg(windows)]
@@ -321,7 +326,7 @@ mod tests {
             d[0].kind,
             DestinationKind::PastaSincronizada(SyncProvider::OneDrive)
         );
-        assert_eq!(d[0].root, od.join("SaveGuard Backups"));
+        assert_eq!(d[0].root, od.join("SavesGG Backups"));
         assert_eq!(d[0].label, "OneDrive");
         assert!(d[0].available);
         assert!(!d[0].has_backup);
@@ -369,8 +374,8 @@ mod tests {
     #[test]
     fn pasta_custom_marca_has_backup() {
         let t = tempfile::tempdir().unwrap();
-        fs::create_dir_all(t.path().join("SaveGuard")).unwrap();
-        fs::write(t.path().join("SaveGuard/biblioteca.json"), "{}").unwrap();
+        fs::create_dir_all(t.path().join("SavesGG")).unwrap();
+        fs::write(t.path().join("SavesGG/biblioteca.json"), "{}").unwrap();
         let d = build_destinations(&[], &[], &[t.path().to_path_buf()]);
         assert_eq!(d[0].kind, DestinationKind::PastaLocal);
         assert!(d[0].has_backup);

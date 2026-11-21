@@ -7,7 +7,7 @@
   });
 </script>
 
-<h1>Sobre o SaveGuard</h1>
+<h1>Sobre o SavesGG</h1>
 <div class="cartao sobre">
   <p>Versão {versao}</p>
   <p>
