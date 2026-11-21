@@ -2,24 +2,24 @@
 //! varre, faz backup de todos os jogos achados numa pasta temporária e restaura a
 //! versão de cada um num "PC novo" simulado (outro usuário, dentro do tempdir).
 //!
-//! `SAVEGUARD_MANIFEST=<manifest.yaml> cargo test -p saveguard-core --release --test ponta_a_ponta_real -- --ignored --nocapture`
+//! `SAVESGG_MANIFEST=<manifest.yaml> cargo test -p savesgg-core --release --test ponta_a_ponta_real -- --ignored --nocapture`
 
 use std::collections::BTreeMap;
 use std::fs;
 
 use chrono::Utc;
-use saveguard_core::backup::{BackupOutcome, backup_game};
-use saveguard_core::paths::{GameVars, PathContext};
-use saveguard_core::restore::{apply_restore, plan_restore};
-use saveguard_core::scan::{ScanOptions, scan};
+use savesgg_core::backup::{BackupOutcome, backup_game};
+use savesgg_core::paths::{GameVars, PathContext};
+use savesgg_core::restore::{apply_restore, plan_restore};
+use savesgg_core::scan::{ScanOptions, scan};
 
 #[test]
 #[ignore]
 fn backup_e_restauracao_com_saves_reais() {
-    let path = std::env::var("SAVEGUARD_MANIFEST").expect("defina SAVEGUARD_MANIFEST");
-    let manifest = saveguard_core::manifest::parse(&fs::read_to_string(path).unwrap()).unwrap();
+    let path = std::env::var("SAVESGG_MANIFEST").expect("defina SAVESGG_MANIFEST");
+    let manifest = savesgg_core::manifest::parse(&fs::read_to_string(path).unwrap()).unwrap();
     let ctx = PathContext::from_system();
-    let installed = saveguard_core::stores::detect_all();
+    let installed = savesgg_core::stores::detect_all();
     let result = scan(&ctx, &manifest, &installed, &ScanOptions::default());
     assert!(!result.games.is_empty(), "nenhum jogo encontrado neste PC");
 

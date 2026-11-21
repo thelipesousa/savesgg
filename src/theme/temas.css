@@ -1,7 +1,8 @@
-/* Os 5 temas do SaveGuard (paletas tiradas das telas do Stitch em design/stitch/).
+/* Os 5 temas do SavesGG (paletas tiradas das telas do Stitch em design/stitch/).
    Cada tema só redefine variáveis; o tema console também troca o topo do Início. */
 
 [data-theme="gamer"] {
+  --marca: #ff3b4f;
   --destaque-fundo: rgb(25 230 160 / 0.12);
   --fundo: #0b100e;
   --superficie: #131a17;
@@ -27,6 +28,7 @@
 }
 
 [data-theme="pastel"] {
+  --marca: #c8102e;
   --destaque-fundo: #f1edff;
   --fundo: #f4effc;
   --superficie: #ffffff;
@@ -52,6 +54,7 @@
 }
 
 [data-theme="win11"] {
+  --marca: #c8102e;
   --destaque-fundo: #e5f1fb;
   --fundo: #f3f3f3;
   --superficie: #ffffff;
@@ -77,6 +80,7 @@
 }
 
 [data-theme="cyberpunk"] {
+  --marca: #ff4d61;
   --destaque-fundo: rgb(0 240 255 / 0.1);
   --fundo: #07090e;
   --superficie: #0c1220;
@@ -102,6 +106,7 @@
 }
 
 [data-theme="console"] {
+  --marca: #ff6b7a;
   --destaque-fundo: rgb(219 184 255 / 0.14);
   --fundo: #10131a;
   --superficie: #1d2026;

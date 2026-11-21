@@ -1,7 +1,7 @@
 //! Motor de backup: uma versão = um zip + um JSON legível, com índice atômico.
 //!
 //! ```text
-//! <destino>\SaveGuard\
+//! <destino>\SavesGG\
 //!   biblioteca.json
 //!   <jogo-id>\2026-11-20_21-40-05.zip
 //!   <jogo-id>\2026-11-20_21-40-05.json
@@ -288,8 +288,8 @@ fn apply_retention(
     Ok(())
 }
 
-/// Apaga temporários (`*.tmp`) deixados por backups interrompidos em `SaveGuard\`
-/// e `SaveGuard\<jogo>\`. Chamar com a trava do destino. Devolve quantos apagou.
+/// Apaga temporários (`*.tmp`) deixados por backups interrompidos em `SavesGG\`
+/// e `SavesGG\<jogo>\`. Chamar com a trava do destino. Devolve quantos apagou.
 pub fn cleanup_temp(dest_root: &Path) -> usize {
     let root = backup_root(dest_root);
     let mut dirs = vec![root.clone()];
@@ -433,9 +433,9 @@ mod tests {
             panic!("esperava Criado")
         };
         assert_eq!(r.stem, "2026-11-20_21-40-05");
-        let dir = f.dest.join("SaveGuard/elden-ring");
+        let dir = f.dest.join("SavesGG/elden-ring");
         assert!(dir.join("2026-11-20_21-40-05.zip").is_file());
-        assert!(f.dest.join("SaveGuard/biblioteca.json").is_file());
+        assert!(f.dest.join("SavesGG/biblioteca.json").is_file());
         assert_eq!(zip_names(&dir.join("2026-11-20_21-40-05.zip")).len(), 2);
         let meta: SnapshotMeta = serde_json::from_str(
             &fs::read_to_string(dir.join("2026-11-20_21-40-05.json")).unwrap(),
@@ -532,7 +532,7 @@ mod tests {
             !refs.iter().any(|r| r.stem == "2026-11-20_21-40-06"),
             "a 2ª deveria sair"
         );
-        let zips = fs::read_dir(f.dest.join("SaveGuard/elden-ring"))
+        let zips = fs::read_dir(f.dest.join("SavesGG/elden-ring"))
             .unwrap()
             .flatten()
             .filter(|e| e.path().extension().is_some_and(|x| x == "zip"))
@@ -554,20 +554,20 @@ mod tests {
         let err = backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap_err();
         assert!(matches!(err, CoreError::ArquivoTravado(_)), "{err:?}");
         assert!(
-            !f.dest.join("SaveGuard/elden-ring").exists()
-                || fs::read_dir(f.dest.join("SaveGuard/elden-ring"))
+            !f.dest.join("SavesGG/elden-ring").exists()
+                || fs::read_dir(f.dest.join("SavesGG/elden-ring"))
                     .unwrap()
                     .next()
                     .is_none()
         );
-        assert!(!f.dest.join("SaveGuard/biblioteca.json").exists());
+        assert!(!f.dest.join("SavesGG/biblioteca.json").exists());
     }
 
     #[test]
     fn indice_corrompido_nao_some() {
         let f = fixture();
         backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
-        let before = fs::read_to_string(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
+        let before = fs::read_to_string(f.dest.join("SavesGG/biblioteca.json")).unwrap();
         fs::write(&f.game.files[0], b"mudou").unwrap();
         let err = backup_game_inner(
             &f.game,
@@ -578,10 +578,10 @@ mod tests {
             FailPoint::AntesDoRename,
         );
         assert!(err.is_err());
-        let after = fs::read_to_string(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
+        let after = fs::read_to_string(f.dest.join("SavesGG/biblioteca.json")).unwrap();
         assert_eq!(before, after);
         serde_json::from_str::<serde_json::Value>(&after).unwrap();
-        let leftovers = fs::read_dir(f.dest.join("SaveGuard/elden-ring"))
+        let leftovers = fs::read_dir(f.dest.join("SavesGG/elden-ring"))
             .unwrap()
             .flatten()
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
@@ -604,7 +604,7 @@ mod tests {
         assert!(matches!(err, CoreError::ArquivoMudou(_)), "{err:?}");
         let idx = LibraryIndex::load(&f.dest).unwrap();
         assert!(idx.games.get("elden-ring").is_none_or(|v| v.is_empty()));
-        let dir = f.dest.join("SaveGuard/elden-ring");
+        let dir = f.dest.join("SavesGG/elden-ring");
         let sobras = fs::read_dir(&dir).map(|d| d.count()).unwrap_or(0);
         assert_eq!(sobras, 0, "nada pode sobrar no destino");
     }
@@ -619,7 +619,7 @@ mod tests {
             panic!()
         };
         let mut z = zip::ZipArchive::new(
-            fs::File::open(f.dest.join(format!("SaveGuard/elden-ring/{}.zip", r.stem))).unwrap(),
+            fs::File::open(f.dest.join(format!("SavesGG/elden-ring/{}.zip", r.stem))).unwrap(),
         )
         .unwrap();
         let name = z.by_index(0).unwrap().name().unwrap().to_string();
@@ -634,11 +634,11 @@ mod tests {
     fn indice_desatualizado_e_reconstruido_pelos_json() {
         let f = fixture();
         backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
-        let so_primeira = fs::read_to_string(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
+        let so_primeira = fs::read_to_string(f.dest.join("SavesGG/biblioteca.json")).unwrap();
         fs::write(&f.game.files[0], b"mudou").unwrap();
         backup_game(&f.game, &f.ctx, &f.dest, 10, now() + Duration::seconds(5)).unwrap();
         // Outro PC sincronizado sobrescreve o índice com uma cópia antiga.
-        fs::write(f.dest.join("SaveGuard/biblioteca.json"), so_primeira).unwrap();
+        fs::write(f.dest.join("SavesGG/biblioteca.json"), so_primeira).unwrap();
         let idx = LibraryIndex::load(&f.dest).unwrap();
         assert_eq!(idx.games["elden-ring"].len(), 2);
         assert_eq!(
@@ -651,7 +651,7 @@ mod tests {
     fn indice_sumido_e_reconstruido() {
         let f = fixture();
         backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
-        fs::remove_file(f.dest.join("SaveGuard/biblioteca.json")).unwrap();
+        fs::remove_file(f.dest.join("SavesGG/biblioteca.json")).unwrap();
         let idx = LibraryIndex::load(&f.dest).unwrap();
         assert_eq!(idx.games["elden-ring"].len(), 1);
     }
@@ -660,14 +660,10 @@ mod tests {
     fn limpa_tmp_orfao() {
         let f = fixture();
         backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
-        fs::write(
-            f.dest.join("SaveGuard/elden-ring/x.zip.tmp"),
-            b"pela metade",
-        )
-        .unwrap();
-        fs::write(f.dest.join("SaveGuard/biblioteca.json.tmp"), b"{").unwrap();
+        fs::write(f.dest.join("SavesGG/elden-ring/x.zip.tmp"), b"pela metade").unwrap();
+        fs::write(f.dest.join("SavesGG/biblioteca.json.tmp"), b"{").unwrap();
         assert_eq!(cleanup_temp(&f.dest), 2);
-        assert!(!f.dest.join("SaveGuard/elden-ring/x.zip.tmp").exists());
+        assert!(!f.dest.join("SavesGG/elden-ring/x.zip.tmp").exists());
         assert_eq!(
             LibraryIndex::load(&f.dest).unwrap().games["elden-ring"].len(),
             1

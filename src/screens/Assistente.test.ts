@@ -14,7 +14,7 @@ const jogo = (id: string, priority: string) => ({
 });
 const onedrive = {
   id: "sync:c:/users/ana/onedrive", label: "OneDrive", kind: { tipo: "pasta_sincronizada", provedor: "one_drive" },
-  root: "C:/Users/Ana/OneDrive/SaveGuard Backups", available: true, free_bytes: null, has_backup: false,
+  root: "C:/Users/Ana/OneDrive/SavesGG Backups", available: true, free_bytes: null, has_backup: false,
 };
 
 function responder(dests: unknown[] = [onedrive], wizardDone = false) {
@@ -99,7 +99,7 @@ describe("App", () => {
   test("mostra o assistente quando não foi concluído", async () => {
     responder([onedrive], false);
     render(App);
-    expect(await screen.findByRole("heading", { name: /Bem-vindo ao SaveGuard/ })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /Bem-vindo ao SavesGG/ })).toBeTruthy();
   });
 
   test("mostra o menu quando já foi concluído", async () => {
@@ -107,6 +107,6 @@ describe("App", () => {
     render(App);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("get_settings"));
     expect(screen.getByRole("navigation", { name: "Menu principal" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: /Bem-vindo ao SaveGuard/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Bem-vindo ao SavesGG/ })).toBeNull();
   });
 });

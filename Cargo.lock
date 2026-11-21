@@ -3454,13 +3454,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "saveguard"
+name = "savesgg"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "dirs 7.0.0",
  "notify",
- "saveguard-core",
+ "savesgg-core",
  "serde",
  "serde_json",
  "sysinfo",
@@ -3476,7 +3476,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "saveguard-core"
+name = "savesgg-core"
 version = "0.1.0"
 dependencies = [
  "blake3",

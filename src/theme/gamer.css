@@ -1,6 +1,7 @@
 /* Tema 1 — Gamer escuro verde-neon (referência: design/stitch/v0-dashboard-original.png).
    Os outros temas (plano 3) redefinem só estas variáveis. */
 :root {
+  --marca: #ff3b4f;
   --fundo: #0b100e;
   --superficie: #131a17;
   --superficie-2: #1a2420;

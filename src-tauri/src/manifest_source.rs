@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use saveguard_core::manifest::{Manifest, parse};
+use savesgg_core::manifest::{Manifest, parse};
 
 pub const URL: &str =
     "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml";
