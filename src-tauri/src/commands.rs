@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use savesgg_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
@@ -15,8 +15,8 @@ use savesgg_core::destinations::{
 };
 use savesgg_core::protection::{BackupHistory, assess, sort_for_display};
 use savesgg_core::restore::{
-    RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan,
-    resolve_overrides, vars_for,
+    LoteResultado, RestorePlan, RestoreReport, apply_restore as core_apply,
+    plan_restore as core_plan, resolve_overrides, restore_latest, vars_for,
 };
 use savesgg_core::scan::{ScanOptions, find_emulator_roots, scan as core_scan};
 use savesgg_core::stores::detect_all;
@@ -455,6 +455,71 @@ pub async fn apply_restore(
             .map_err(|e| e.to_string())?;
         let overrides = resolve_overrides(&plan, &overrides).map_err(|e| e.to_string())?;
         core_apply(&plan, &root, &ctx, &overrides, Utc::now()).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoteItemView {
+    pub game_id: String,
+    pub game_name: String,
+    pub resultado: LoteResultado,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProgressoRestauracao {
+    pub feitos: usize,
+    pub total: usize,
+    pub jogo: String,
+}
+
+/// Restaura a versão mais recente de vários jogos. Um erro num jogo não para os outros.
+#[tauri::command]
+pub async fn restore_many(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    destination_id: String,
+    game_ids: Vec<String>,
+) -> Res<Vec<LoteItemView>> {
+    let root = destination_root(&state, &destination_id)?;
+    let lock = state.locks.lock(&destination_id);
+    blocking(move || {
+        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let idx = LibraryIndex::load(&root).map_err(|e| e.to_string())?;
+        let installed = detect_all();
+        let ctx = current_ctx(&installed);
+        let total = game_ids.len();
+        let mut out = Vec::with_capacity(total);
+        for (feitos, id) in game_ids.into_iter().enumerate() {
+            let game_name = idx
+                .games
+                .get(&id)
+                .and_then(|refs| refs.iter().max_by_key(|r| r.created))
+                .and_then(|r| load_meta(&root, &id, &r.stem).ok())
+                .map(|m| m.game_name)
+                .unwrap_or_else(|| id.clone());
+            let _ = app.emit(
+                "restauracao-progresso",
+                ProgressoRestauracao {
+                    feitos,
+                    total,
+                    jogo: game_name.clone(),
+                },
+            );
+            let resultado = if idx.games.contains_key(&id) {
+                restore_latest(&root, &id, &ctx, &installed, Utc::now())
+            } else {
+                LoteResultado::Erro {
+                    mensagem: "jogo não encontrado neste backup".into(),
+                }
+            };
+            out.push(LoteItemView {
+                game_id: id,
+                game_name,
+                resultado,
+            });
+        }
+        Ok(out)
     })
     .await
 }

@@ -4,6 +4,7 @@ import type {
   Destination,
   GameSnapshotsView,
   GameView,
+  LoteItemView,
   RestorePlan,
   RestoreReport,
   SettingsView,
@@ -35,6 +36,8 @@ export const api = {
   setTheme: (theme: string) => invoke<void>("set_theme", { theme }),
   setGameView: (view: string) => invoke<void>("set_game_view", { view }),
   completeWizard: () => invoke<void>("complete_wizard"),
+  restoreMany: (destinationId: string, gameIds: string[]) =>
+    invoke<LoteItemView[]>("restore_many", { destinationId, gameIds }),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
 };
 

@@ -98,3 +98,14 @@ export interface AutoStatusView {
   copying: boolean;
   last_error: string | null;
 }
+
+export type LoteResultado =
+  | { tipo: "restaurado"; arquivos: number; seguranca: string | null }
+  | { tipo: "precisa_de_pasta"; faltando: number }
+  | { tipo: "erro"; mensagem: string };
+
+export interface LoteItemView {
+  game_id: string;
+  game_name: string;
+  resultado: LoteResultado;
+}
