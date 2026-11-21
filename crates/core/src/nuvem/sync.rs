@@ -181,6 +181,151 @@ pub fn sincronizar(prep: &Path, prov: &dyn Provedor) -> Result<ResumoSync, ErroN
     Ok(resumo)
 }
 
+/// Baixa para a preparação os `.json` das versões que estão na nuvem e ainda não
+/// estão aqui (de outro PC ou de antes de formatar), e registra no estado tudo o que
+/// viu. Nomes fora do padrão são ignorados. Devolve quantos `.json` baixou.
+pub fn atualizar_da_nuvem(prep: &Path, prov: &dyn Provedor) -> Result<usize, ErroNuvem> {
+    let mut estado = carregar_estado(prep);
+    let mut baixados = 0;
+    for pasta in prov.listar(PASTA)? {
+        if !pasta.pasta || !jogo_valido(&pasta.nome) {
+            continue;
+        }
+        let jogo = pasta.nome;
+        for item in prov.listar(&format!("{PASTA}/{jogo}"))? {
+            if item.pasta {
+                continue;
+            }
+            let Some((stem, ext)) = arquivo_remoto_valido(&item.nome) else {
+                continue;
+            };
+            let caminho = remoto(&jogo, &stem, ext);
+            let local = backup_root(prep).join(&jogo).join(format!("{stem}.{ext}"));
+            if ext == "json" {
+                if !local.exists() {
+                    baixar_atomico(prov, &caminho, &local)?;
+                    baixados += 1;
+                    let (h, t) = hash_arquivo(&local)?;
+                    estado.arquivos.insert(
+                        caminho,
+                        ArquivoRemoto {
+                            blake3: h,
+                            tamanho: t,
+                        },
+                    );
+                }
+            } else {
+                estado.arquivos.entry(caminho).or_insert(ArquivoRemoto {
+                    blake3: String::new(),
+                    tamanho: item.tamanho,
+                });
+            }
+        }
+    }
+    salvar_estado(prep, &estado)?;
+    if baixados > 0 {
+        incluir_no_indice(prep)?;
+    }
+    Ok(baixados)
+}
+
+/// Põe no índice local as versões cujo `.json` está aqui mas o `.zip` só na nuvem
+/// (o índice comum só junta versões com o `.zip` ao lado).
+fn incluir_no_indice(prep: &Path) -> Result<(), ErroNuvem> {
+    let erro = |e: crate::CoreError| ErroNuvem::Local(e.to_string());
+    let mut idx = crate::backup::LibraryIndex::load(prep).map_err(erro)?;
+    for v in versoes_locais(prep) {
+        let refs = idx.games.entry(v.jogo.clone()).or_default();
+        if refs.iter().any(|r| r.stem == v.stem) {
+            continue;
+        }
+        let Ok(meta) = crate::backup::load_meta(prep, &v.jogo, &v.stem) else {
+            continue;
+        };
+        refs.push(crate::backup::SnapshotRef {
+            stem: v.stem,
+            created: meta.created,
+            pinned: meta.pinned,
+            content_hash: meta.content_hash,
+            total_bytes: meta.total_bytes,
+            seguranca: meta.seguranca,
+        });
+        refs.sort_by_key(|r| r.created);
+    }
+    idx.save_atomic(prep).map_err(erro)
+}
+
+/// Baixa o `.zip` de uma versão para a preparação, se ainda não estiver aqui
+/// (antes de restaurar de um destino de nuvem).
+pub fn garantir_zip(
+    prep: &Path,
+    prov: &dyn Provedor,
+    jogo: &str,
+    stem: &str,
+) -> Result<(), ErroNuvem> {
+    if !jogo_valido(jogo) || !super::nomes::versao_valida(stem) {
+        return Err(ErroNuvem::Local("nome de versão inválido".into()));
+    }
+    let local = backup_root(prep).join(jogo).join(format!("{stem}.zip"));
+    if local.is_file() {
+        return Ok(());
+    }
+    let caminho = remoto(jogo, stem, "zip");
+    baixar_atomico(prov, &caminho, &local)?;
+    // Registra o conteúdo real, para o enviador não mandar de volta.
+    let (h, t) = hash_arquivo(&local)?;
+    let mut estado = carregar_estado(prep);
+    estado.arquivos.insert(
+        caminho,
+        ArquivoRemoto {
+            blake3: h,
+            tamanho: t,
+        },
+    );
+    salvar_estado(prep, &estado)
+}
+
+/// Baixa para `<destino>.tmp` e renomeia: nunca deixa arquivo pela metade.
+fn baixar_atomico(prov: &dyn Provedor, caminho: &str, destino: &Path) -> Result<(), ErroNuvem> {
+    let local_err = |e: std::io::Error| ErroNuvem::Local(e.to_string());
+    if let Some(d) = destino.parent() {
+        fs::create_dir_all(d).map_err(local_err)?;
+    }
+    let mut tmp = destino.as_os_str().to_os_string();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    if let Err(e) = prov.baixar(caminho, &tmp) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    fs::rename(&tmp, destino).map_err(local_err)
+}
+
+/// Data da versão mais recente de cada jogo que já está inteira na nuvem (zip e json
+/// no estado). Versão que ainda não subiu não protege o jogo.
+pub fn ultimas_enviadas(prep: &Path) -> BTreeMap<String, chrono::DateTime<chrono::Utc>> {
+    let estado = carregar_estado(prep);
+    let mut out: BTreeMap<String, chrono::DateTime<chrono::Utc>> = BTreeMap::new();
+    for v in versoes_locais(prep) {
+        let na_nuvem = estado
+            .arquivos
+            .contains_key(&remoto(&v.jogo, &v.stem, "zip"))
+            && estado
+                .arquivos
+                .contains_key(&remoto(&v.jogo, &v.stem, "json"));
+        if !na_nuvem {
+            continue;
+        }
+        let Ok(meta) = crate::backup::load_meta(prep, &v.jogo, &v.stem) else {
+            continue;
+        };
+        out.entry(v.jogo)
+            .and_modify(|d| *d = (*d).max(meta.created))
+            .or_insert(meta.created);
+    }
+    out
+}
+
 /// `SavesGG/<jogo>/<stem>.<ext>` → (jogo, stem), só para nomes válidos.
 pub(crate) fn versao_do_caminho(c: &str) -> Option<(String, String)> {
     let resto = c.strip_prefix("SavesGG/")?;
@@ -374,6 +519,73 @@ mod tests {
         assert!(nuvem.tem("SavesGG/biblioteca.json"));
         assert!(!zip_local(&prep, &stem).exists());
         assert_eq!(pendentes(&prep), 0);
+    }
+
+    #[test]
+    fn pull_traz_versoes_de_outro_pc() {
+        let t = tempfile::tempdir().unwrap();
+        let outro = t.path().join("outro-pc");
+        let stem = backup(t.path(), &outro, "v1", 0, 10);
+        let nuvem = ProvedorFalso::default();
+        sincronizar(&outro, &nuvem).unwrap();
+        let prep = t.path().join("pc-novo");
+        assert_eq!(atualizar_da_nuvem(&prep, &nuvem).unwrap(), 1);
+        let idx = LibraryIndex::load(&prep).unwrap();
+        assert_eq!(idx.games["hades"][0].stem, stem);
+        assert!(
+            prep.join("SavesGG/biblioteca.json").is_file(),
+            "destino passa a ter backup"
+        );
+        assert_eq!(atualizar_da_nuvem(&prep, &nuvem).unwrap(), 0);
+        // nada a reenviar além do índice deste PC
+        assert_eq!(sincronizar(&prep, &nuvem).unwrap().enviados, 1);
+    }
+
+    #[test]
+    fn pull_ignora_nomes_invalidos() {
+        let t = tempfile::tempdir().unwrap();
+        let prep = t.path().join("prep");
+        let nuvem = ProvedorFalso::default();
+        nuvem.por("SavesGG/../x.json", b"{}");
+        nuvem.por("SavesGG/Jogo X/2026-11-20_21-40-05.json", b"{}");
+        nuvem.por("SavesGG/jogo/a.exe", b"MZ");
+        nuvem.por("SavesGG/jogo/../../fora.json", b"{}");
+        assert_eq!(atualizar_da_nuvem(&prep, &nuvem).unwrap(), 0);
+        assert!(!t.path().join("x.json").exists());
+        assert!(!t.path().join("fora.json").exists());
+        assert!(!prep.join("SavesGG/jogo/a.exe").exists());
+        assert!(!prep.join("SavesGG/Jogo X").exists());
+    }
+
+    #[test]
+    fn garantir_zip_baixa_so_quando_falta() {
+        let t = tempfile::tempdir().unwrap();
+        let outro = t.path().join("outro-pc");
+        let stem = backup(t.path(), &outro, "v1", 0, 10);
+        let nuvem = ProvedorFalso::default();
+        sincronizar(&outro, &nuvem).unwrap();
+        let prep = t.path().join("pc-novo");
+        atualizar_da_nuvem(&prep, &nuvem).unwrap();
+        let antes = nuvem.baixados();
+        garantir_zip(&prep, &nuvem, "hades", &stem).unwrap();
+        assert!(zip_local(&prep, &stem).is_file());
+        assert_eq!(nuvem.baixados(), antes + 1);
+        garantir_zip(&prep, &nuvem, "hades", &stem).unwrap();
+        assert_eq!(nuvem.baixados(), antes + 1);
+        // o zip baixado não volta a subir
+        assert_eq!(sincronizar(&prep, &nuvem).unwrap().enviados, 1); // só o índice
+        assert!(garantir_zip(&prep, &nuvem, "../x", &stem).is_err());
+    }
+
+    #[test]
+    fn ultimas_enviadas_ignora_nao_enviadas() {
+        let t = tempfile::tempdir().unwrap();
+        let prep = t.path().join("prep");
+        backup(t.path(), &prep, "v1", 0, 10);
+        assert!(ultimas_enviadas(&prep).is_empty());
+        let nuvem = ProvedorFalso::default();
+        sincronizar(&prep, &nuvem).unwrap();
+        assert_eq!(ultimas_enviadas(&prep)["hades"], now());
     }
 
     #[test]
