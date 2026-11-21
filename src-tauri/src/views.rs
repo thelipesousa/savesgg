@@ -26,6 +26,8 @@ pub struct GameView {
     pub grande: bool,
     /// Possível save (heurística) já confirmado pelo usuário.
     pub confirmado: bool,
+    /// Capa no CDN da Steam (a interface cai no cartão com a inicial se falhar).
+    pub cover_url: Option<String>,
 }
 
 fn provider_name(p: SyncProvider) -> &'static str {
@@ -73,6 +75,9 @@ pub fn game_view(
         save_roots: g.save_roots.iter().map(|r| contract(r, ctx)).collect(),
         grande,
         confirmado,
+        cover_url: g.steam_app_id.map(|id| {
+            format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/library_600x900.jpg")
+        }),
     }
 }
 
@@ -118,6 +123,7 @@ mod tests {
             root: None,
             store_game_id: None,
             patterns: Vec::new(),
+            steam_app_id: None,
         }
     }
 
@@ -152,6 +158,30 @@ mod tests {
         assert_eq!(
             protection_label(&Protection::BackupDoApp(d)),
             "Backup do SaveGuard"
+        );
+    }
+
+    #[test]
+    fn game_view_tem_capa() {
+        let a = Assessment {
+            priority: Priority::Alta,
+            protections: vec![],
+        };
+        let mut g = game();
+        g.steam_app_id = Some(1245620);
+        let v = game_view(&g, &a, &ctx(), None, false, false);
+        assert!(
+            v.cover_url
+                .as_deref()
+                .unwrap()
+                .ends_with("/1245620/library_600x900.jpg"),
+            "{:?}",
+            v.cover_url
+        );
+        g.steam_app_id = None;
+        assert_eq!(
+            game_view(&g, &a, &ctx(), None, false, false).cover_url,
+            None
         );
     }
 

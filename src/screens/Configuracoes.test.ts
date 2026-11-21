@@ -56,11 +56,36 @@ describe("Configurações", () => {
   });
 
   test("pausar backup automático", async () => {
-    responder({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10 });
+    responder({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10, theme: "gamer", game_view: "lista", wizard_done: true });
     render(Configuracoes);
     const box = await screen.findByRole("checkbox", { name: /Pausar backup automático/ });
     await fireEvent.click(box);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_paused", { paused: true }));
+  });
+});
+
+describe("Aparência", () => {
+  const base = { auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10, theme: "gamer", game_view: "lista", wizard_done: true };
+
+  test("escolher tema salva e aplica", async () => {
+    responder(base);
+    render(Configuracoes);
+    await fireEvent.click(await screen.findByRole("radio", { name: /Cyberpunk/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_theme", { theme: "cyberpunk" }));
+    expect(document.documentElement.dataset.theme).toBe("cyberpunk");
+  });
+
+  test("escolher grade salva", async () => {
+    responder(base);
+    render(Configuracoes);
+    await fireEvent.click(await screen.findByRole("radio", { name: /Grade/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_game_view", { view: "grade" }));
+  });
+
+  test("tema atual vem marcado", async () => {
+    responder({ ...base, theme: "win11" });
+    render(Configuracoes);
+    expect(((await screen.findByRole("radio", { name: /Windows 11/ })) as HTMLInputElement).checked).toBe(true);
   });
 });
 

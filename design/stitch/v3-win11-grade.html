@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_dashboard" name="shell-type"/>
+<title>SaveGuard - Proteção de Saves</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+      main > :first-child {
+        margin-top: 0 !important;
+      }
+      main > :last-child {
+        margin-bottom: 0 !important;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D1D5DB;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9CA3AF;
+    }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            // Windows 11 Fluent Light Palette
+            fluent: {
+              bg: "#F3F4F6",            // Mica/Subtle background
+              subtle: "#F9FAFB",
+              card: "#FFFFFF",
+              border: "#E5E7EB",
+              borderStrong: "#D1D5DB",
+              accent: "#0067C0",        // Windows 11 Accent Blue
+              accentHover: "#005BA1",
+              accentLight: "#EFF6FC",
+              success: "#107C41",       // Windows green
+              successBg: "#DFF6DD",
+              warning: "#D83B01",
+              error: "#C42B1C",
+              errorBg: "#FDE7E9",
+              text: "#111827",
+              textSecondary: "#4B5563",
+              textTertiary: "#6B7280"
+            }
+          },
+          boxShadow: {
+            'fluent-card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03)',
+            'fluent-popover': '0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
+            'fluent-button': '0 2px 4px rgba(0, 103, 192, 0.18)'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#F3F4F6] text-fluent-text antialiased selection:bg-fluent-accent selection:text-white">
+<!-- Windows 11 Style Acrylic Header / Titlebar -->
+<header class="fixed top-0 left-0 right-0 h-14 z-50 bg-[#F9FAFB]/90 backdrop-blur-md border-b border-fluent-border flex items-center justify-between px-4 select-none">
+<!-- Brand / Title -->
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 to-sky-400 flex items-center justify-center text-white shadow-sm shadow-blue-500/30">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<span class="font-bold text-[17px] tracking-tight text-fluent-text">SaveGuard</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-fluent-success border border-emerald-200/80 font-mono text-[11px] font-semibold">
+        v2.4 Proativo
+      </span>
+</div>
+<!-- Fluent Search Bar (Centered Window Control) -->
+<div class="hidden md:flex items-center flex-1 max-w-md mx-6">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-fluent-textTertiary text-[18px]">search</span>
+<input class="w-full bg-white text-fluent-text placeholder:text-fluent-textTertiary text-[13px] pl-9 pr-3 py-1.5 rounded-lg border border-fluent-border focus:border-fluent-accent focus:ring-1 focus:ring-fluent-accent outline-none transition-all shadow-sm" placeholder="Buscar jogos, saves locais ou nuvem..." type="text"/>
+</div>
+</div>
+<!-- Right Controls: Profile & Windows 11 Caption Buttons -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2.5">
+<div class="text-right hidden sm:block leading-tight">
+<p class="text-[13px] font-semibold text-fluent-text">Luna Gamer</p>
+<p class="text-[11px] font-medium text-fluent-accent">Modo Pro Ativo</p>
+</div>
+<img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/20 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATGHzZ7wdn4t2AV2J1ZB0kmJKtXjK4n2Auk4q6l7ydSoICxkONHoE1NUa4ZnnufP1C-__jMeCOfUi6SGyk4LIAGpydeLO-VhwPCbiF3TNYb570zXSHq6c5KufFWQRhLkqj1NQjE3Np1gUtboGM5THowz6X_Bc_IJ9GMs7rGHgFH_cUezkSCMOxXY1Ukharwr6-ssq5qAIFZHddNH12UQGMLeBAaXykQSw99hIZ1RjZ2ZsvozbKmNAJGTU-Ek6CJfr9K-LCxIFrXhUc"/>
+</div>
+<!-- Native Windows 11 window controls -->
+<div class="flex items-center ml-1 border-l border-fluent-border pl-2 text-fluent-textSecondary">
+<button aria-label="Minimizar" class="w-8 h-7 flex items-center justify-center rounded-md hover:bg-gray-200/70 hover:text-fluent-text transition-colors">
+<span class="material-symbols-outlined text-[15px]">minimize</span>
+</button>
+<button aria-label="Maximizar" class="w-8 h-7 flex items-center justify-center rounded-md hover:bg-gray-200/70 hover:text-fluent-text transition-colors">
+<span class="material-symbols-outlined text-[14px]">crop_square</span>
+</button>
+<button aria-label="Fechar" class="w-8 h-7 flex items-center justify-center rounded-md hover:bg-red-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[15px]">close</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Fluent Light Sidebar -->
+<aside class="fixed left-0 top-14 bottom-0 w-60 z-40 bg-[#F9FAFB]/95 backdrop-blur-md border-r border-fluent-border flex flex-col justify-between p-3 select-none">
+<div class="flex flex-col gap-4">
+<div class="px-3 pt-2">
+<p class="text-[10px] uppercase font-bold tracking-wider text-fluent-textTertiary">Menu Principal</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-fluent-accent text-white font-medium text-[13px] shadow-sm transition-all shadow-blue-500/20" href="#">
+<span class="material-symbols-outlined text-[19px]">home</span>
+<span>Início</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-fluent-textSecondary hover:bg-gray-200/60 hover:text-fluent-text font-medium text-[13px] transition-all" href="#">
+<span class="material-symbols-outlined text-[19px]">sports_esports</span>
+<span>Jogos</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-fluent-textSecondary hover:bg-gray-200/60 hover:text-fluent-text font-medium text-[13px] transition-all" href="#">
+<span class="material-symbols-outlined text-[19px]">folder_zip</span>
+<span>Backups</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-fluent-textSecondary hover:bg-gray-200/60 hover:text-fluent-text font-medium text-[13px] transition-all" href="#">
+<span class="material-symbols-outlined text-[19px]">cloud_sync</span>
+<span>Nuvem</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-fluent-textSecondary hover:bg-gray-200/60 hover:text-fluent-text font-medium text-[13px] transition-all" href="#">
+<span class="material-symbols-outlined text-[19px]">restore</span>
+<span>Restaurar</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-fluent-textSecondary hover:bg-gray-200/60 hover:text-fluent-text font-medium text-[13px] transition-all" href="#">
+<span class="material-symbols-outlined text-[19px]">settings</span>
+<span>Configurações</span>
+</a>
+</nav>
+</div>
+<!-- Active Sentinel Card in Sidebar -->
+<div class="flex flex-col gap-2.5 p-3 bg-white border border-fluent-border rounded-xl shadow-fluent-card">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+</span>
+<span class="text-[12px] font-semibold text-fluent-text">Proteção Ativa</span>
+</div>
+<span class="material-symbols-outlined text-fluent-success text-[18px]">verified_user</span>
+</div>
+<p class="text-[11px] text-fluent-textSecondary leading-relaxed">Sentinela de arquivos em tempo real ativo.</p>
+<div class="flex items-center justify-between pt-1 border-t border-gray-100">
+<button class="flex items-center gap-1 text-[11px] font-semibold text-fluent-accent hover:underline">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+<span>Modo Gamer</span>
+</button>
+<button class="flex items-center gap-1 text-[11px] text-fluent-textTertiary hover:text-fluent-text">
+<span class="material-symbols-outlined text-[14px]">help</span>
+<span>Suporte</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Canvas Area -->
+<div class="pl-60">
+<main class="relative pt-14 min-h-screen bg-[#F3F4F6]"><div class="flex flex-col w-full p-4 lg:p-6 gap-6">
+<!-- TOP BANNER: Windows 11 Fluent Acrylic Hero Banner -->
+<section class="relative overflow-hidden rounded-lg bg-surface-container-low p-6 shadow-sm">
+<div class="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+<!-- Left: Sentinel Status & Metadata -->
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container shrink-0 shadow-inner">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="flex flex-wrap items-center gap-2.5">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Proteção contínua ativa</h1>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-container/15 text-primary-container font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+              Sentinela em tempo real
+            </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2">
+<span>Monitorando diretórios de saves em tempo real</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span>Último snapshot: <strong class="text-on-surface font-semibold">há 4 minutos (Elden Ring)</strong></span>
+</p>
+<!-- System Specs Chips -->
+<div class="flex flex-wrap items-center gap-2 pt-1 font-code-sm text-code-sm text-outline">
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface">Motor VSS Ativo</span>
+<span>•</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface">Compressão LZ4 Extreme</span>
+<span>•</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface">Criptografia AES-256 GCM</span>
+</div>
+</div>
+</div>
+<!-- Right: Primary Windows 11 Actions -->
+<div class="flex flex-wrap items-center gap-3 shrink-0">
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md shadow-md hover:bg-primary-fixed-dim transition-all" id="scanPcBtn">
+<span class="material-symbols-outlined text-[18px]">radar</span>
+<span>Escanear PC (142 detectados)</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high font-label-md text-label-md shadow-sm transition-all" id="forceSyncBtn">
+<span class="material-symbols-outlined text-[18px] text-secondary">cloud_sync</span>
+<span>Forçar Sincronização Geral</span>
+</button>
+</div>
+</div>
+</section>
+<!-- METRIC TILES: 4-Column Fluent Row -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Metric 1: Jogos Monitorados -->
+<div class="p-4 rounded-lg bg-surface-container-low shadow-sm flex flex-col justify-between gap-3">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md uppercase tracking-wider">Jogos Monitorados</span>
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">sports_esports</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-on-surface">142</span>
+<span class="font-label-sm text-label-sm text-primary-container bg-primary-container/15 px-2 py-0.5 rounded-full">+3 novos</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">7 plataformas detectadas • 100% integridade</p>
+</div>
+</div>
+<!-- Metric 2: Sem Nuvem / Risco -->
+<div class="p-4 rounded-lg bg-surface-container-low shadow-sm flex flex-col justify-between gap-3">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md uppercase tracking-wider">Sem Nuvem • Alerta</span>
+<div class="w-8 h-8 rounded-full bg-error-container/20 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline justify-between">
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-error">38</span>
+<span class="font-label-sm text-label-sm text-error bg-error-container/30 px-2 py-0.5 rounded-full">Risco local</span>
+</div>
+<button class="font-label-sm text-label-sm text-primary-container hover:underline font-bold">Blindar todos</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Saves vulneráveis a formatação acidental</p>
+</div>
+</div>
+<!-- Metric 3: Espaço Protegido -->
+<div class="p-4 rounded-lg bg-surface-container-low shadow-sm flex flex-col justify-between gap-3">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md uppercase tracking-wider">Espaço Protegido</span>
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">folder_zip</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-on-surface">12,4 GB</span>
+<span class="font-code-sm text-code-sm text-secondary bg-secondary-container/40 px-2 py-0.5 rounded-full">LZ4 -62%</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">284 snapshots arquivados • Deduplicação ON</p>
+</div>
+</div>
+<!-- Metric 4: Nuvem Vinculada -->
+<div class="p-4 rounded-lg bg-surface-container-low shadow-sm flex flex-col justify-between gap-3">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md uppercase tracking-wider">Nuvem Principal</span>
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[18px]">cloud_done</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface">OneDrive</span>
+<span class="font-label-sm text-label-sm text-primary-container font-semibold">100% OK</span>
+</div>
+<div class="w-full bg-surface-container h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 29%;"></div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 flex justify-between">
+<span>12,4 GB usados</span>
+<span class="font-code-sm text-code-sm text-on-surface font-medium">42,8 GB livres</span>
+</p>
+</div>
+</div>
+</section>
+<!-- MAIN WORKSPACE: Grid of Game Cards + Contextual Right Rail -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+<!-- LEFT 8-9 COLS: Game Catalog & Filter Toolbar -->
+<div class="xl:col-span-8 2xl:col-span-9 flex flex-col gap-4">
+<!-- Toolbar: Tabs & Search Filter -->
+<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-2.5 rounded-lg bg-surface-container-low shadow-sm">
+<!-- Filter Tabs -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none text-on-surface-variant font-label-md text-label-md">
+<button class="filter-pill px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container font-bold shadow-sm whitespace-nowrap">
+            Todos (142)
+          </button>
+<button class="filter-pill px-3 py-1.5 rounded-full bg-surface-container text-error hover:bg-error-container/20 whitespace-nowrap flex items-center gap-1 font-semibold">
+<span class="material-symbols-outlined text-[14px]">priority_high</span>
+            Críticos Sem Nuvem (38)
+          </button>
+<button class="filter-pill px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high whitespace-nowrap">
+            Steam (84)
+          </button>
+<button class="filter-pill px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high whitespace-nowrap">
+            Epic Games (14)
+          </button>
+<button class="filter-pill px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high whitespace-nowrap">
+            GOG (9)
+          </button>
+<button class="filter-pill px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high whitespace-nowrap">
+            Emuladores (35)
+          </button>
+</div>
+<!-- Filter Input & Sort -->
+<div class="flex items-center gap-2 shrink-0">
+<div class="relative w-full md:w-56">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[16px]">filter_list</span>
+<input class="w-full bg-surface text-on-surface placeholder:text-outline font-body-sm text-body-sm pl-8 pr-3 py-1.5 rounded-full shadow-inner focus:outline-none focus:ring-1 focus:ring-primary-container" id="gameSearchInput" placeholder="Filtrar nesta lista..." type="text"/>
+</div>
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high" title="Ordenar por Criticidade">
+<span class="material-symbols-outlined text-[18px]">swap_vert</span>
+</button>
+</div>
+</div>
+<!-- GAME TILES GRID: Dynamic Cover Art Windows 11 Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+<!-- CARD 1: Hollow Knight Silksong (Crítico / Sem Nuvem) -->
+<article class="game-item flex flex-col rounded-lg bg-surface-container-low shadow-sm hover:shadow-md transition-all group overflow-hidden">
+<div class="relative h-44 w-full bg-surface overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Hollow Knight Silksong cover art showing Hornet with her needle poised dramatically in a dark bioluminescent insect kingdom with glowing silk thread filaments and dim amber lanterns." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQVE46D0HeeVAXKlzvaRzkNMno5hkWVLlZ4yxnhSWdDZU2gsTSeNx5VeYHd54LZl_u4XGk8oHt_F43ODTLtLuzBR5Ueryttk6Oyca84ZMVur4MAIdSzIvPrKRqPTqiEvDu2qsA7bO2Hi9Z2RNkslnfJmUx2y6pVNb9x0vo92VcmO2410ZxSPT7wXn8rfnXA3fqJDWFtBpo5hcy1H_CNQEi4-_n8RbsSEKkBtJrG9Y9Z4Cao9-yRanOsvW7G_D20borl511K-tjZCLJ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+<!-- Floating Top Badges -->
+<div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">cloud_off</span>
+                Sem Nuvem
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-lowest/80 text-on-surface font-code-sm text-code-sm backdrop-blur-sm">
+                Local / AppData
+              </span>
+</div>
+<!-- Bottom Floating Title -->
+<div class="absolute bottom-2 left-3 right-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface drop-shadow-sm truncate">Hollow Knight: Silksong</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span>Prioridade Alta • Snapshot Crítico</span>
+</p>
+</div>
+</div>
+<!-- Card Content Body -->
+<div class="p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant bg-surface-container px-3 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">history</span>
+<span><strong class="text-on-surface">18 versões</strong> (4.2 MB)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">há 42 min</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<!-- Windows 11 Toggle -->
+<button aria-label="Auto backup ativo" class="relative w-9 h-5 rounded-full bg-primary-container p-0.5 transition-colors cursor-pointer">
+<span class="block w-4 h-4 rounded-full bg-on-primary-container transform translate-x-4 transition-transform"></span>
+</button>
+<span class="font-label-sm text-label-sm text-on-surface">Auto-backup</span>
+</div>
+<!-- Quick Action Pills -->
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" title="Restaurar versão anterior">
+<span class="material-symbols-outlined text-[17px]">restore</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm hover:bg-primary-fixed-dim transition-all shadow-sm">
+<span class="material-symbols-outlined text-[15px]">save</span>
+<span>Salvar Agora</span>
+</button>
+</div>
+</div>
+<!-- Path link -->
+<div class="flex items-center gap-1 font-code-sm text-code-sm text-outline truncate pt-1">
+<span class="material-symbols-outlined text-[13px]">folder_open</span>
+<span class="truncate">AppData\LocalLow\Team Cherry\Silksong\saves\</span>
+</div>
+</div>
+</article>
+<!-- CARD 2: Pokémon Emerald [mGBA] (Emulador / Alta Criticidade) -->
+<article class="game-item flex flex-col rounded-lg bg-surface-container-low shadow-sm hover:shadow-md transition-all group overflow-hidden">
+<div class="relative h-44 w-full bg-surface overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Retro handheld emulation graphic showing Pokémon Emerald Rayquaza spiraling among stormy green clouds with ancient glyphs and retro 32-bit pixel aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAledTjGw_ztwbWcDUq6e7mX9_6QNCWm1kcrOdNUPDWzDdGn4H14l_UVsmZUriSnh37m7qjS82InwQ7cbFsUcWI4sbAJ2vEk1AEY-ZAgGuOySJRkUSucqLyd8tcRPZNZxiiUWp9kvP-zC0UYuFNfxl7XRw1B7I_M-uw3EOWWFXqwmIqfR_7mxWLEECkHYuyuc0NB-Rjj4ZbLDLCoTKkn2tTMAqXuZQajQBT4g2J2u8aSzR-040mqi0UtrE1E6y6mG1jMr_Y5e7Ghtiw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+<div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">cloud_off</span>
+                Sem Nuvem
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-lowest/80 text-on-surface font-code-sm text-code-sm backdrop-blur-sm">
+                mGBA / Standalone
+              </span>
+</div>
+<div class="absolute bottom-2 left-3 right-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface drop-shadow-sm truncate">Pokémon Emerald</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span>Prioridade Alta • Emulador Bateria</span>
+</p>
+</div>
+</div>
+<div class="p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant bg-surface-container px-3 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">history</span>
+<span><strong class="text-on-surface">32 snapshots</strong> (128 KB)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">há 1 hora</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button aria-label="Auto backup ativo" class="relative w-9 h-5 rounded-full bg-primary-container p-0.5 transition-colors cursor-pointer">
+<span class="block w-4 h-4 rounded-full bg-on-primary-container transform translate-x-4 transition-transform"></span>
+</button>
+<span class="font-label-sm text-label-sm text-on-surface">Auto-backup</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" title="Restaurar versão anterior">
+<span class="material-symbols-outlined text-[17px]">restore</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm hover:bg-primary-fixed-dim transition-all shadow-sm">
+<span class="material-symbols-outlined text-[15px]">save</span>
+<span>Salvar Agora</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-1 font-code-sm text-code-sm text-outline truncate pt-1">
+<span class="material-symbols-outlined text-[13px]">folder_open</span>
+<span class="truncate">D:\Emuladores\mGBA\saves\Emerald.sav</span>
+</div>
+</div>
+</article>
+<!-- CARD 3: Elden Ring (Steam Cloud + Local Mirror) -->
+<article class="game-item flex flex-col rounded-lg bg-surface-container-low shadow-sm hover:shadow-md transition-all group overflow-hidden">
+<div class="relative h-44 w-full bg-surface overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Dark fantasy screenshot representing Elden Ring Shadow of the Erdtree featuring golden embers falling over the giant twisted glowing Erdtree against a brooding charcoal night sky." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbu6KpDrd15vWzRxEE1Y21WAz4r4Oi-BrfRnWExIi6he039OpuVOSmyuvmFQoZf6PSpcxOPmgFdtH74_70jeUAYTJGQce0OfDOU_eKFbs4JM2_IGj_PxKSz5y8oxgPa5-6DwTmRwb9zmG6jMsuE0EbRbmVqhzUizLw9_QyJdEP-CaAvnMEi6LX8s_B2WViV8tv_Mip8uqIcLDWJrzFpwE6BG-36ofdEhZJ_ispxXEs16F-RHoQxwfgo3aNluDXgPdDfzFpI7tXExkV"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+<div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-label-sm text-label-sm shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">cloud_done</span>
+                Steam Cloud + OneDrive
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-lowest/80 text-on-surface font-code-sm text-code-sm backdrop-blur-sm">
+                Steam
+              </span>
+</div>
+<div class="absolute bottom-2 left-3 right-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface drop-shadow-sm truncate">Elden Ring: Shadow of the Erdtree</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Prioridade Média • Sincronizado</span>
+</p>
+</div>
+</div>
+<div class="p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant bg-surface-container px-3 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">history</span>
+<span><strong class="text-on-surface">24 snapshots</strong> (18.4 MB)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">há 4 min</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button aria-label="Auto backup ativo" class="relative w-9 h-5 rounded-full bg-primary-container p-0.5 transition-colors cursor-pointer">
+<span class="block w-4 h-4 rounded-full bg-on-primary-container transform translate-x-4 transition-transform"></span>
+</button>
+<span class="font-label-sm text-label-sm text-on-surface">Auto-backup</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" title="Restaurar versão anterior">
+<span class="material-symbols-outlined text-[17px]">restore</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined text-[15px]">sync</span>
+<span>Sincronizado</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-1 font-code-sm text-code-sm text-outline truncate pt-1">
+<span class="material-symbols-outlined text-[13px]">folder_open</span>
+<span class="truncate">AppData\Roaming\EldenRing\7656119802871239\</span>
+</div>
+</div>
+</article>
+<!-- CARD 4: Baldur's Gate 3 (GOG Cloud) -->
+<article class="game-item flex flex-col rounded-lg bg-surface-container-low shadow-sm hover:shadow-md transition-all group overflow-hidden">
+<div class="relative h-44 w-full bg-surface overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="High fantasy party of adventurers camping under starlit moonlight in Baldur's Gate 3 with warm campfire glow illuminating armor and mystical spell scrolls." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVG665bbh3mvUSw-mT2d3FXDVgfkMPgsNfixUcPCFiIImML-UYt2Olp5nZB-KMAoNKvniLvdM5JS2Z3f-WpAfOGoOqmR4iC5oh59vwFm5BNcQICxXiUfg4MPmz8s7f_viKOBE-Q15mL12sDb5OugTiFJ9cLXEzmY5WIB2iwMD1qJy48esTsqy919jdKb1Xl2i1QlGaqhnlgMKBs7Lp2Ep1X7jkc8OUcidFck61NPEhD8IlzJLlcIoNrGr6h3EaJFZ79hR02ngPVCnY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+<div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-label-sm text-label-sm shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">cloud_done</span>
+                GOG Cloud OK
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-lowest/80 text-on-surface font-code-sm text-code-sm backdrop-blur-sm">
+                GOG Galaxy
+              </span>
+</div>
+<div class="absolute bottom-2 left-3 right-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface drop-shadow-sm truncate">Baldur's Gate 3</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Prioridade Média • Protegido</span>
+</p>
+</div>
+</div>
+<div class="p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant bg-surface-container px-3 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">history</span>
+<span><strong class="text-on-surface">14 saves</strong> (420 MB)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">há 2 horas</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button aria-label="Auto backup ativo" class="relative w-9 h-5 rounded-full bg-primary-container p-0.5 transition-colors cursor-pointer">
+<span class="block w-4 h-4 rounded-full bg-on-primary-container transform translate-x-4 transition-transform"></span>
+</button>
+<span class="font-label-sm text-label-sm text-on-surface">Auto-backup</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" title="Restaurar versão anterior">
+<span class="material-symbols-outlined text-[17px]">restore</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined text-[15px]">save</span>
+<span>Salvar</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-1 font-code-sm text-code-sm text-outline truncate pt-1">
+<span class="material-symbols-outlined text-[13px]">folder_open</span>
+<span class="truncate">AppData\Local\Larian Studios\Baldur's Gate 3\PlayerProfiles\</span>
+</div>
+</div>
+</article>
+<!-- CARD 5: Hades II (Epic Games) -->
+<article class="game-item flex flex-col rounded-lg bg-surface-container-low shadow-sm hover:shadow-md transition-all group overflow-hidden">
+<div class="relative h-44 w-full bg-surface overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Mythological underworld aesthetic showing Melinoe with glowing green spectral blade and witch regalia battling Olympian shadows in Hades II visual art style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOQS3gHHDkSAMAtiowuRT59CP_0TWzH5fCk7l3NiPvtP7qTIizIvPM5CuqBhEzFx0fVoDRQ725PXtX2e_jrR7UOSv98l8fe0YUt5_iKkjHKjI5CgfyzzvZDV_3i5gBqYg92dQoOrZefigjM1P1_WsM9EyEwQuywniwqL_Lc1pvFIBXXXkH5zISHMNeDo2ICdnpNLDZk48krJzfivLSDO_6a28-P53jhvL1ej3RSuPhsoKIA4lck97PSecE5sjpS6bXWIvmp9VdF9gL"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+<div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-label-sm text-label-sm shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">cloud_done</span>
+                Epic Cloud OK
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-lowest/80 text-on-surface font-code-sm text-code-sm backdrop-blur-sm">
+                Epic Store
+              </span>
+</div>
+<div class="absolute bottom-2 left-3 right-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface drop-shadow-sm truncate">Hades II</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+<span>Prioridade Baixa • Seguro</span>
+</p>
+</div>
+</div>
+<div class="p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant bg-surface-container px-3 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">history</span>
+<span><strong class="text-on-surface">9 versões</strong> (6.8 MB)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">ontem</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button aria-label="Auto backup ativo" class="relative w-9 h-5 rounded-full bg-primary-container p-0.5 transition-colors cursor-pointer">
+<span class="block w-4 h-4 rounded-full bg-on-primary-container transform translate-x-4 transition-transform"></span>
+</button>
+<span class="font-label-sm text-label-sm text-on-surface">Auto-backup</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" title="Restaurar versão anterior">
+<span class="material-symbols-outlined text-[17px]">restore</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined text-[15px]">save</span>
+<span>Salvar</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-1 font-code-sm text-code-sm text-outline truncate pt-1">
+<span class="material-symbols-outlined text-[13px]">folder_open</span>
+<span class="truncate">Saved Games\Hades II\Profile1.sav</span>
+</div>
+</div>
+</article>
+<!-- CARD 6: Cyberpunk 2077: Phantom Liberty (Steam Cloud) -->
+<article class="game-item flex flex-col rounded-lg bg-surface-container-low shadow-sm hover:shadow-md transition-all group overflow-hidden">
+<div class="relative h-44 w-full bg-surface overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Neon-drenched cyberpunk city corridor in Dogtown from Cyberpunk 2077 Phantom Liberty with rain reflections on asphalt and towering holographic corporate towers." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkDAxK0q74Yl9zynoBgQmfyD7LjeipOGEhosCuTCf_aCtUVyNwkldrkpFyDOGh4UZOec-U0-ENyiJAA1LUlMfT7GdpRFAOIntbz-9-HBWaQ-qfUeH8j0AJNy8hMBfOZ_mYzFzB4RFU33tyHR_2z9eK6mU7hbZyGgL0v7N7Rx4cpLxOhRxtzlp5wChPpN2FobSpgDl2d7FjG2zZ5Qb3QpKEMRAKiF-qdS9cQkq-qNlYQkq8OXj32pji9U3U3AouedItn7s36FaiyLh6"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+<div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-label-sm text-label-sm shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">cloud_done</span>
+                Steam Cloud + Offline
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-lowest/80 text-on-surface font-code-sm text-code-sm backdrop-blur-sm">
+                Steam
+              </span>
+</div>
+<div class="absolute bottom-2 left-3 right-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface drop-shadow-sm truncate">Cyberpunk 2077: Phantom Liberty</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Prioridade Alta • 45 Snapshots</span>
+</p>
+</div>
+</div>
+<div class="p-3.5 flex flex-col gap-3">
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant bg-surface-container px-3 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">history</span>
+<span><strong class="text-on-surface">45 versões</strong> (1.2 GB)</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">há 10 min</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<button aria-label="Auto backup ativo" class="relative w-9 h-5 rounded-full bg-primary-container p-0.5 transition-colors cursor-pointer">
+<span class="block w-4 h-4 rounded-full bg-on-primary-container transform translate-x-4 transition-transform"></span>
+</button>
+<span class="font-label-sm text-label-sm text-on-surface">Auto-backup</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" title="Restaurar versão anterior">
+<span class="material-symbols-outlined text-[17px]">restore</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined text-[15px]">save</span>
+<span>Salvar</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-1 font-code-sm text-code-sm text-outline truncate pt-1">
+<span class="material-symbols-outlined text-[13px]">folder_open</span>
+<span class="truncate">Saved Games\CD Projekt Red\Cyberpunk 2077\</span>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- RIGHT 3-4 COLS: Auxiliary Inspector & Cloud Destinations -->
+<aside class="xl:col-span-4 2xl:col-span-3 flex flex-col gap-4">
+<!-- Card: Provedores de Armazenamento -->
+<section class="p-4 rounded-lg bg-surface-container-low shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">cloud</span>
+<span>Destinos de Sincronia</span>
+</h3>
+<button class="p-1 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container" title="Adicionar novo destino">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+<!-- Providers List -->
+<div class="flex flex-col gap-3">
+<!-- OneDrive (Active) -->
+<div class="p-3 rounded-lg bg-surface-container flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary-container text-[20px]">cloud_done</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Microsoft OneDrive</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Conectado • Espelhamento Ativo</p>
+</div>
+</div>
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 29%;"></div>
+</div>
+<p class="font-code-sm text-code-sm text-outline flex justify-between">
+<span>12,4 GB / 100 GB</span>
+<span>87,6 GB livres</span>
+</p>
+</div>
+<!-- Google Drive (Mirror OK) -->
+<div class="p-3 rounded-lg bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary-container text-[20px]">sync</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Google Drive</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Espelho redundante OK</p>
+</div>
+</div>
+<span class="font-code-sm text-code-sm text-primary-container bg-primary-container/15 px-2 py-0.5 rounded-full">Ativo</span>
+</div>
+<!-- SaveVault NVMe Externo (Offline Vault) -->
+<div class="p-3 rounded-lg bg-surface-container flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-secondary text-[20px]">hard_drive</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">SaveVault NVMe (D:\)</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Backup Físico Offline</p>
+</div>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface bg-surface-container-high px-2 py-0.5 rounded-full">842 GB</span>
+</div>
+</div>
+<!-- Dropbox (Unlinked) -->
+<div class="p-3 rounded-lg bg-surface-container flex items-center justify-between opacity-70 hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-outline text-[20px]">cloud_off</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Dropbox</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Não vinculado</p>
+</div>
+</div>
+<button class="font-label-sm text-label-sm text-primary-container font-semibold hover:underline">Vincular</button>
+</div>
+</div>
+</section>
+<!-- Card: Atividade Recente (Audit Feed) -->
+<section class="p-4 rounded-lg bg-surface-container-low shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]">browse_activity</span>
+<span>Atividade Recente</span>
+</h3>
+<span class="font-label-sm text-label-sm text-outline">Tempo real</span>
+</div>
+<div class="flex flex-col gap-3 font-body-sm text-body-sm">
+<div class="flex items-start gap-3 p-2 rounded-lg bg-surface-container">
+<div class="w-2 h-2 rounded-full bg-primary-container mt-1.5 shrink-0"></div>
+<div class="flex flex-col">
+<p class="text-on-surface font-semibold">Elden Ring: Shadow of the Erdtree</p>
+<p class="text-on-surface-variant">Espelhado com sucesso no OneDrive (SHA-256 verificado)</p>
+<span class="font-code-sm text-code-sm text-outline mt-0.5">há 4 min • snapshot #24</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2 rounded-lg bg-surface-container">
+<div class="w-2 h-2 rounded-full bg-secondary mt-1.5 shrink-0"></div>
+<div class="flex flex-col">
+<p class="text-on-surface font-semibold">Hollow Knight: Silksong</p>
+<p class="text-on-surface-variant">Snapshot delta local criado (+14 KB modificados)</p>
+<span class="font-code-sm text-code-sm text-outline mt-0.5">há 42 min • snapshot #18</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2 rounded-lg bg-surface-container">
+<div class="w-2 h-2 rounded-full bg-primary-container mt-1.5 shrink-0"></div>
+<div class="flex flex-col">
+<p class="text-on-surface font-semibold">Baldur's Gate 3</p>
+<p class="text-on-surface-variant">Compressão LZ4 concluída (-68% redução de tamanho)</p>
+<span class="font-code-sm text-code-sm text-outline mt-0.5">há 2 horas • snapshot #14</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2 rounded-lg bg-surface-container">
+<div class="w-2 h-2 rounded-full bg-primary-container mt-1.5 shrink-0"></div>
+<div class="flex flex-col">
+<p class="text-on-surface font-semibold">Escaneamento de Diretórios</p>
+<p class="text-on-surface-variant">142 títulos verificados, zero corrupções detectadas</p>
+<span class="font-code-sm text-code-sm text-outline mt-0.5">há 3 horas • Rotina automática</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Card: Status de Integridade Global -->
+<section class="p-4 rounded-lg bg-surface-container-low shadow-sm flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container shrink-0">
+<span class="material-symbols-outlined text-[24px]">verified</span>
+</div>
+<div class="flex flex-col">
+<h4 class="font-label-md text-label-md text-on-surface font-bold">Integridade 100% Garantida</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Zero hashes corrompidos. Snapshots validados via checksum criptográfico.</p>
+</div>
+</section>
+</aside>
+</div>
+</div>
+<script>
+  // Simple interaction for pill switches
+  document.querySelectorAll('button[aria-label="Auto backup ativo"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const knob = btn.querySelector('span');
+      if (knob.classList.contains('translate-x-4')) {
+        knob.classList.remove('translate-x-4');
+        knob.classList.add('translate-x-0');
+        btn.classList.remove('bg-primary-container');
+        btn.classList.add('bg-surface-container-high');
+      } else {
+        knob.classList.remove('translate-x-0');
+        knob.classList.add('translate-x-4');
+        btn.classList.add('bg-primary-container');
+        btn.classList.remove('bg-surface-container-high');
+      }
+    });
+  });
+</script></main>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Scan PC button effect
+      const scanBtn = document.getElementById('scanPcBtn');
+      if (scanBtn) {
+        scanBtn.addEventListener('click', () => {
+          const originalContent = scanBtn.innerHTML;
+          scanBtn.innerHTML = `
+            <span class="material-symbols-outlined text-[18px] animate-spin">refresh</span>
+            <span>Escaneando diretórios...</span>
+          `;
+          setTimeout(() => {
+            scanBtn.innerHTML = originalContent;
+          }, 1500);
+        });
+      }
+
+      // Force Sync button feedback
+      const syncBtn = document.getElementById('forceSyncBtn');
+      if (syncBtn) {
+        syncBtn.addEventListener('click', () => {
+          syncBtn.classList.add('text-fluent-accent');
+          syncBtn.innerHTML = `
+            <span class="material-symbols-outlined text-[18px] animate-spin text-fluent-accent">sync</span>
+            <span>Sincronizando com nuvens...</span>
+          `;
+          setTimeout(() => {
+            syncBtn.innerHTML = `
+              <span class="material-symbols-outlined text-[18px] text-fluent-success">check_circle</span>
+              <span class="text-fluent-success">Tudo atualizado!</span>
+            `;
+            setTimeout(() => {
+              syncBtn.innerHTML = `
+                <span class="material-symbols-outlined text-[18px] text-fluent-accent">cloud_sync</span>
+                <span>Forçar Sincronização Geral</span>
+              `;
+              syncBtn.classList.remove('text-fluent-accent');
+            }, 1400);
+          }, 1200);
+        });
+      }
+
+      // Interactive search filtering
+      const searchInput = document.getElementById('gameSearchInput');
+      const gameItems = document.querySelectorAll('.game-item');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const term = e.target.value.toLowerCase();
+          gameItems.forEach(item => {
+            const text = item.innerText.toLowerCase();
+            item.style.display = text.includes(term) ? 'flex' : 'none';
+          });
+        });
+      }
+
+      // Filter pill toggles
+      const filterPills = document.querySelectorAll('.filter-pill');
+      filterPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          filterPills.forEach(p => {
+            if (p.innerText.includes('Críticos')) {
+              p.className = 'filter-pill px-3 py-1 rounded-md bg-red-50 text-fluent-error hover:bg-red-100 font-semibold border border-red-200/80 whitespace-nowrap flex items-center gap-1.5 transition-colors';
+            } else {
+              p.className = 'filter-pill px-3 py-1 rounded-md bg-gray-100 text-fluent-textSecondary hover:bg-gray-200 hover:text-fluent-text font-medium whitespace-nowrap transition-colors';
+            }
+          });
+          pill.className = 'filter-pill px-3 py-1 rounded-md bg-fluent-accent text-white font-semibold shadow-sm whitespace-nowrap';
+        });
+      });
+    });
+  </script>
+</body></html>

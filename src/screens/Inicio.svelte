@@ -5,20 +5,48 @@
   import { listen } from "@tauri-apps/api/event";
   import type { AutoStatusView } from "../lib/types";
   import GameRow from "../components/GameRow.svelte";
+  import GameCard from "../components/GameCard.svelte";
+  import InicioConsole from "../components/InicioConsole.svelte";
   import DestinationPicker from "../components/DestinationPicker.svelte";
   import StatusAutomatico from "../components/StatusAutomatico.svelte";
   import AvisoDisco from "../components/AvisoDisco.svelte";
 
   let status = $state<AutoStatusView | null>(null);
+  let exibicao = $state<"lista" | "grade">("lista");
+  let tema = $state("gamer");
   let disco = $state<Destination | null>(null);
 
   $effect(() => {
     api.autoStatus().then((s) => (status = s)).catch(() => {});
+    // O motor já escaneou ao abrir o app: mostra sem pedir para escanear de novo.
+    api
+      .cachedScan()
+      .then((v) => {
+        if (Array.isArray(v) && !scanned) {
+          games = v;
+          scanned = true;
+        }
+      })
+      .catch(() => {});
+    api
+      .getSettings()
+      .then((s) => {
+        exibicao = s?.game_view === "grade" ? "grade" : "lista";
+        tema = s?.theme ?? "gamer";
+      })
+      .catch(() => {});
     const parar = [
       listen<AutoStatusView>("status-automatico", (e) => (status = e.payload)),
       listen<Destination>("disco-plugado", (e) => (disco = e.payload)),
       listen<string>("disco-removido", (e) => {
         if (disco?.id === e.payload) disco = null;
+      }),
+      // A varredura do motor ao abrir termina depois que a tela já apareceu.
+      listen<GameView[]>("varredura-concluida", (e) => {
+        if (!scanning && Array.isArray(e.payload)) {
+          games = e.payload;
+          scanned = true;
+        }
       }),
     ];
     return () => parar.forEach((p) => p.then((f) => f()));
@@ -156,6 +184,10 @@
   </div>
 {/if}
 
+{#if scanned && tema === "console" && normais.length > 0}
+  <InicioConsole games={normais} onbackup={(id) => abrirPicker([id])} />
+{/if}
+
 {#if scanned}
   <section class="resumo">
     <div class="cartao">
@@ -189,12 +221,21 @@
     <p class="muted">Nenhum save encontrado. Se algum jogo ficou de fora, ele poderá ser adicionado à mão em breve.</p>
   {/if}
 
-  <ul class="lista">
-    {#each normais as g (g.id)}
-      <GameRow game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
-        onconfirm={(keep) => confirmar(g.id, keep)} />
-    {/each}
-  </ul>
+  {#if exibicao === "grade"}
+    <ul class="grade">
+      {#each normais as g (g.id)}
+        <GameCard game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
+          onconfirm={(keep) => confirmar(g.id, keep)} />
+      {/each}
+    </ul>
+  {:else}
+    <ul class="lista">
+      {#each normais as g (g.id)}
+        <GameRow game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
+          onconfirm={(keep) => confirmar(g.id, keep)} />
+      {/each}
+    </ul>
+  {/if}
 
   {#if grandes.length > 0}
     <details class="grandes" bind:open={mostrarGrandes}>
@@ -220,7 +261,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    background: linear-gradient(120deg, #0f3b2c, var(--superficie) 60%);
+    background: var(--banner);
   }
   .banner h1 {
     font-size: 1.6em;
@@ -263,6 +304,13 @@
   .lista {
     display: grid;
     gap: 10px;
+    padding: 0;
+    margin: 0;
+  }
+  .grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
     padding: 0;
     margin: 0;
   }

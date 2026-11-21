@@ -64,6 +64,10 @@ pub fn run() {
             commands::set_autostart,
             commands::set_paused,
             commands::auto_status,
+            commands::set_theme,
+            commands::set_game_view,
+            commands::complete_wizard,
+            commands::cached_scan,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SaveGuard");

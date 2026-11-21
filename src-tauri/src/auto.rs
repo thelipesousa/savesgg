@@ -375,9 +375,11 @@ pub fn spawn(app: AppHandle) {
         .spawn(move || {
             background_priority();
             let state = app.state::<AppState>();
-            let r0 = crate::commands::run_scan_blocking(&state);
-            if let Err(e) = r0 {
-                publish(&app, |s| s.last_error = Some(e));
+            match crate::commands::run_scan_blocking(&state) {
+                Ok(views) => {
+                    let _ = app.emit("varredura-concluida", &views);
+                }
+                Err(e) => publish(&app, |s| s.last_error = Some(e)),
             }
             let (tx, rx) = std::sync::mpsc::channel();
             let mut watcher = notify::recommended_watcher(move |r| {
@@ -565,6 +567,7 @@ mod tests {
             root: None,
             store_game_id: None,
             patterns: vec![save.to_string_lossy().replace('\\', "/")],
+            steam_app_id: None,
         };
         let scan = ScanData {
             result: ScanResult {
