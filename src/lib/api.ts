@@ -46,6 +46,11 @@ export const api = {
   removeManualGame: (gameId: string) => invoke<GameView[]>("remove_manual_game", { gameId }),
   ignoredGames: () => invoke<IgnoredView[]>("ignored_games"),
   openLogsFolder: () => invoke<void>("open_logs_folder"),
+  loginNuvemDisponivel: () => invoke<{ gdrive: boolean }>("login_nuvem_disponivel"),
+  entrarNuvem: (provedor: "gdrive") => invoke<Destination>("entrar_nuvem", { provedor }),
+  sairNuvem: (destinationId: string) => invoke<void>("sair_nuvem", { destinationId }),
+  enviarAgora: () => invoke<void>("enviar_agora"),
+  atualizarDaNuvem: (destinationId: string) => invoke<number>("atualizar_da_nuvem_cmd", { destinationId }),
   restoreMany: (destinationId: string, gameIds: string[]) =>
     invoke<LoteItemView[]>("restore_many", { destinationId, gameIds }),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
