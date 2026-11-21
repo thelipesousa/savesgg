@@ -269,6 +269,7 @@ pub fn apply_restore(
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         };
         let r = match backup_game(&game, ctx, dest_root, usize::MAX, now)? {
             BackupOutcome::Criado(r) => r,
@@ -440,6 +441,7 @@ mod tests {
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         };
         let BackupOutcome::Criado(r) = backup_game(&game, &a, &dest, 10, now()).unwrap() else {
             panic!()
@@ -467,6 +469,7 @@ mod tests {
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         };
         match backup_game(&game, &a, dest, 10, now() + Duration::hours(horas)).unwrap() {
             BackupOutcome::Criado(r) => r.stem,
