@@ -17,6 +17,8 @@ pub enum DestinationKind {
     PastaSincronizada(SyncProvider),
     DiscoRemovivel,
     PastaLocal,
+    /// Conta de nuvem conectada pelo app; a `root` é a pasta local de preparação.
+    Nuvem(crate::nuvem::ProvedorNuvem),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -98,6 +100,27 @@ pub fn marcar_clientes(dests: &mut [Destination], processos: &[String]) {
             d.cliente_ativo = Some(cliente_ativo(p, processos));
         }
     }
+}
+
+/// Destinos das contas de nuvem conectadas (`base` = `%LOCALAPPDATA%\SavesGG`).
+pub fn destinos_nuvem(contas: &[crate::nuvem::ContaNuvem], base: &Path) -> Vec<Destination> {
+    contas
+        .iter()
+        .map(|c| {
+            let id = c.destino_id();
+            let root = crate::nuvem::pasta_preparacao(base, &id);
+            Destination {
+                label: format!("{} ({})", c.provedor.nome(), c.email),
+                kind: DestinationKind::Nuvem(c.provedor),
+                available: true,
+                free_bytes: None,
+                has_backup: has_backup(&root),
+                cliente_ativo: None,
+                root,
+                id,
+            }
+        })
+        .collect()
 }
 
 /// Monta a lista de destinos a partir do que foi detectado (função pura, testável).
@@ -220,7 +243,11 @@ pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
     for d in drives.iter().map(|d| &d.root).chain(&cfg.custom_folders) {
         crate::legado::migrar_destino(d);
     }
-    build_destinations(&sync, &drives, &cfg.custom_folders)
+    let mut out = build_destinations(&sync, &drives, &cfg.custom_folders);
+    if let Some(local) = dirs::data_local_dir() {
+        out.extend(destinos_nuvem(&cfg.contas_nuvem, &local.join("SavesGG")));
+    }
+    out
 }
 
 #[cfg(windows)]
@@ -413,6 +440,37 @@ mod tests {
     use crate::sync_folders::{SyncProvider, SyncRoot};
     use std::fs;
     use std::path::PathBuf;
+
+    #[test]
+    fn conta_nuvem_vira_destino() {
+        use crate::nuvem::{ContaNuvem, ProvedorNuvem, pasta_preparacao};
+        let t = tempfile::tempdir().unwrap();
+        let conta = ContaNuvem {
+            provedor: ProvedorNuvem::Gdrive,
+            id: "abc".into(),
+            email: "ana@gmail.com".into(),
+            nome: "Ana".into(),
+        };
+        let d = destinos_nuvem(std::slice::from_ref(&conta), t.path());
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].id, "nuvem:gdrive:abc");
+        assert_eq!(d[0].label, "Google Drive (ana@gmail.com)");
+        assert_eq!(d[0].kind, DestinationKind::Nuvem(ProvedorNuvem::Gdrive));
+        assert_eq!(d[0].root, pasta_preparacao(t.path(), "nuvem:gdrive:abc"));
+        assert!(d[0].available);
+        assert!(!d[0].has_backup);
+        assert!(counts_as_off_pc(&d[0]));
+    }
+
+    #[test]
+    fn json_do_destino_nuvem() {
+        let v = serde_json::to_value(DestinationKind::Nuvem(crate::nuvem::ProvedorNuvem::Gdrive))
+            .unwrap();
+        assert_eq!(
+            v,
+            serde_json::json!({"tipo": "nuvem", "provedor": "gdrive"})
+        );
+    }
 
     #[test]
     fn cliente_ativo_reconhece_processo() {
