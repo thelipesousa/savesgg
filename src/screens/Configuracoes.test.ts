@@ -13,7 +13,7 @@ const onedrive: Destination = {
   id: "sync:c:/users/ana/onedrive",
   label: "OneDrive",
   kind: { tipo: "pasta_sincronizada", provedor: "one_drive" },
-  root: "C:/Users/Ana/OneDrive/SaveGuard Backups",
+  root: "C:/Users/Ana/OneDrive/SavesGG Backups",
   available: true,
   free_bytes: null,
   has_backup: false,
@@ -103,5 +103,26 @@ describe("AvisoDisco", () => {
     const pen: Destination = { ...onedrive, id: "disco:1", label: "HD (F:)", kind: { tipo: "disco_removivel" }, has_backup: true };
     render(AvisoDisco, { disco: pen, onclose: vi.fn() });
     expect(screen.getByRole("button", { name: /Atualizar backup/ })).toBeTruthy();
+  });
+
+  test("muda quantas versões guardar", async () => {
+    responder({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10 });
+    render(Configuracoes);
+    const campo = await screen.findByRole("spinbutton", { name: /Versões guardadas por jogo/ });
+    await fireEvent.input(campo, { target: { value: "20" } });
+    await fireEvent.blur(campo);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_keep_versions", { n: 20 }));
+  });
+
+  test("descartados: trazer de volta", async () => {
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_settings") return Promise.resolve({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10 });
+      if (cmd === "list_destinations_cmd") return Promise.resolve([onedrive]);
+      if (cmd === "ignored_games") return Promise.resolve([{ id: "pasta-x", name: "Pasta X" }]);
+      return Promise.resolve(null);
+    });
+    render(Configuracoes);
+    await fireEvent.click(await screen.findByRole("button", { name: "Trazer de volta Pasta X" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("confirm_heuristic", { gameId: "pasta-x", keep: true }));
   });
 });

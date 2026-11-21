@@ -12,7 +12,7 @@ use super::snapshot::SnapshotMeta;
 use crate::CoreError;
 use crate::protection::BackupHistory;
 
-pub const PASTA: &str = "SaveGuard";
+pub const PASTA: &str = "SavesGG";
 pub const INDICE: &str = "biblioteca.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,6 +24,9 @@ pub struct SnapshotRef {
     pub content_hash: String,
     #[serde(default)]
     pub total_bytes: u64,
+    /// Cópia do que estava no PC antes de uma restauração (nunca é "a mais recente").
+    #[serde(default)]
+    pub seguranca: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,7 +44,7 @@ impl Default for LibraryIndex {
     }
 }
 
-/// `<destino>\SaveGuard`.
+/// `<destino>\SavesGG`.
 pub fn root(dest_root: &Path) -> PathBuf {
     dest_root.join(PASTA)
 }
@@ -117,6 +120,7 @@ impl LibraryIndex {
                     pinned: meta.pinned,
                     content_hash: meta.content_hash,
                     total_bytes: meta.total_bytes,
+                    seguranca: meta.seguranca,
                 });
                 refs.sort_by_key(|r| r.created);
             }

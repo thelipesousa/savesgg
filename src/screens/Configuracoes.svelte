@@ -1,16 +1,20 @@
 <script lang="ts">
+  import AvisoNuvem from "../components/AvisoNuvem.svelte";
   import { api, errorMessage } from "../lib/api";
   import { formatBytes } from "../lib/format";
-  import type { Destination, SettingsView } from "../lib/types";
+  import type { Destination, IgnoredView, SettingsView } from "../lib/types";
   import { TEMAS, aplicarTema } from "../lib/tema";
 
   let settings = $state<SettingsView | null>(null);
   let destinos = $state<Destination[]>([]);
   let erro = $state<string | null>(null);
 
+  let descartados = $state<IgnoredView[]>([]);
+
   async function carregar() {
     try {
       [settings, destinos] = await Promise.all([api.getSettings(), api.listDestinations()]);
+      descartados = (await api.ignoredGames()) ?? [];
     } catch (e) {
       erro = errorMessage(e);
     }
@@ -74,6 +78,28 @@
     if (d.kind.tipo === "disco_removivel") return "💾";
     return "📁";
   }
+
+  let erroVersoes = $state<string | null>(null);
+
+  async function trazerDeVolta(id: string) {
+    await salvar(async () => {
+      await api.confirmHeuristic(id, true);
+      descartados = descartados.filter((d) => d.id !== id);
+    });
+  }
+
+  async function salvarVersoes(valor: string) {
+    if (!settings) return;
+    const n = Number(valor);
+    erroVersoes = null;
+    if (n === settings.keep_versions) return;
+    try {
+      await api.setKeepVersions(n);
+      settings = { ...settings, keep_versions: n };
+    } catch (e) {
+      erroVersoes = errorMessage(e);
+    }
+  }
 </script>
 
 <h1>Configurações</h1>
@@ -104,6 +130,7 @@
               {#if d.free_bytes !== null}{formatBytes(d.free_bytes)} livres{/if}
             </span>
           </label>
+          <AvisoNuvem destino={d} />
         </li>
       {/each}
       {#each ausentes as id (id)}
@@ -163,13 +190,65 @@
         <span class="muted">Os backups ficam agendados e voltam quando você retomar.</span>
       </span>
     </label>
-    <p class="muted">Versões guardadas por jogo: {settings.keep_versions} (as fixadas nunca são apagadas).</p>
+    <label class="versoes-campo">
+      Versões guardadas por jogo
+      <input
+        type="number"
+        min="1"
+        max="100"
+        value={settings.keep_versions}
+        onblur={(e) => salvarVersoes((e.currentTarget as HTMLInputElement).value)}
+      />
+      <span class="muted">(as fixadas nunca são apagadas)</span>
+    </label>
+    {#if erroVersoes}<p class="erro" role="alert">{erroVersoes}</p>{/if}
+  </section>
+
+  <section class="cartao">
+    <h2>Possíveis saves descartados</h2>
+    {#if descartados.length === 0}
+      <p class="muted">Nenhum descartado.</p>
+    {:else}
+      <ul class="descartados">
+        {#each descartados as d (d.id)}
+          <li>
+            <span>{d.name}</span>
+            <button
+              type="button"
+              class="botao-secundario"
+              aria-label={`Trazer de volta ${d.name}`}
+              onclick={() => trazerDeVolta(d.id)}>Trazer de volta</button
+            >
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </section>
 {:else if !erro}
   <p class="muted">Carregando…</p>
 {/if}
 
 <style>
+  .descartados {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .descartados li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .versoes-campo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .versoes-campo input {
+    width: 5em;
+  }
   h1 {
     margin-bottom: 16px;
   }

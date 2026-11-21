@@ -21,6 +21,15 @@ fn main() {
         "set_game_view",
         "complete_wizard",
         "cached_scan",
+        "restore_many",
+        "open_backup_folder",
+        "set_pinned_cmd",
+        "set_keep_versions",
+        "set_game_keep",
+        "add_manual_game",
+        "remove_manual_game",
+        "ignored_games",
+        "open_logs_folder",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

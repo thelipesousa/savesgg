@@ -9,7 +9,7 @@ use crate::paths::norm;
 use crate::sync_folders::{SyncProvider, SyncRoot};
 
 /// Subpasta criada dentro das pastas sincronizadas.
-pub const PASTA_NA_NUVEM: &str = "SaveGuard Backups";
+pub const PASTA_NA_NUVEM: &str = "SavesGG Backups";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "tipo", content = "provedor", rename_all = "snake_case")]
@@ -29,6 +29,8 @@ pub struct Destination {
     pub available: bool,
     pub free_bytes: Option<u64>,
     pub has_backup: bool,
+    /// Só pastas sincronizadas: o app da nuvem está aberto (sem ele nada sobe).
+    pub cliente_ativo: Option<bool>,
 }
 
 /// Um disco externo plugado.
@@ -49,6 +51,52 @@ fn provider_label(p: SyncProvider) -> &'static str {
         SyncProvider::OneDrive => "OneDrive",
         SyncProvider::GoogleDrive => "Google Drive",
         SyncProvider::Dropbox => "Dropbox",
+    }
+}
+
+/// Raiz de destino (pasta que contém `SavesGGiblioteca.json`) a partir de uma pasta
+/// escolhida pelo usuário: a própria raiz, a pasta `SavesGG` (ou a antiga `SaveGuard`)
+/// ou a raiz da nuvem que tem `SavesGG Backups`. Migra o nome antigo antes de olhar.
+pub fn resolve_backup_folder(picked: &Path) -> Option<PathBuf> {
+    let mut candidatos = vec![picked.to_path_buf()];
+    let nome = picked
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase());
+    let e_pasta_do_app = nome.as_deref().is_some_and(|n| {
+        n == crate::backup::library_folder_name().to_lowercase()
+            || n == crate::legado::PASTA_ANTIGA.to_lowercase()
+    });
+    if e_pasta_do_app && let Some(pai) = picked.parent() {
+        candidatos.push(pai.to_path_buf());
+    }
+    candidatos.push(picked.join(PASTA_NA_NUVEM));
+    candidatos.into_iter().find(|c| {
+        crate::legado::migrar_destino(c);
+        has_backup(c)
+    })
+}
+
+/// Nome do processo do app oficial de cada nuvem.
+fn processo_do_cliente(p: SyncProvider) -> &'static str {
+    match p {
+        SyncProvider::OneDrive => "onedrive.exe",
+        SyncProvider::GoogleDrive => "googledrivefs.exe",
+        SyncProvider::Dropbox => "dropbox.exe",
+    }
+}
+
+/// O app da nuvem está entre os processos abertos (sem diferenciar maiúsculas)?
+pub fn cliente_ativo(provider: SyncProvider, processos: &[String]) -> bool {
+    let alvo = processo_do_cliente(provider);
+    processos.iter().any(|p| p.eq_ignore_ascii_case(alvo))
+}
+
+/// Preenche `cliente_ativo` das pastas sincronizadas a partir dos processos abertos.
+pub fn marcar_clientes(dests: &mut [Destination], processos: &[String]) {
+    for d in dests {
+        if let DestinationKind::PastaSincronizada(p) = d.kind {
+            d.cliente_ativo = Some(cliente_ativo(p, processos));
+        }
     }
 }
 
@@ -79,6 +127,7 @@ pub fn build_destinations(
             available: s.path.is_dir(),
             free_bytes: None,
             has_backup: has_backup(&root),
+            cliente_ativo: None,
             root,
         });
     }
@@ -96,6 +145,7 @@ pub fn build_destinations(
             available: d.root.is_dir(),
             free_bytes: d.free_bytes,
             has_backup: has_backup(&d.root),
+            cliente_ativo: None,
             root: d.root.clone(),
         });
     }
@@ -110,6 +160,7 @@ pub fn build_destinations(
             available: c.is_dir(),
             free_bytes: None,
             has_backup: has_backup(c),
+            cliente_ativo: None,
             root: c.clone(),
         });
     }
@@ -160,11 +211,16 @@ pub fn drive_mask() -> u32 {
 /// Todos os destinos deste PC: pastas sincronizadas, discos externos e pastas da configuração.
 #[cfg(windows)]
 pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
-    build_destinations(
-        &crate::sync_folders::detect_sync_roots(),
-        &win::external_drives(),
-        &cfg.custom_folders,
-    )
+    let sync = crate::sync_folders::detect_sync_roots();
+    let drives = win::external_drives();
+    // Backups do 0.1.0 (SaveGuard) passam para o nome novo antes de procurar.
+    for s in &sync {
+        crate::legado::migrar_pasta_sincronizada(&s.path);
+    }
+    for d in drives.iter().map(|d| &d.root).chain(&cfg.custom_folders) {
+        crate::legado::migrar_destino(d);
+    }
+    build_destinations(&sync, &drives, &cfg.custom_folders)
 }
 
 #[cfg(windows)]
@@ -302,9 +358,96 @@ mod win {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn indice_em(dir: &std::path::Path) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(dir.join("biblioteca.json"), "{}").unwrap();
+    }
+
+    #[test]
+    fn pasta_com_savesgg_dentro() {
+        let t = tempfile::tempdir().unwrap();
+        indice_em(&t.path().join("SavesGG"));
+        assert_eq!(
+            resolve_backup_folder(t.path()),
+            Some(t.path().to_path_buf())
+        );
+    }
+
+    #[test]
+    fn pasta_escolheu_a_propria_savesgg() {
+        let t = tempfile::tempdir().unwrap();
+        indice_em(&t.path().join("SavesGG"));
+        assert_eq!(
+            resolve_backup_folder(&t.path().join("SavesGG")),
+            Some(t.path().to_path_buf())
+        );
+    }
+
+    #[test]
+    fn pasta_escolheu_savesgg_backups() {
+        let t = tempfile::tempdir().unwrap();
+        let b = t.path().join("SavesGG Backups");
+        indice_em(&b.join("SavesGG"));
+        assert_eq!(resolve_backup_folder(&b), Some(b.clone()));
+        // escolher a raiz da nuvem também acha a subpasta
+        assert_eq!(resolve_backup_folder(t.path()), Some(b));
+    }
+
+    #[test]
+    fn pasta_antiga_saveguard_migra() {
+        let t = tempfile::tempdir().unwrap();
+        indice_em(&t.path().join("SaveGuard"));
+        assert_eq!(
+            resolve_backup_folder(t.path()),
+            Some(t.path().to_path_buf())
+        );
+        assert!(t.path().join("SavesGG/biblioteca.json").is_file());
+    }
+
+    #[test]
+    fn pasta_sem_backup() {
+        let t = tempfile::tempdir().unwrap();
+        assert_eq!(resolve_backup_folder(t.path()), None);
+    }
     use crate::sync_folders::{SyncProvider, SyncRoot};
     use std::fs;
     use std::path::PathBuf;
+
+    #[test]
+    fn cliente_ativo_reconhece_processo() {
+        let p = vec!["explorer.exe".to_string(), "onedrive.exe".to_string()];
+        assert!(cliente_ativo(SyncProvider::OneDrive, &p));
+        assert!(!cliente_ativo(SyncProvider::Dropbox, &p));
+        assert!(!cliente_ativo(SyncProvider::OneDrive, &[]));
+        assert!(cliente_ativo(
+            SyncProvider::GoogleDrive,
+            &["GoogleDriveFS.exe".to_string()]
+        ));
+    }
+
+    #[test]
+    fn destino_sincronizado_recebe_cliente_ativo() {
+        let t = tempfile::tempdir().unwrap();
+        let od = t.path().join("OneDrive");
+        fs::create_dir_all(&od).unwrap();
+        let sync = [SyncRoot {
+            provider: SyncProvider::OneDrive,
+            path: od,
+        }];
+        let drives = [DriveInfo {
+            root: t.path().to_path_buf(),
+            label: "PEN".into(),
+            serial: 1,
+            free_bytes: None,
+        }];
+        let mut d = build_destinations(&sync, &drives, &[]);
+        marcar_clientes(&mut d, &[]);
+        assert_eq!(d[0].cliente_ativo, Some(false));
+        assert_eq!(d[1].cliente_ativo, None);
+        marcar_clientes(&mut d, &["OneDrive.exe".to_string()]);
+        assert_eq!(d[0].cliente_ativo, Some(true));
+    }
 
     #[test]
     fn pasta_sincronizada_vira_destino() {
@@ -321,7 +464,7 @@ mod tests {
             d[0].kind,
             DestinationKind::PastaSincronizada(SyncProvider::OneDrive)
         );
-        assert_eq!(d[0].root, od.join("SaveGuard Backups"));
+        assert_eq!(d[0].root, od.join("SavesGG Backups"));
         assert_eq!(d[0].label, "OneDrive");
         assert!(d[0].available);
         assert!(!d[0].has_backup);
@@ -369,8 +512,8 @@ mod tests {
     #[test]
     fn pasta_custom_marca_has_backup() {
         let t = tempfile::tempdir().unwrap();
-        fs::create_dir_all(t.path().join("SaveGuard")).unwrap();
-        fs::write(t.path().join("SaveGuard/biblioteca.json"), "{}").unwrap();
+        fs::create_dir_all(t.path().join("SavesGG")).unwrap();
+        fs::write(t.path().join("SavesGG/biblioteca.json"), "{}").unwrap();
         let d = build_destinations(&[], &[], &[t.path().to_path_buf()]);
         assert_eq!(d[0].kind, DestinationKind::PastaLocal);
         assert!(d[0].has_backup);

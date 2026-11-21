@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 
 use crate::auto::{AutoStatusView, DestLocks};
 
-use saveguard_core::config::Config;
-use saveguard_core::manifest::Manifest;
-use saveguard_core::paths::PathContext;
-use saveguard_core::scan::{DetectedGame, ScanResult};
-use saveguard_core::stores::InstalledGame;
+use savesgg_core::config::Config;
+use savesgg_core::manifest::Manifest;
+use savesgg_core::paths::PathContext;
+use savesgg_core::scan::{DetectedGame, ScanResult};
+use savesgg_core::stores::InstalledGame;
 
 /// Resultado da última varredura.
 pub struct ScanData {
@@ -39,18 +39,34 @@ pub struct AppState {
     pub scan_gen: AtomicU64,
     pub locks: DestLocks,
     pub auto_status: Mutex<AutoStatusView>,
-    /// `%LOCALAPPDATA%\SaveGuard\pendentes`
+    /// `%LOCALAPPDATA%\SavesGG\pendentes`
     pub pending_base: PathBuf,
     /// Pendrives/HDs plugados agora (itens do menu da bandeja).
-    pub plugged: Mutex<Vec<saveguard_core::destinations::Destination>>,
+    pub plugged: Mutex<Vec<savesgg_core::destinations::Destination>>,
     pub drive_watcher: Mutex<crate::drives::DriveWatcher>,
     /// Jogos sem cópia fora do PC (cor da bandeja); atualizado a cada backup.
     pub at_risk_ids: Mutex<std::collections::BTreeSet<String>>,
+    /// Pastas de backup abertas na tela Restaurar (só nesta sessão; não viram destino).
+    pub pastas_abertas: Mutex<Vec<PathBuf>>,
+}
+
+/// Traz a configuração e a fila do 0.1.0 (SaveGuard) para as pastas do SavesGG.
+fn migrar_do_nome_antigo(config_path: &std::path::Path) {
+    use savesgg_core::legado::{PASTA_DO_APP_ANTIGA, migrar_configuracao, migrar_fila};
+    if let Some(nova) = config_path.parent()
+        && let Some(raiz) = nova.parent()
+    {
+        migrar_configuracao(&raiz.join(PASTA_DO_APP_ANTIGA), nova);
+    }
+    if let Some(local) = dirs::data_local_dir() {
+        migrar_fila(&local.join(PASTA_DO_APP_ANTIGA), &local.join("SavesGG"));
+    }
 }
 
 impl AppState {
     pub fn new(bundled: Vec<PathBuf>) -> Self {
         let config_path = Config::default_path();
+        migrar_do_nome_antigo(&config_path);
         let config = Config::load_or_default(&config_path);
         let manifest_cache = config_path.with_file_name("manifest.yaml");
         AppState {
@@ -65,11 +81,12 @@ impl AppState {
             auto_status: Mutex::new(AutoStatusView::default()),
             pending_base: dirs::data_local_dir()
                 .unwrap_or_default()
-                .join("SaveGuard")
+                .join("SavesGG")
                 .join("pendentes"),
             plugged: Mutex::new(Vec::new()),
             drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
             at_risk_ids: Mutex::new(std::collections::BTreeSet::new()),
+            pastas_abertas: Mutex::new(Vec::new()),
         }
     }
 

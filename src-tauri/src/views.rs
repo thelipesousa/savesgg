@@ -3,11 +3,11 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use saveguard_core::manifest::Store;
-use saveguard_core::paths::{PathContext, contract};
-use saveguard_core::protection::{Assessment, Priority, Protection};
-use saveguard_core::scan::{DetectedGame, Source};
-use saveguard_core::sync_folders::SyncProvider;
+use savesgg_core::manifest::Store;
+use savesgg_core::paths::{PathContext, contract};
+use savesgg_core::protection::{Assessment, Priority, Protection};
+use savesgg_core::scan::{DetectedGame, Source};
+use savesgg_core::sync_folders::SyncProvider;
 
 /// Um jogo como a interface mostra. Caminhos vão com marcadores (sem nome de usuário).
 #[derive(Debug, Clone, Serialize)]
@@ -28,6 +28,8 @@ pub struct GameView {
     pub confirmado: bool,
     /// Capa no CDN da Steam (a interface cai no cartão com a inicial se falhar).
     pub cover_url: Option<String>,
+    /// Data do save mais novo (RFC 3339), para "Jogado há…".
+    pub last_played: Option<String>,
 }
 
 fn provider_name(p: SyncProvider) -> &'static str {
@@ -50,7 +52,7 @@ pub fn protection_label(p: &Protection) -> String {
         .to_string(),
         Protection::NuvemNaoConfirmada => "Nuvem não confirmada".to_string(),
         Protection::PastaSincronizada(p) => format!("Pasta do {}", provider_name(*p)),
-        Protection::BackupDoApp(_) => "Backup do SaveGuard".to_string(),
+        Protection::BackupDoApp(_) => "Backup do SavesGG".to_string(),
     }
 }
 
@@ -75,6 +77,7 @@ pub fn game_view(
         save_roots: g.save_roots.iter().map(|r| contract(r, ctx)).collect(),
         grande,
         confirmado,
+        last_played: g.last_modified.map(|d| d.to_rfc3339()),
         cover_url: g.steam_app_id.map(|id| {
             format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/library_600x900.jpg")
         }),
@@ -85,11 +88,11 @@ pub fn game_view(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
-    use saveguard_core::manifest::{CloudFlags, Store};
-    use saveguard_core::paths::PathContext;
-    use saveguard_core::protection::{Assessment, Priority, Protection};
-    use saveguard_core::scan::{DetectedGame, Source};
-    use saveguard_core::sync_folders::SyncProvider;
+    use savesgg_core::manifest::{CloudFlags, Store};
+    use savesgg_core::paths::PathContext;
+    use savesgg_core::protection::{Assessment, Priority, Protection};
+    use savesgg_core::scan::{DetectedGame, Source};
+    use savesgg_core::sync_folders::SyncProvider;
     use std::path::PathBuf;
 
     fn ctx() -> PathContext {
@@ -124,6 +127,7 @@ mod tests {
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         }
     }
 
@@ -157,7 +161,7 @@ mod tests {
         );
         assert_eq!(
             protection_label(&Protection::BackupDoApp(d)),
-            "Backup do SaveGuard"
+            "Backup do SavesGG"
         );
     }
 

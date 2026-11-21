@@ -12,18 +12,18 @@ use notify::{RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use saveguard_core::CoreError;
-use saveguard_core::backup::{BackupOutcome, backup_game, cleanup_temp};
-use saveguard_core::config::Config;
-use saveguard_core::destinations::{Destination, DestinationKind, auto_targets, list_destinations};
-use saveguard_core::pending::{flush_pending, pending_count, pending_root};
-use saveguard_core::scan::Source;
-use saveguard_core::watch::{
+use savesgg_core::CoreError;
+use savesgg_core::backup::{BackupOutcome, backup_game, cleanup_temp};
+use savesgg_core::config::Config;
+use savesgg_core::destinations::{Destination, DestinationKind, auto_targets, list_destinations};
+use savesgg_core::pending::{flush_pending, pending_count, pending_root};
+use savesgg_core::scan::Source;
+use savesgg_core::watch::{
     ProcInfo, ProcessTracker, Scheduler, WatchEvent, games_for_path, watch_roots,
 };
 
 #[cfg(test)]
-use saveguard_core::paths::PathContext;
+use savesgg_core::paths::PathContext;
 
 use crate::state::{AppState, ScanData};
 
@@ -79,7 +79,7 @@ pub struct AutoStatusView {
 
 /// Faz o backup de um jogo numa pasta de pendentes do destino que está fora.
 fn to_pending(
-    g: &saveguard_core::scan::DetectedGame,
+    g: &savesgg_core::scan::DetectedGame,
     scan: &ScanData,
     cfg: &Config,
     destination_id: &str,
@@ -128,7 +128,7 @@ pub fn execute_due(
             continue;
         }
         // Saves criados ou apagados desde a varredura (jogos que rodam autosaves).
-        let fresh = saveguard_core::scan::refresh_files(g);
+        let fresh = savesgg_core::scan::refresh_files(g);
         let g = &fresh;
         if g.files.is_empty() {
             continue;
@@ -237,9 +237,9 @@ pub fn clear_protected(
             game_id,
             destination_id,
         } = o
-            && dests.iter().any(|d| {
-                &d.id == destination_id && saveguard_core::destinations::counts_as_off_pc(d)
-            })
+            && dests
+                .iter()
+                .any(|d| &d.id == destination_id && savesgg_core::destinations::counts_as_off_pc(d))
         {
             at_risk.remove(game_id);
         }
@@ -325,7 +325,7 @@ pub fn backup_all_now(app: &AppHandle) {
     else {
         crate::notify_user(
             app,
-            "SaveGuard",
+            "SavesGG",
             "Ainda escaneando o PC; tente de novo em instantes.",
         );
         return;
@@ -334,7 +334,7 @@ pub fn backup_all_now(app: &AppHandle) {
     if cfg.auto_destinations.is_empty() {
         crate::notify_user(
             app,
-            "SaveGuard",
+            "SavesGG",
             "Escolha os destinos do backup automático em Configurações.",
         );
         return;
@@ -371,7 +371,7 @@ pub fn backup_all_now(app: &AppHandle) {
 /// Inicia o motor numa thread própria, em prioridade baixa.
 pub fn spawn(app: AppHandle) {
     std::thread::Builder::new()
-        .name("saveguard-automatico".into())
+        .name("savesgg-automatico".into())
         .spawn(move || {
             background_priority();
             let state = app.state::<AppState>();
@@ -417,12 +417,12 @@ pub fn spawn(app: AppHandle) {
                         }
                         watched = watch_roots(&games);
                         for (p, e) in try_watch(w, &watched) {
-                            eprintln!("vigia: não deu para vigiar {}: {e}", p.display());
+                            log::warn!("vigia: não deu para vigiar {}: {e}", p.display());
                         }
                     }
                 }
                 let cfg = state.config();
-                let mask = saveguard_core::destinations::drive_mask();
+                let mask = savesgg_core::destinations::drive_mask();
                 let dest_cfg = (cfg.auto_destinations.clone(), cfg.custom_folders.clone());
                 let cfg_changed = last_dest_cfg.as_ref() != Some(&dest_cfg);
                 if needs_dest_refresh(last_mask, mask, last_dest_refresh, now_s, cfg_changed) {
@@ -458,6 +458,9 @@ pub fn spawn(app: AppHandle) {
                     if !due.is_empty() {
                         publish(&app, |s| s.copying = true);
                         let out = execute_due(&due, scan, &cfg, &dests, &state.pending_base, &state.locks, Utc::now());
+                        for o in &out {
+                            log::info!("backup automático: {o:?}");
+                        }
                         let copied = out.iter().any(|o| matches!(o, AutoOutcome::Copiado { .. }));
                         let mut err = None;
                         for o in &out {
@@ -524,10 +527,10 @@ pub fn spawn(app: AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saveguard_core::destinations::build_destinations;
-    use saveguard_core::manifest::{CloudFlags, Store};
-    use saveguard_core::pending::pending_count;
-    use saveguard_core::scan::{DetectedGame, ScanResult, Source};
+    use savesgg_core::destinations::build_destinations;
+    use savesgg_core::manifest::{CloudFlags, Store};
+    use savesgg_core::pending::pending_count;
+    use savesgg_core::scan::{DetectedGame, ScanResult, Source};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -568,6 +571,7 @@ mod tests {
             store_game_id: None,
             patterns: vec![save.to_string_lossy().replace('\\', "/")],
             steam_app_id: None,
+            last_modified: None,
         };
         let scan = ScanData {
             result: ScanResult {
@@ -586,7 +590,7 @@ mod tests {
         }
     }
 
-    fn pasta(p: &Path) -> Vec<saveguard_core::destinations::Destination> {
+    fn pasta(p: &Path) -> Vec<savesgg_core::destinations::Destination> {
         build_destinations(&[], &[], &[p.to_path_buf()])
     }
 
@@ -608,7 +612,7 @@ mod tests {
         );
         assert!(matches!(&out[..], [AutoOutcome::Copiado { .. }]), "{out:?}");
         assert_eq!(
-            saveguard_core::backup::LibraryIndex::load(&dest)
+            savesgg_core::backup::LibraryIndex::load(&dest)
                 .unwrap()
                 .games["jogo"]
                 .len(),
@@ -637,7 +641,7 @@ mod tests {
             matches!(&out[..], [AutoOutcome::Pendente { .. }]),
             "{out:?}"
         );
-        let pr = saveguard_core::pending::pending_root(&base, &dests[0].id);
+        let pr = savesgg_core::pending::pending_root(&base, &dests[0].id);
         assert_eq!(pending_count(&pr), 1);
         // o destino volta
         fs::create_dir_all(&dest).unwrap();
@@ -666,9 +670,9 @@ mod tests {
             Utc::now(),
         );
         assert!(matches!(&out[..], [AutoOutcome::Copiado { .. }]), "{out:?}");
-        let idx = saveguard_core::backup::LibraryIndex::load(&dest).unwrap();
+        let idx = savesgg_core::backup::LibraryIndex::load(&dest).unwrap();
         let stem = &idx.games["jogo"][0].stem;
-        let meta = saveguard_core::backup::load_meta(&dest, "jogo", stem).unwrap();
+        let meta = savesgg_core::backup::load_meta(&dest, "jogo", stem).unwrap();
         assert!(
             meta.files.iter().any(|e| e.template.ends_with("b.sav")),
             "{:?}",
@@ -701,7 +705,7 @@ mod tests {
             "{out:?}"
         );
         assert_eq!(
-            pending_count(&saveguard_core::pending::pending_root(&base, &dests[0].id)),
+            pending_count(&savesgg_core::pending::pending_root(&base, &dests[0].id)),
             0
         );
     }
@@ -731,7 +735,7 @@ mod tests {
         let local = pasta(t.path());
         let pen = build_destinations(
             &[],
-            &[saveguard_core::destinations::DriveInfo {
+            &[savesgg_core::destinations::DriveInfo {
                 root: t.path().to_path_buf(),
                 label: "PEN".into(),
                 serial: 7,
@@ -855,9 +859,9 @@ mod tests {
                 h.join().unwrap();
             }
         }
-        let idx = saveguard_core::backup::LibraryIndex::load(&dest).unwrap();
-        let raw: saveguard_core::backup::LibraryIndex = serde_json::from_str(
-            &fs::read_to_string(dest.join("SaveGuard/biblioteca.json")).unwrap(),
+        let idx = savesgg_core::backup::LibraryIndex::load(&dest).unwrap();
+        let raw: savesgg_core::backup::LibraryIndex = serde_json::from_str(
+            &fs::read_to_string(dest.join("SavesGG/biblioteca.json")).unwrap(),
         )
         .unwrap();
         assert_eq!(idx.games["jogo"].len(), 5);

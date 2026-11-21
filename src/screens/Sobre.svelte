@@ -1,13 +1,43 @@
 <script lang="ts">
-  import { api } from "../lib/api";
+  import Logo from "../components/Logo.svelte";
+  import { api, errorMessage } from "../lib/api";
+  import { procurarAtualizacao } from "../lib/atualizacao";
+  import AvisoAtualizacao from "../components/AvisoAtualizacao.svelte";
+  import type { Update } from "@tauri-apps/plugin-updater";
 
   let versao = $state("");
+  let erro = $state<string | null>(null);
+
+  let procurando = $state(false);
+  let emDia = $state(false);
+  let nova = $state<Update | null>(null);
+  let falhou = $state(false);
+
+  async function procurar() {
+    procurando = true;
+    emDia = false;
+    falhou = false;
+    const r = await procurarAtualizacao();
+    nova = r.nova;
+    falhou = r.erro !== null;
+    emDia = !falhou && nova === null;
+    procurando = false;
+  }
+
+  async function abrirLogs() {
+    erro = null;
+    try {
+      await api.openLogsFolder();
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
   $effect(() => {
     api.appVersion().then((v) => (versao = v)).catch(() => {});
   });
 </script>
 
-<h1>Sobre o SaveGuard</h1>
+<h1 class="titulo-sobre"><Logo tamanho={36} /> Sobre o SavesGG</h1>
 <div class="cartao sobre">
   <p>Versão {versao}</p>
   <p>
@@ -18,11 +48,32 @@
     Locais de saves baseados no <strong>ludusavi-manifest</strong> (licença MIT), com dados da
     <strong>PCGamingWiki</strong>. Obrigado a esses projetos.
   </p>
+  <div class="acoes">
+    <button type="button" class="botao-secundario" onclick={procurar} disabled={procurando}>
+      {procurando ? "Procurando…" : "Procurar atualização"}
+    </button>
+    <button type="button" class="botao-secundario" onclick={abrirLogs}>Abrir pasta de logs</button>
+  </div>
+  {#if emDia}<p class="muted" role="status">Você está na versão mais recente.</p>{/if}
+  {#if falhou}
+    <p class="muted" role="status">Não deu para procurar atualização agora (sem internet?). Tente mais tarde.</p>
+  {/if}
+  {#if nova}<AvisoAtualizacao atualizacao={nova} />{/if}
+  {#if erro}<p class="erro" role="alert">{erro}</p>{/if}
 </div>
 
 <style>
+  .titulo-sobre {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
   h1 {
     margin-bottom: 16px;
+  }
+  .acoes {
+    display: flex;
+    gap: 10px;
   }
   .sobre {
     display: grid;

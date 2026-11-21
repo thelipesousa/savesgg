@@ -17,3 +17,7 @@ vite.config.ts.timestamp-*
 .superpowers/
 /dist
 /src-tauri/resources/manifest.yaml
+
+# Chaves de assinatura (nunca no repositório)
+*.key
+*.key.pub

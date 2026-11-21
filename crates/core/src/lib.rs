@@ -1,10 +1,11 @@
-//! Motor do SaveGuard: varredura, prioridade, backup e restauração de saves.
+//! Motor do SavesGG: varredura, prioridade, backup e restauração de saves.
 
 pub mod backup;
 pub mod config;
 pub mod destinations;
 pub mod emulators;
 mod heuristics;
+pub mod legado;
 pub mod manifest;
 pub mod paths;
 pub mod pending;

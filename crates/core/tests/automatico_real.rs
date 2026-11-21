@@ -2,17 +2,17 @@
 //! um "jogo" falso (cópia do ping.exe numa pasta temporária) abre, grava o save,
 //! fecha, e o backup sai 10 s depois, como no app.
 //!
-//! `cargo test -p saveguard-core --test automatico_real -- --ignored --nocapture`
+//! `cargo test -p savesgg-core --test automatico_real -- --ignored --nocapture`
 
 use std::fs;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
-use saveguard_core::backup::{BackupOutcome, LibraryIndex, backup_game};
-use saveguard_core::manifest::{CloudFlags, Store};
-use saveguard_core::paths::PathContext;
-use saveguard_core::scan::{DetectedGame, Source};
-use saveguard_core::watch::{ProcInfo, ProcessTracker, Scheduler, WatchEvent};
+use savesgg_core::backup::{BackupOutcome, LibraryIndex, backup_game};
+use savesgg_core::manifest::{CloudFlags, Store};
+use savesgg_core::paths::PathContext;
+use savesgg_core::scan::{DetectedGame, Source};
+use savesgg_core::watch::{ProcInfo, ProcessTracker, Scheduler, WatchEvent};
 
 fn processos(sys: &mut sysinfo::System) -> Vec<ProcInfo> {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
@@ -62,6 +62,7 @@ fn ciclo_automatico_com_processo_real() {
         store_game_id: None,
         patterns: Vec::new(),
         steam_app_id: None,
+        last_modified: None,
     };
     let ctx = PathContext::from_system();
     let mut sys = sysinfo::System::new().expect("sysinfo");

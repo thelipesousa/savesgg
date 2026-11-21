@@ -3,6 +3,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
+use chrono::{DateTime, Utc};
 use globset::GlobBuilder;
 use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
@@ -48,6 +49,8 @@ pub struct DetectedGame {
     pub patterns: Vec<String>,
     /// AppID da Steam (capa do jogo), do manifesto ou da loja.
     pub steam_app_id: Option<u32>,
+    /// Data de modificação do arquivo de save mais novo (≈ último jogado).
+    pub last_modified: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +74,23 @@ pub struct ScanResult {
 }
 
 /// Identificador estável: minúsculas, sem acentos, palavras separadas por hífen.
+/// Valida o nome de um jogo adicionado à mão: 1 a 80 caracteres (sem espaços nas
+/// pontas) e sem caracteres de controle. (`game_id` nunca fica vazio.)
+pub fn validar_nome_jogo(nome: &str) -> Result<String, String> {
+    let nome = nome.trim();
+    let n = nome.chars().count();
+    if n == 0 {
+        return Err("Digite o nome do jogo".into());
+    }
+    if n > 80 {
+        return Err("O nome pode ter até 80 caracteres".into());
+    }
+    if nome.chars().any(char::is_control) {
+        return Err("O nome não pode ter quebras de linha".into());
+    }
+    Ok(nome.to_string())
+}
+
 pub fn game_id(name: &str) -> String {
     let mut out = String::new();
     for c in name.nfd().filter(|c| c.is_ascii()) {
@@ -287,11 +307,7 @@ fn build_game(
     if files.is_empty() {
         return None;
     }
-    let total_bytes = files
-        .iter()
-        .filter_map(|f| f.metadata().ok())
-        .map(|m| m.len())
-        .sum();
+    let (total_bytes, last_modified) = size_and_newest(&files);
     Some(DetectedGame {
         id,
         name,
@@ -307,6 +323,7 @@ fn build_game(
         store_game_id: None,
         patterns: Vec::new(),
         steam_app_id: None,
+        last_modified,
     })
 }
 
@@ -359,6 +376,20 @@ impl<'a> InstalledIndex<'a> {
     }
 }
 
+/// Soma dos tamanhos e data de modificação mais nova de um conjunto de arquivos.
+fn size_and_newest(files: &BTreeSet<PathBuf>) -> (u64, Option<DateTime<Utc>>) {
+    let mut total = 0;
+    let mut newest: Option<DateTime<Utc>> = None;
+    for m in files.iter().filter_map(|f| f.metadata().ok()) {
+        total += m.len();
+        if let Ok(t) = m.modified() {
+            let t: DateTime<Utc> = t.into();
+            newest = Some(newest.map_or(t, |n| n.max(t)));
+        }
+    }
+    (total, newest)
+}
+
 /// Refaz a lista de arquivos de um jogo a partir dos padrões que o acharam
 /// (saves criados ou apagados depois da varredura). Sem padrões, devolve igual.
 pub fn refresh_files(g: &DetectedGame) -> DetectedGame {
@@ -372,11 +403,7 @@ pub fn refresh_files(g: &DetectedGame) -> DetectedGame {
         collect(&mut cache, p, &mut files, &mut roots);
     }
     let mut n = g.clone();
-    n.total_bytes = files
-        .iter()
-        .filter_map(|f| f.metadata().ok())
-        .map(|m| m.len())
-        .sum();
+    (n.total_bytes, n.last_modified) = size_and_newest(&files);
     n.files = files.into_iter().collect();
     if !roots.is_empty() {
         n.save_roots = roots.into_iter().collect();
@@ -968,6 +995,37 @@ mod tests {
     }
 
     #[test]
+    fn nome_valido_e_aparado() {
+        assert_eq!(
+            validar_nome_jogo("  Meu Jogo  "),
+            Ok("Meu Jogo".to_string())
+        );
+    }
+
+    #[test]
+    fn nome_vazio_ou_espacos_recusado() {
+        assert!(validar_nome_jogo("").is_err());
+        assert!(validar_nome_jogo("    ").is_err());
+    }
+
+    #[test]
+    fn nome_com_81_caracteres_recusado() {
+        assert!(validar_nome_jogo(&"a".repeat(81)).is_err());
+        assert!(validar_nome_jogo(&"á".repeat(80)).is_ok());
+    }
+
+    #[test]
+    fn nome_com_quebra_de_linha_recusado() {
+        assert!(
+            validar_nome_jogo(
+                "Meu
+Jogo"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn jogo_manual() {
         let t = tempfile::tempdir().unwrap();
         let c = ctx(t.path());
@@ -987,6 +1045,39 @@ mod tests {
         assert_eq!(g.source, Source::Manual);
         assert_eq!(g.files.len(), 2);
         assert_eq!(g.save_roots, vec![dir]);
+    }
+
+    #[test]
+    fn last_modified_e_o_arquivo_mais_novo() {
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        let dir = t.path().join("Jogos/MeuJogo/saves");
+        touch(&dir.join("velho.sav"), 1);
+        touch(&dir.join("novo.sav"), 1);
+        let base =
+            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_790_000_000);
+        let set = |nome: &str, s: u64| {
+            fs::File::options()
+                .write(true)
+                .open(dir.join(nome))
+                .unwrap()
+                .set_modified(base + std::time::Duration::from_secs(s))
+                .unwrap();
+        };
+        set("velho.sav", 0);
+        set("novo.sav", 3600);
+        let opts = ScanOptions {
+            manual: vec![ManualGame {
+                name: "Meu Jogo".into(),
+                save_dir: dir.clone(),
+                exe: None,
+            }],
+            ..Default::default()
+        };
+        let r = scan(&c, &manifest(), &[], &opts);
+        let g = r.games.iter().find(|g| g.id == "meu-jogo").unwrap();
+        let esperado: DateTime<Utc> = (base + std::time::Duration::from_secs(3600)).into();
+        assert_eq!(g.last_modified, Some(esperado));
     }
 
     #[test]
@@ -1061,11 +1152,11 @@ mod tests {
 
 #[cfg(test)]
 mod pc_real {
-    /// `SAVEGUARD_MANIFEST=<arquivo> cargo test --release -- --ignored varre_pc_real --nocapture`
+    /// `SAVESGG_MANIFEST=<arquivo> cargo test --release -- --ignored varre_pc_real --nocapture`
     #[test]
     #[ignore]
     fn varre_pc_real() {
-        let path = std::env::var("SAVEGUARD_MANIFEST").expect("defina SAVEGUARD_MANIFEST");
+        let path = std::env::var("SAVESGG_MANIFEST").expect("defina SAVESGG_MANIFEST");
         let m = crate::manifest::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
         let ctx = crate::paths::PathContext::from_system();
         let t = std::time::Instant::now();
