@@ -45,6 +45,7 @@ const PARES: [string, string, string][] = [
   ["texto-suave", "superficie", "texto secundário"],
   ["texto-suave", "superficie-2", "texto secundário em cartão"],
   ["texto", "fundo", "texto principal"],
+  ["marca", "superficie", "\"GG\" do nome no menu"],
 ];
 
 describe.each(["gamer", "pastel", "win11", "cyberpunk", "console"])("tema %s", (tema) => {
