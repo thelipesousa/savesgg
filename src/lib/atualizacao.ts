@@ -3,13 +3,19 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
-/** Versão nova disponível, ou `null` (inclusive quando não deu para procurar). */
-export async function procurarAtualizacao(): Promise<Update | null> {
+/** Resultado da busca: a versão nova (ou `null` se está em dia) ou o erro. */
+export interface Busca {
+  nova: Update | null;
+  erro: string | null;
+}
+
+/** Procura versão nova. Uma falha (sem internet, release ainda não publicada) vem em `erro`. */
+export async function procurarAtualizacao(): Promise<Busca> {
   try {
-    return await check();
+    return { nova: await check(), erro: null };
   } catch (e) {
     console.warn("não deu para procurar atualização", e);
-    return null;
+    return { nova: null, erro: e instanceof Error ? e.message : String(e) };
   }
 }
 

@@ -143,8 +143,7 @@
 
   async function removerManual(id: string) {
     try {
-      await api.removeManualGame(id);
-      games = games.filter((g) => g.id !== id);
+      games = await api.removeManualGame(id);
       selected = selected.filter((s) => s !== id);
     } catch (e) {
       erro = errorMessage(e);

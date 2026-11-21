@@ -167,4 +167,18 @@ describe("Restaurar", () => {
     await fireEvent.change(sel, { target: { value: "5" } });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_game_keep", { gameId: "hades", n: 5 }));
   });
+
+  test("durante o lote a tela não deixa trocar de destino nem mexer nas versões", async () => {
+    jogos = [{ game_id: "hades", game_name: "Hades", snapshots: [snap("2026-11-20_10-00-00")], keep: null }];
+    extras.restore_many = () => new Promise(() => {});
+    responder();
+    await abrirPendrive();
+    await fireEvent.click(await screen.findByRole("button", { name: /Restaurar selecionados/ }));
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: /Pendrive/ }) as HTMLButtonElement).disabled).toBe(true),
+    );
+    expect((screen.getByRole("button", { name: "Fixar" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Restaurar" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Procurar backup em outra pasta…" }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

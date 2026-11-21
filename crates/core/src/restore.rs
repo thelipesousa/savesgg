@@ -271,21 +271,17 @@ pub fn apply_restore(
             steam_app_id: None,
             last_modified: None,
         };
-        let r = match backup_game(&game, ctx, dest_root, usize::MAX, now)? {
-            BackupOutcome::Criado(r) => r,
-            BackupOutcome::SemMudanca => LibraryIndex::load(dest_root)?
-                .games
-                .get(&plan.game_id)
-                .and_then(|v| v.iter().max_by_key(|r| r.created).cloned())
-                .ok_or_else(|| CoreError::Formato("versão de segurança sumiu".into()))?,
-        };
-        set_pinned(dest_root, &plan.game_id, &r.stem, true)?;
-        set_safety(dest_root, &plan.game_id, &r.stem)?;
-        safety_snapshot = Some(SnapshotRef {
-            pinned: true,
-            seguranca: true,
-            ..r
-        });
+        // `SemMudanca`: o que está no PC já é igual à versão mais recente guardada, então
+        // não há o que proteger e nenhuma versão normal é marcada como de segurança.
+        if let BackupOutcome::Criado(r) = backup_game(&game, ctx, dest_root, usize::MAX, now)? {
+            set_pinned(dest_root, &plan.game_id, &r.stem, true)?;
+            set_safety(dest_root, &plan.game_id, &r.stem)?;
+            safety_snapshot = Some(SnapshotRef {
+                pinned: true,
+                seguranca: true,
+                ..r
+            });
+        }
     }
 
     // 4. Escreve. Se algo falhar no meio, diz qual versão guarda o estado anterior.
@@ -553,6 +549,32 @@ mod tests {
             restore_latest(&dest, "elden-ring", &b, &[], now() + Duration::hours(1)),
             LoteResultado::Erro { .. }
         ));
+    }
+
+    #[test]
+    fn restaurar_no_mesmo_pc_nao_marca_versao_normal_como_seguranca() {
+        // O save do PC já é igual ao backup (ex.: a Steam Cloud devolveu antes).
+        let (t, dest, stem) = backup_da_ana();
+        let a = ctx(t.path(), "Ana", "111");
+        let r = restore_latest(&dest, "elden-ring", &a, &[], now() + Duration::hours(1));
+        assert_eq!(
+            r,
+            LoteResultado::Restaurado {
+                arquivos: 1,
+                seguranca: None
+            }
+        );
+        let idx = LibraryIndex::load(&dest).unwrap();
+        assert!(idx.games["elden-ring"].iter().all(|r| !r.seguranca));
+        // De novo: continua restaurando a mesma versão (não vira "só há versões de segurança").
+        let r2 = restore_latest(&dest, "elden-ring", &a, &[], now() + Duration::hours(2));
+        assert!(matches!(r2, LoteResultado::Restaurado { .. }), "{r2:?}");
+        assert_eq!(
+            latest_restorable(&LibraryIndex::load(&dest).unwrap().games["elden-ring"])
+                .unwrap()
+                .stem,
+            stem
+        );
     }
 
     #[test]

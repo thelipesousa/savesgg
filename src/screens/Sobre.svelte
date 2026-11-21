@@ -11,12 +11,16 @@
   let procurando = $state(false);
   let emDia = $state(false);
   let nova = $state<Update | null>(null);
+  let falhou = $state(false);
 
   async function procurar() {
     procurando = true;
     emDia = false;
-    nova = await procurarAtualizacao();
-    emDia = nova === null;
+    falhou = false;
+    const r = await procurarAtualizacao();
+    nova = r.nova;
+    falhou = r.erro !== null;
+    emDia = !falhou && nova === null;
     procurando = false;
   }
 
@@ -51,6 +55,9 @@
     <button type="button" class="botao-secundario" onclick={abrirLogs}>Abrir pasta de logs</button>
   </div>
   {#if emDia}<p class="muted" role="status">Você está na versão mais recente.</p>{/if}
+  {#if falhou}
+    <p class="muted" role="status">Não deu para procurar atualização agora (sem internet?). Tente mais tarde.</p>
+  {/if}
   {#if nova}<AvisoAtualizacao atualizacao={nova} />{/if}
   {#if erro}<p class="erro" role="alert">{erro}</p>{/if}
 </div>

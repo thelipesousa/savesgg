@@ -34,7 +34,7 @@
   $effect(() => {
     if (import.meta.env.DEV) return;
     const procurar = async () => {
-      atualizacao = (await procurarAtualizacao()) ?? atualizacao;
+      atualizacao = (await procurarAtualizacao()).nova ?? atualizacao;
     };
     const primeiro = setTimeout(procurar, 30_000);
     const repetir = setInterval(procurar, 6 * 60 * 60 * 1000);
