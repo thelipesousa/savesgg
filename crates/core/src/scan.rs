@@ -46,6 +46,8 @@ pub struct DetectedGame {
     /// Padrões (já expandidos) que acharam os arquivos: refeitos antes de cada backup
     /// automático, porque jogos criam saves novos e apagam os antigos.
     pub patterns: Vec<String>,
+    /// AppID da Steam (capa do jogo), do manifesto ou da loja.
+    pub steam_app_id: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -304,6 +306,7 @@ fn build_game(
         root: None,
         store_game_id: None,
         patterns: Vec::new(),
+        steam_app_id: None,
     })
 }
 
@@ -458,6 +461,10 @@ pub(crate) fn scan_with_limit(
             roots,
         ) {
             g.patterns = pats;
+            g.steam_app_id = entry.steam_id.or_else(|| {
+                inst.filter(|i| i.store == Store::Steam)
+                    .and_then(|i| i.store_game_id.as_deref()?.parse().ok())
+            });
             if let Some(i) = inst {
                 matched_installed.insert(i.install_dir.clone());
                 g.base = Some(i.install_dir.clone());
@@ -743,6 +750,16 @@ mod tests {
             .expect("Hades II");
         assert_eq!(h.store, Store::SemLoja);
         assert_eq!(h.files.len(), 1);
+    }
+
+    #[test]
+    fn appid_vem_do_manifesto() {
+        let t = tempfile::tempdir().unwrap();
+        let c = ctx(t.path());
+        touch(&c.home.join("Saved Games/Hades II/Profile1.sav"), 5);
+        let r = scan(&c, &manifest(), &[], &ScanOptions::default());
+        let h = r.games.iter().find(|g| g.name == "Hades II").unwrap();
+        assert_eq!(h.steam_app_id, Some(1145350));
     }
 
     #[test]

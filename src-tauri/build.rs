@@ -17,6 +17,9 @@ fn main() {
         "set_autostart",
         "set_paused",
         "auto_status",
+        "set_theme",
+        "set_game_view",
+        "complete_wizard",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

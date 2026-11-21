@@ -61,6 +61,7 @@ fn ciclo_automatico_com_processo_real() {
         root: None,
         store_game_id: None,
         patterns: Vec::new(),
+        steam_app_id: None,
     };
     let ctx = PathContext::from_system();
     let mut sys = sysinfo::System::new().expect("sysinfo");
