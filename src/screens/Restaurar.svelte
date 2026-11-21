@@ -113,6 +113,28 @@
     }
   }
 
+  async function fixar(gameId: string, stem: string, pinned: boolean) {
+    if (!destinoId) return;
+    erro = null;
+    try {
+      await api.setPinned(destinoId, gameId, stem, pinned);
+      jogos = await api.listSnapshots(destinoId);
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
+
+  async function guardar(gameId: string, valor: string) {
+    erro = null;
+    try {
+      await api.setGameKeep(gameId, valor === "" ? null : Number(valor));
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
+
+  const OPCOES_GUARDAR = [3, 5, 10, 20, 50];
+
   /** Abre o fluxo de um jogo (escolher pasta) na versão que o lote tentou restaurar. */
   function abrirJogo(gameId: string) {
     const j = jogos.find((x) => x.game_id === gameId);
@@ -232,6 +254,17 @@
           <input type="checkbox" checked={marcados.has(j.game_id)} onchange={() => alternar(j.game_id)} />
           <h3>{j.game_name}</h3>
         </label>
+        <label class="guardar muted">
+          Guardar:
+          <select
+            aria-label={`Versões guardadas de ${j.game_name}`}
+            value={j.keep === null || j.keep === undefined ? "" : String(j.keep)}
+            onchange={(e) => guardar(j.game_id, (e.currentTarget as HTMLSelectElement).value)}
+          >
+            <option value="">padrão</option>
+            {#each OPCOES_GUARDAR as n (n)}<option value={String(n)}>{n}</option>{/each}
+          </select>
+        </label>
         <ul class="versoes">
           {#each j.snapshots as s (s.stem)}
             <li>
@@ -243,6 +276,9 @@
               {#if s.pinned}<span class="chip" title="Versão fixada: nunca é apagada">📌 fixada</span>{/if}
               <span class="muted">{formatBytes(s.total_bytes)}</span>
               <span class="espaco"></span>
+              <button type="button" class="botao-secundario" onclick={() => fixar(j.game_id, s.stem, !s.pinned)}>
+                {s.pinned ? "Desafixar" : "Fixar"}
+              </button>
               <button type="button" class="botao-secundario" onclick={() => prepararRestauracao(j.game_id, s.stem)}>
                 Restaurar
               </button>
@@ -328,6 +364,12 @@
   }
   .versoes button {
     padding: 4px 14px;
+  }
+  .guardar {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 0.9em;
   }
   .acoes-lote {
     display: flex;

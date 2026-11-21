@@ -23,6 +23,9 @@ fn main() {
         "cached_scan",
         "restore_many",
         "open_backup_folder",
+        "set_pinned_cmd",
+        "set_keep_versions",
+        "set_game_keep",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

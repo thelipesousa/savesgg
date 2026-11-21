@@ -30,6 +30,9 @@
     "allow-complete-wizard",
     "allow-cached-scan",
     "allow-restore-many",
-    "allow-open-backup-folder"
+    "allow-open-backup-folder",
+    "allow-set-pinned-cmd",
+    "allow-set-keep-versions",
+    "allow-set-game-keep"
   ]
 }
