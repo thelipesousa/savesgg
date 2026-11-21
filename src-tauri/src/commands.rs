@@ -358,6 +358,7 @@ pub struct SnapshotView {
     pub created: String,
     pub pinned: bool,
     pub total_bytes: u64,
+    pub seguranca: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -401,6 +402,7 @@ pub async fn list_snapshots(
                         created: r.created.to_rfc3339(),
                         pinned: r.pinned,
                         total_bytes: r.total_bytes,
+                        seguranca: r.seguranca,
                     })
                     .collect();
                 snapshots.sort_by(|a, b| b.created.cmp(&a.created));

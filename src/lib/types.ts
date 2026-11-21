@@ -47,6 +47,7 @@ export interface SnapshotView {
   created: string;
   pinned: boolean;
   total_bytes: number;
+  seguranca: boolean;
 }
 
 export interface GameSnapshotsView {

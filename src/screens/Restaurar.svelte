@@ -56,6 +56,11 @@
     if (p) pastas = { ...pastas, [zipPath]: p };
   }
 
+  /** A versão mais recente que não é de segurança (a lista vem da mais nova para a mais antiga). */
+  function maisRecente(j: GameSnapshotsView): string | undefined {
+    return j.snapshots.find((s) => !s.seguranca)?.stem;
+  }
+
   const faltando = $derived(plano ? plano.items.filter((i) => !i.target && !pastas[i.zip_path]).length : 0);
 
   async function restaurar() {
@@ -109,10 +114,13 @@
       <li class="cartao">
         <h3>{j.game_name}</h3>
         <ul class="versoes">
-          {#each j.snapshots as s, i (s.stem)}
+          {#each j.snapshots as s (s.stem)}
             <li>
               <span>{formatDateTime(s.created)}</span>
-              {#if i === 0}<span class="chip ok">mais recente</span>{/if}
+              {#if s.stem === maisRecente(j)}<span class="chip ok">mais recente</span>{/if}
+              {#if s.seguranca}
+                <span class="chip" title="Cópia do que estava no PC antes de uma restauração">versão de segurança</span>
+              {/if}
               {#if s.pinned}<span class="chip" title="Versão fixada: nunca é apagada">📌 fixada</span>{/if}
               <span class="muted">{formatBytes(s.total_bytes)}</span>
               <span class="espaco"></span>
