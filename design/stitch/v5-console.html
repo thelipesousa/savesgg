@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-secondary": "#470083", "surface-container": "#1d2026", "surface-container-high": "#272a31", "on-surface": "#e1e2eb", "on-primary-container": "#006b43", "on-tertiary-fixed-variant": "#2f2ebe", "outline": "#849588", "on-background": "#e1e2eb", "primary-container": "#00f5a0", "on-secondary-container": "#d0a6ff", "tertiary-fixed-dim": "#c0c1ff", "background": "#10131a", "error-container": "#93000a", "inverse-on-surface": "#2e3037", "on-primary": "#003921", "outline-variant": "#3b4a40", "secondary-fixed": "#efdbff", "error": "#ffb4ab", "on-tertiary-container": "#4749d5", "on-primary-fixed": "#002111", "surface-container-lowest": "#0b0e14", "on-error-container": "#ffdad6", "tertiary-container": "#d4d3ff", "primary-fixed": "#50ffaf", "primary": "#cdffde", "on-tertiary": "#1000a9", "on-primary-fixed-variant": "#005232", "inverse-surface": "#e1e2eb", "secondary": "#dbb8ff", "tertiary-fixed": "#e1e0ff", "surface": "#10131a", "inverse-primary": "#006c44", "on-error": "#690005", "surface-container-highest": "#32353c", "on-surface-variant": "#b9cbbd", "on-secondary-fixed": "#2b0052", "primary-fixed-dim": "#00e293", "on-secondary-fixed-variant": "#6600b7", "secondary-container": "#6807ba", "surface-bright": "#363940", "tertiary": "#f5f2ff", "surface-tint": "#00e293", "surface-dim": "#10131a", "on-tertiary-fixed": "#07006c", "secondary-fixed-dim": "#dbb8ff", "surface-variant": "#32353c", "surface-container-low": "#191c22" }, "borderRadius": { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, "spacing": { "margin-window": "1rem", "gutter-compact": "0.75rem", "space-2xl": "2.5rem", "space-sm": "0.5rem", "space-md": "0.875rem", "margin": "1.5rem", "space-xl": "1.75rem", "gutter": "1rem", "space-xs": "0.25rem", "space-lg": "1.25rem" }, "fontFamily": { "code-sm": ["JetBrains Mono"], "headline-xl": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "body-sm": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"] }, "fontSize": { "code-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "500" }], "headline-xl": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800" }], "headline-sm": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "600" }], "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }], "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "body-md": ["13px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }], "body-lg": ["15px", { "lineHeight": "22px", "letterSpacing": "0em", "fontWeight": "400" }], "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" }] } } } };</script></head><body class="bg-surface text-on-surface font-body-md text-body-md min-h-screen selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low/90 backdrop-blur-xl z-50 flex flex-col justify-between p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col gap-space-lg"><div class="flex items-center gap-space-sm px-space-sm py-space-xs"><div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shadow-[0_0_16px_-2px_rgba(104,7,186,0.6)]"><span class="material-symbols-outlined text-secondary text-[22px]">shield</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">SaveGuard</span><span class="font-code-sm text-code-sm text-secondary">v2.4 Proativo</span></div></div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-headline-sm shadow-[0_0_16px_-2px_rgba(0,245,160,0.28)]"><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" data-path="inicio" href="#"><span class="material-symbols-outlined text-[20px]">home</span><span class="font-headline-sm text-headline-sm">Início</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" data-path="jogos" href="#"><span class="material-symbols-outlined text-[20px]">sports_esports</span><span class="font-headline-sm text-headline-sm">Jogos</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" data-path="backups" href="#"><span class="material-symbols-outlined text-[20px]">history</span><span class="font-headline-sm text-headline-sm">Backups</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" data-path="nuvem" href="#"><span class="material-symbols-outlined text-[20px]">cloud_sync</span><span class="font-headline-sm text-headline-sm">Nuvem</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" data-path="restaurar" href="#"><span class="material-symbols-outlined text-[20px]">settings_backup_restore</span><span class="font-headline-sm text-headline-sm">Restaurar</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" data-path="configuracoes" href="#"><span class="material-symbols-outlined text-[20px]">tune</span><span class="font-headline-sm text-headline-sm">Configurações</span></a></nav></div><div class="bg-surface-container rounded-lg p-space-md flex flex-col gap-space-xs shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="w-2.5 h-2.5 rounded-full bg-primary-fixed-dim animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface uppercase">Sentinela</span></div><span class="material-symbols-outlined text-secondary text-[18px]">videogame_asset</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary font-bold">Proteção Ativa</span><span class="font-body-sm text-body-sm text-on-surface-variant">Monitorando saves locais</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-container-lowest/80 backdrop-blur-xl z-40 px-space-lg flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center flex-1 max-w-lg"><div class="w-full flex items-center bg-surface-container-low px-space-md py-space-xs rounded-full gap-space-sm"><span class="material-symbols-outlined text-on-surface-variant text-[20px]">search</span><input class="w-full bg-transparent text-on-surface placeholder:text-on-surface-variant focus:outline-none font-body-sm text-body-sm" placeholder="Buscar jogos, saves locais ou nuvem..." type="text"/></div></div><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container"><span class="material-symbols-outlined text-primary-fixed-dim text-[16px]">cloud_done</span><span class="font-label-sm text-label-sm text-primary-fixed-dim">Console Sync OK</span></div><div class="flex items-center gap-space-sm"><div class="flex flex-col text-right"><span class="font-headline-sm text-headline-sm text-on-surface leading-tight">Luna Gamer</span><span class="font-label-sm text-label-sm text-secondary leading-none">Modo Pro Ativo</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full relative overflow-hidden bg-background text-on-surface">
+<!-- Atmospheric Glow Backdrop Layers -->
+<div class="absolute -top-40 left-1/4 w-[700px] h-[500px] bg-secondary-container/30 blur-[130px] pointer-events-none rounded-full"></div>
+<div class="absolute top-96 -right-20 w-[600px] h-[600px] bg-primary-container/10 blur-[150px] pointer-events-none rounded-full"></div>
+<!-- CONSOLE COMMAND STRIP / CONTROLLER HINTS HEADER -->
+<div class="px-margin pt-space-md pb-space-xs flex items-center justify-between z-10">
+<div class="flex items-center gap-space-md">
+<span class="px-space-sm py-space-xs rounded-full bg-secondary-container/40 text-secondary font-code-sm text-code-sm flex items-center gap-space-xs">
+<span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+        MODO CONSOLE HUB • BIG PICTURE
+      </span>
+<div class="hidden xl:flex items-center gap-space-sm font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-space-xs"><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high font-code-sm text-secondary-fixed">LB</kbd><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high font-code-sm text-secondary-fixed">RB</kbd> Alternar Deck</span>
+<span>•</span>
+<span class="flex items-center gap-space-xs"><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high font-code-sm text-primary-fixed-dim">Y</kbd> Backup Rápido</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm font-code-sm text-code-sm text-on-surface-variant">
+<span class="flex items-center gap-space-xs text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[16px]">sensors</span>
+        VSS Engine v4.9.1 ONLINE
+      </span>
+</div>
+</div>
+<!-- 1. TOP SECTION - HERO SHOWCASE & HORIZONTAL DECK CAROUSEL -->
+<section class="relative px-margin py-space-sm z-10">
+<!-- Active Game Immersive Banner (Elden Ring) -->
+<div class="relative w-full rounded-lg overflow-hidden bg-surface-container-lowest shadow-2xl min-h-[420px] flex flex-col justify-end p-space-xl">
+<!-- Background Ambient Game Art & Scrim Gradients -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Cinematic fantasy landscape of Elden Ring Erdtree towering high in golden twilight, ethereal burning roots spreading across midnight sky, atmospheric mist, dark violet shadows, intense soft fantasy lighting, ultra photorealistic game art style." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD7BbpYIIYlMl19Hjp_qEfJFOJkX4vg3K_iowDxoxBrk5ok__zWYgp2gCB99e_OBmTBt6VmHvszUBkFGtwKokBAGWSihvWN5hX58dmvhTOfYtaZqC135943ZxQY32l-2aoGG8zFROAlglVhncRMXiEI5eG5G7viOkHSkMQW6pw7egHFMd0HGrF2BQJqB7TGCNxa7BSV8v1aQ7p98K5TleDasyJGTW2tv6ssXyoZNsMzS8-m_rqRtc7kJgs-opTV-r1CqiGUJr2RXcuE')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/80 to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-surface-container-lowest via-surface-container-lowest/60 to-transparent"></div>
+<div class="absolute top-0 right-0 w-96 h-96 bg-secondary-container/20 blur-[100px] pointer-events-none"></div>
+<!-- Live Selection Indicator -->
+<div class="relative z-10 flex flex-col gap-space-md max-w-3xl">
+<div class="flex flex-wrap items-center gap-space-sm">
+<span class="px-space-md py-space-xs rounded-full bg-secondary-container text-secondary font-label-sm text-label-sm uppercase flex items-center gap-space-xs shadow-[0_0_12px_rgba(104,7,186,0.6)]">
+<span class="material-symbols-outlined text-[14px]">stars</span>
+            Foco Ativo • Slot #1
+          </span>
+<span class="px-space-md py-space-xs rounded-full bg-surface-container-high/90 text-primary-fixed-dim font-label-sm text-label-sm flex items-center gap-space-xs">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+            Steam Cloud Ativo
+          </span>
+<span class="px-space-md py-space-xs rounded-full bg-surface-container-high/90 text-on-surface-variant font-label-sm text-label-sm">
+            Prioridade Média
+          </span>
+<span class="px-space-md py-space-xs rounded-full bg-surface-container-high/90 text-on-surface font-code-sm text-code-sm flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[14px] text-secondary">verified_user</span>
+            SHA-256 Validado
+          </span>
+</div>
+<div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight font-extrabold drop-shadow-md">
+            Elden Ring: Shadow of the Erdtree
+          </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-space-xs flex items-center gap-space-sm">
+<span class="text-secondary font-label-md text-label-md">24 versões arquivadas</span>
+<span>•</span>
+<span>18.4 MB total</span>
+<span>•</span>
+<span class="text-primary-fixed-dim">Último snapshot há 4 minutos</span>
+</p>
+</div>
+<!-- Quick Game Actions Bar -->
+<div class="flex flex-wrap items-center gap-space-md pt-space-xs">
+<button class="px-space-xl py-space-md rounded-full bg-secondary text-on-secondary font-headline-sm text-headline-sm flex items-center gap-space-sm shadow-[0_0_24px_-4px_rgba(219,184,255,0.7)] hover:scale-[1.02] active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+            Fazer Backup Imediato
+          </button>
+<button class="px-space-lg py-space-md rounded-full bg-surface-container-high/80 text-on-surface font-headline-sm text-headline-sm flex items-center gap-space-sm hover:bg-surface-container-highest transition-all backdrop-blur-md">
+<span class="material-symbols-outlined text-[20px]">history_toggle_off</span>
+            Ver Histórico (Slots 1-10)
+          </button>
+<button class="px-space-md py-space-md rounded-full bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined text-[20px]">settings_backup_restore</span>
+</button>
+</div>
+</div>
+<!-- Horizontal Game Cover Ribbon Carousel (Bottom Overlay) -->
+<div class="relative z-10 mt-space-xl pt-space-md">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[16px] text-secondary">view_carousel</span>
+            Biblioteca em Execução &amp; Recentes
+          </span>
+<div class="flex items-center gap-space-xs">
+<button class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center hover:bg-surface-bright">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center hover:bg-surface-bright">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-space-md">
+<!-- Card 1: Elden Ring (Active) -->
+<div class="group relative rounded-DEFAULT overflow-hidden bg-surface-container p-1 cursor-pointer shadow-[0_0_20px_2px_rgba(219,184,255,0.45)]">
+<div class="relative h-28 rounded-lg overflow-hidden">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300" data-alt="Cover illustration of Elden Ring Shadow of the Erdtree expansion, glowing gold tree branches against deep violet darkness, high contrast gaming cover keyart." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAaaK3sVfJUEJIC8ZoiY_C7ZgzowN9o8CmDXt73laXiedNGMGcv4NLUVWDU0_Xp-G4vfztdndNb3xcakz1tUh6iF2DZZ6cza0CvRLtIyXb67zO6zvwcrFZakyPTF87Ya2X9h8bOzBFocDrp_-DA9hl5oJjVW8hTTPkCAxYtbkb7mZn7nc8T2RWgEo3rERu-jZX0io6XM35TA1sgDYNJdvBDPUTopZtmOqMB_BBcWklMit8ifL0YuOe-dIBsF5ussPEcrogRLaJL9JVn')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary font-code-sm text-code-sm font-bold">ATUAL</span>
+</div>
+<div class="p-space-xs flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Elden Ring</span>
+<span class="font-code-sm text-code-sm text-primary-fixed-dim">24 saves • 4m atrás</span>
+</div>
+</div>
+<!-- Card 2: Hollow Knight Silksong -->
+<div class="group relative rounded-DEFAULT overflow-hidden bg-surface-container-low hover:bg-surface-container p-1 cursor-pointer transition-all duration-200 hover:-translate-y-1">
+<div class="relative h-28 rounded-lg overflow-hidden">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300" data-alt="Cover artwork for Hollow Knight Silksong, red cloaked insect heroine Hornet holding a needle weapon against a glowing crimson and dark purple subterranean kingdom backdrop." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAZiHbpEaS8MJgTuwbJmMdyfQPq3diXpcdW3WBiahuYhboeW9exUV_yl_PdCTS134NdQQ7lNc1nGlue8_rMDGrh_dL49mVcsQdyaiNvoZ-PEJ5hYWBhwPdsHBBEhAu1Xrs6mXh1-AciLMfjgxPQmzhn-8W_fadfcaMXvbNydKfvQYL-PTakvXlOx5xQCJlG-r4DDCYP6q0SJJJuPwmU4rXwsEwTnNrxThx6mJQAKpHaQRJcCKppWwRw8SsZJpTFvQPnKmx6jbhq2cxW')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">SEM NUVEM</span>
+</div>
+<div class="p-space-xs flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Hollow Knight: Silksong</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">12 saves • 42m atrás</span>
+</div>
+</div>
+<!-- Card 3: Baldur's Gate 3 -->
+<div class="group relative rounded-DEFAULT overflow-hidden bg-surface-container-low hover:bg-surface-container p-1 cursor-pointer transition-all duration-200 hover:-translate-y-1">
+<div class="relative h-28 rounded-lg overflow-hidden">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300" data-alt="Baldur's Gate 3 epic RPG keyart, heroic party characters illuminated by purple mind flayer psionic magic, dramatic fantasy dark ambiance." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAwiiuZn3hR7OMxZGmpS4VHSuof7nEngBs62oqNVpu_qZdsPrYCUXG4zsagtygtLk3GrznOn6jSjVxd7bAhYxKXjw1U6JneV0Kc9EOB8O1xYAiFCe-Se679nWFMq4qgLsPbHoCfPEOMdQPuCMp5mW9TLs-DU3-Ayj9ykRURNU_bpeUNdlSNolj4FcvSmdRlG_xh_6I7JhCcbt1qbI3vXD2Rn3fWK2r1C_8lVMtvH86R5AWw5FDceLnOGhWL7l7oCs11XmRX_mg_dIJ_')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-surface-container-highest text-primary-fixed-dim font-code-sm text-code-sm">LZ4 -62%</span>
+</div>
+<div class="p-space-xs flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Baldur's Gate 3</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">88 saves • 2h atrás</span>
+</div>
+</div>
+<!-- Card 4: Hades II -->
+<div class="group relative rounded-DEFAULT overflow-hidden bg-surface-container-low hover:bg-surface-container p-1 cursor-pointer transition-all duration-200 hover:-translate-y-1">
+<div class="relative h-28 rounded-lg overflow-hidden">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300" data-alt="Hades II video game key art featuring Melinoe with glowing green witch fire and spectral blades, Greek mythological underworld style." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAB5mRbynywVADUbyfjZM3p-FiA-tLG8HdBIvU-oXc0LUzJ6KVOgWeKQILJRjhHyOnV7l5gZ2k2GmujmZuxcRc1YLdpZEtqwW3-7Z-7XF1m2YfouvIY5TRMNcMQlf1tcd7d_hZKD6PATgpxODHkzaHKyfPzkmjEngdG3TLK5BN5Fz1mUKzY2xQ7OWYuqffvyD4zxejYkfulrzUtVO_WFAslt6ZmYAHU6s77xYplzgu5Efa8VQTGun-ITKkVX1FJq13Sk2tgGs741UIl')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-surface-container-highest text-secondary font-label-sm text-label-sm">SYNC OK</span>
+</div>
+<div class="p-space-xs flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Hades II</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">41 saves • Ontem</span>
+</div>
+</div>
+<!-- Card 5: Pokémon Emerald -->
+<div class="group relative rounded-DEFAULT overflow-hidden bg-surface-container-low hover:bg-surface-container p-1 cursor-pointer transition-all duration-200 hover:-translate-y-1">
+<div class="relative h-28 rounded-lg overflow-hidden">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300" data-alt="Retro Pokemon Emerald legendary Rayquaza green dragon curling amidst emerald electric clouds, stylized emulator nostalgic game cover." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuByABYgAF0TO6eKo3BQmvoaFU7_vaAwA5GBmBnNzRcVLMeiy4GxbJ-bAbmklgoF_EalXUyHJt90s_oCekTLZIU6UavE7PB4Zr6yVPGPuK8HWc3jHInnHjBM5xSdKmCqzpjdEEhkB0_d3smY_TgDpfdGbOZPalYaMPH-q9ztfe1CxwTn2tpN_BV_BSoJ-n6nKWiUaFuFbsPJfUmrju4M6Qv0_t5tQSnhJBM2WL0X7TSdIYZ9yN8-SIZv0b5w_L99IZUokCd9sP_ulIOP')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-secondary-container text-secondary font-code-sm text-code-sm">mGBA</span>
+</div>
+<div class="p-space-xs flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Pokémon Emerald</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">19 saves • 3d atrás</span>
+</div>
+</div>
+<!-- Card 6: Cyberpunk 2077 -->
+<div class="group relative rounded-DEFAULT overflow-hidden bg-surface-container-low hover:bg-surface-container p-1 cursor-pointer transition-all duration-200 hover:-translate-y-1">
+<div class="relative h-28 rounded-lg overflow-hidden">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300" data-alt="Cyberpunk 2077 Night City neon rainy street, glowing cybernetic protagonist back view, magenta and electric blue futuristic lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCZtUDHkQG2TgR587unCsV-dnxaVaMBx0jaybmrlfy140Vr26J3AjIp5EyyGXhMxtcTd_GUutdF6Jyt_puRB7IzcWSzETDPqjnGq6n-0VjvQu4ORYXy7GTRhm31j0a31bggyLh23_fjYfgKCTnUcJoT4o7yZeSjD-y-Y6QvEVSQkz9oee3XRT-oZc5V1swLwLo31jLee0z9EQJ8PmSQuJaC8bkBhFWNRjUrOUi-dCrKSczpC3h7gjI0UKCjKA1D58iDTektSIGLwQY0')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-surface-container-highest text-secondary font-label-sm text-label-sm">GOG GALAXY</span>
+</div>
+<div class="p-space-xs flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Cyberpunk 2077</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">63 saves • 5d atrás</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 2. SENTINEL REAL-TIME WATCHDOG BANNER -->
+<section class="px-margin py-space-sm z-10">
+<div class="w-full rounded-lg bg-surface-container p-space-lg flex flex-col lg:flex-row items-center justify-between gap-space-lg shadow-xl relative overflow-hidden">
+<div class="absolute -right-10 -bottom-10 w-72 h-72 bg-secondary/10 blur-[80px] pointer-events-none"></div>
+<div class="flex items-center gap-space-md w-full lg:w-auto">
+<div class="w-14 h-14 rounded-full bg-secondary-container/60 flex items-center justify-center text-secondary shrink-0 shadow-[0_0_20px_rgba(104,7,186,0.6)]">
+<span class="material-symbols-outlined text-[32px] animate-spin" style="animation-duration: 12s;">radar</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+              Proteção Contínua Ativa (Sentinela de Saves em Tempo Real)
+            </h2>
+<span class="px-space-sm py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-sm text-label-sm flex items-center gap-space-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim"></span>
+              Live Watcher OK
+            </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">
+            Último backup automático: <strong class="text-on-surface">há 4 minutos</strong> (Elden Ring) • Monitorando 142 diretórios locais de gravação
+          </p>
+<div class="flex items-center gap-space-sm mt-space-xs font-code-sm text-code-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary">memory</span> Motor VSS Ativo</span>
+<span>•</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary-fixed-dim">compress</span> Compressão LZ4 Ultra (-62%)</span>
+<span>•</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary-fixed">lock</span> Criptografia AES-256</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm w-full lg:w-auto shrink-0 justify-end">
+<button class="px-space-lg py-space-sm rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-headline-sm text-headline-sm flex items-center gap-space-xs transition-all">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+          Forçar Sincronização Geral
+        </button>
+<button class="px-space-xl py-space-sm rounded-full bg-secondary text-on-secondary font-headline-sm text-headline-sm flex items-center gap-space-xs shadow-[0_0_18px_rgba(219,184,255,0.4)] hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">travel_explore</span>
+          Escanear PC (142 detectados)
+        </button>
+</div>
+</div>
+</section>
+<!-- 3. SUMMARY METRIC HUD TILES -->
+<section class="px-margin py-space-sm z-10">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- Metric 1 -->
+<div class="rounded-lg bg-surface-container-low p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">JOGOS MONITORADOS</span>
+<span class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[18px]">sports_esports</span>
+</span>
+</div>
+<div class="my-space-sm flex items-baseline gap-space-sm">
+<span class="font-headline-xl text-headline-xl text-on-surface font-extrabold">142</span>
+<span class="px-space-xs py-0.5 rounded bg-primary-container/20 text-primary-fixed-dim font-code-sm text-code-sm">+3 novos</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
+<span>7 plataformas mapeadas</span>
+<span class="text-primary-fixed-dim font-label-md text-label-md">100% integridade</span>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="rounded-lg bg-surface-container-low p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">SEM NUVEM • ALERTA CRÍTICO</span>
+<span class="w-8 h-8 rounded-full bg-error-container/50 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+</span>
+</div>
+<div class="my-space-sm flex items-baseline gap-space-sm">
+<span class="font-headline-xl text-headline-xl text-error font-extrabold">38</span>
+<span class="px-space-xs py-0.5 rounded bg-error/20 text-error font-code-sm text-code-sm animate-pulse">Risco Local</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">Saves só no SSD</span>
+<a class="text-secondary hover:underline font-label-md text-label-md" href="#">Blindar todos →</a>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="rounded-lg bg-surface-container-low p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">ESPAÇO PROTEGIDO</span>
+<span class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">folder_zip</span>
+</span>
+</div>
+<div class="my-space-sm flex items-baseline gap-space-sm">
+<span class="font-headline-xl text-headline-xl text-on-surface font-extrabold">12,4 GB</span>
+<span class="px-space-xs py-0.5 rounded bg-secondary-container/50 text-secondary font-code-sm text-code-sm">-62% LZ4</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
+<span>284 snapshots totais</span>
+<span class="text-secondary font-code-sm text-code-sm">Deduplicado</span>
+</div>
+</div>
+<!-- Metric 4 -->
+<div class="rounded-lg bg-surface-container-low p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">NUVEM PRINCIPAL</span>
+<span class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[18px]">cloud</span>
+</span>
+</div>
+<div class="my-space-sm flex items-baseline justify-between">
+<span class="font-headline-lg text-headline-lg text-on-surface font-bold">OneDrive Pro</span>
+<span class="px-space-xs py-0.5 rounded bg-primary-container/20 text-primary-fixed-dim font-code-sm text-code-sm">100% OK</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 22.5%;"></div>
+</div>
+<div class="flex justify-between font-code-sm text-code-sm text-on-surface-variant mt-0.5">
+<span>12.4 GB / 100 GB</span>
+<span class="text-on-surface">42.8 GB livres</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. MAIN CONTENT SPLIT (GAMES LIST & MONITORING + RIGHT HUD TILES) -->
+<section class="px-margin py-space-md z-10 grid grid-cols-1 xl:grid-cols-12 gap-space-lg">
+<!-- LEFT/CENTER COLUMN: JOGOS MONITORADOS (8 cols) -->
+<div class="xl:col-span-8 flex flex-col gap-space-md">
+<!-- Filter Bar with Gamepad Navigation Hints -->
+<div class="bg-surface-container-low p-space-md rounded-lg flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row items-center justify-between gap-space-md">
+<!-- Filter Tabs -->
+<div class="flex items-center gap-space-xs flex-wrap">
+<button class="px-space-md py-space-xs rounded-full bg-secondary-container text-secondary font-label-sm text-label-sm shadow-[0_0_12px_rgba(104,7,186,0.4)]">
+              Todos (142)
+            </button>
+<button class="px-space-md py-space-xs rounded-full bg-surface-container text-error hover:bg-error-container/30 font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">emergency</span>
+              Sem Nuvem (38)
+            </button>
+<button class="px-space-md py-space-xs rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm">
+              Steam (84)
+            </button>
+<button class="px-space-md py-space-xs rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm">
+              Epic (14)
+            </button>
+<button class="px-space-md py-space-xs rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm">
+              GOG (9)
+            </button>
+<button class="px-space-md py-space-xs rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm">
+              Emuladores (5)
+            </button>
+</div>
+<!-- Quick Gamepad Sort -->
+<div class="flex items-center gap-space-sm shrink-0">
+<span class="font-code-sm text-code-sm text-on-surface-variant flex items-center gap-1">
+<kbd class="px-1.5 py-0.5 rounded bg-surface-container font-code-sm text-on-surface">X</kbd>
+              Ordenar: Mais Recentes
+            </span>
+</div>
+</div>
+<!-- Search Bar with Controller Button Prompt -->
+<div class="flex items-center bg-surface-container px-space-md py-space-sm rounded-full gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[20px]">filter_alt</span>
+<input class="w-full bg-transparent text-on-surface placeholder:text-on-surface-variant focus:outline-none font-body-md text-body-md" placeholder="Filtrar por nome do jogo, caminho %APPDATA% ou tag..." type="text"/>
+<span class="px-space-xs py-0.5 rounded bg-surface-container-high text-on-surface-variant font-code-sm text-code-sm">
+            Ctrl+F
+          </span>
+</div>
+</div>
+<!-- Game Cards Stack -->
+<div class="flex flex-col gap-space-md">
+<!-- Card 1: Elden Ring (Detailed Card) -->
+<div class="rounded-lg bg-surface-container p-space-md flex flex-col md:flex-row items-center justify-between gap-space-md hover:bg-surface-container-high transition-all shadow-md group">
+<div class="flex items-center gap-space-md w-full md:w-auto">
+<div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative bg-surface-container-lowest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Elden Ring Erdtree golden glow detail icon on dark atmospheric canvas." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCedUARmmnCxAekNsJLp05GZPi_veatboq_0R0mIN8y4QxiwtBiYYCwqT6Fhcf80GAuKGMTpGL5Y7OGQQrmIMGG_xCehhOinzBgZ9pHWL5HIRtgUYLR63MopqiBNLBetdOiJSZMuIpiU4SsFI50rEVsnyc06plxUF06LbQcXmkwn2buoWSZLmW8uSO8Eyx-n11625fT6IR_NGHI8oJrqOGGQ0Ia6l0PTE7QJFjvQM6g2cIlfsUm73wk4TtjkyhoQQdIplcmPrN6-Hvy')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Elden Ring</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary-fixed font-code-sm text-code-sm">Steam</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-sm text-label-sm">Protegido Nuvem</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">Prioridade Média</span>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface-variant mt-0.5 truncate max-w-md">
+                C:\Users\Luna\AppData\Roaming\EldenRing\76561198025\
+              </span>
+<div class="flex items-center gap-space-md font-body-sm text-body-sm text-on-surface-variant mt-space-xs">
+<span class="text-on-surface font-label-md text-label-md">24 versões</span>
+<span>•</span>
+<span>Tamanho: 18.4 MB</span>
+<span>•</span>
+<span class="text-primary-fixed-dim">Sincronizado há 4 min</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md w-full md:w-auto shrink-0 pt-space-xs md:pt-0">
+<!-- Toggle Auto-Backup -->
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Auto</span>
+<div class="w-11 h-6 rounded-full bg-primary-fixed-dim p-0.5 flex items-center justify-end cursor-pointer">
+<div class="w-5 h-5 rounded-full bg-on-primary-fixed shadow"></div>
+</div>
+</div>
+<!-- Action buttons -->
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-secondary hover:text-on-secondary text-on-surface flex items-center justify-center transition-all" title="Backup Agora">
+<span class="material-symbols-outlined text-[18px]">backup</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all" title="Histórico de Versões">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all" title="Configurações do Jogo">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Card 2: Hollow Knight Silksong (CRITICAL LOCAL ONLY) -->
+<div class="rounded-lg bg-surface-container p-space-md flex flex-col md:flex-row items-center justify-between gap-space-md hover:bg-surface-container-high transition-all shadow-md group">
+<div class="flex items-center gap-space-md w-full md:w-auto">
+<div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative bg-surface-container-lowest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Hollow Knight Silksong needle weapon icon with dark crimson aura in vintage game UI format." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuABjN5TgvplTWFWb57rWimrlSJDzSwznbV9TOqJFj2-uSM7ux9xPTh5HCaNSk4nu3E1S0g8GxtIh4pCpTiITApyJa7D71EqKXFG1L0_jCrfo1I6YMBVItdK77InzOFrb8jEWHYBykGxBn8ro1rhRQ0XoHzALxXv2hrjR2CCqFfsm2AsZdREcvOmZuHrGK_NuwfSu7rGYkQTXLfkRowSEFD-H1q4M70mpgrXIWkJY_YuR-mw-WloK-br6P6MaVgklmxPU5nLKN2TNtEU')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Hollow Knight: Silksong</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary-fixed font-code-sm text-code-sm">GOG</span>
+<span class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm animate-pulse">Crítico • Sem Nuvem</span>
+<span class="px-2 py-0.5 rounded-full bg-error/20 text-error font-label-sm text-label-sm">Prioridade Alta</span>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface-variant mt-0.5 truncate max-w-md">
+                %USERPROFILE%\AppData\LocalLow\Team Cherry\Silksong\
+              </span>
+<div class="flex items-center gap-space-md font-body-sm text-body-sm text-on-surface-variant mt-space-xs">
+<span class="text-on-surface font-label-md text-label-md">12 snapshots</span>
+<span>•</span>
+<span>Tamanho: 6.2 MB</span>
+<span>•</span>
+<span class="text-secondary">Delta salvo há 42 min</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md w-full md:w-auto shrink-0 pt-space-xs md:pt-0">
+<button class="px-space-md py-space-xs rounded-full bg-secondary text-on-secondary font-label-sm text-label-sm flex items-center gap-1 shadow-[0_0_12px_rgba(219,184,255,0.4)]">
+<span class="material-symbols-outlined text-[16px]">cloud_upload</span>
+              Enviar p/ Nuvem
+            </button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+</div>
+</div>
+<!-- Card 3: Baldur's Gate 3 -->
+<div class="rounded-lg bg-surface-container p-space-md flex flex-col md:flex-row items-center justify-between gap-space-md hover:bg-surface-container-high transition-all shadow-md group">
+<div class="flex items-center gap-space-md w-full md:w-auto">
+<div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative bg-surface-container-lowest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Baldur's Gate 3 tentacle mind flayer helm symbol glowing with deep purple psionic radiance." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD9yjFrgthjp5dN3c0ERLi6cEndaSg0IsjRl5gjPVKtR8AARJ0XGOF6KBF3IInzgg-S2KJJSPqXHFsV8wyxoU7fQo871HPcBn9kyEzHUcIxIFo7DOXNQAZHkbg8NtTP0SofkfjQumDlvEYDgCIF5xNcXLbvQVq-QuguwlQSxC2GVZYcyq3U0lExdrzbo27YubmBERq6Ns97dokt1PkflCEUXNMUQvZn1u9mDWktkJGjrkJHicTZ0ROk42-PfHqEeoxwAD883vm7K-CE')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Baldur's Gate 3</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary-fixed font-code-sm text-code-sm">Steam</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-sm text-label-sm">OneDrive OK</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">Prioridade Alta</span>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface-variant mt-0.5 truncate max-w-md">
+                D:\SteamLibrary\steamapps\compatdata\1086940\pfx\drive_c\
+              </span>
+<div class="flex items-center gap-space-md font-body-sm text-body-sm text-on-surface-variant mt-space-xs">
+<span class="text-on-surface font-label-md text-label-md">88 versões</span>
+<span>•</span>
+<span>Original: 1.1 GB → LZ4: 420 MB</span>
+<span>•</span>
+<span>Snapshot há 2 horas</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md w-full md:w-auto shrink-0 pt-space-xs md:pt-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Auto</span>
+<div class="w-11 h-6 rounded-full bg-primary-fixed-dim p-0.5 flex items-center justify-end cursor-pointer">
+<div class="w-5 h-5 rounded-full bg-on-primary-fixed shadow"></div>
+</div>
+</div>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Card 4: Hades II -->
+<div class="rounded-lg bg-surface-container p-space-md flex flex-col md:flex-row items-center justify-between gap-space-md hover:bg-surface-container-high transition-all shadow-md group">
+<div class="flex items-center gap-space-md w-full md:w-auto">
+<div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative bg-surface-container-lowest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Hades II crescent moon and glowing green witch flame icon emblem on dark slate card background." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAsQxKlR_nZDRLdMkD33nyDeeWq-lrGZMU9vgrXNgip9PwLbSC_Wn69f3kkcvGbvazVElIa-2u5tEDYh7AQrZLBNMwqxkaRx9S5lVHcfXwvrt_0tGrjguUshf4HIIRtZr-36g9QDJBCoE0TL9w72p2e_yQ9ZQUPnPNfXmp3OgRqyDYootSVtYOJC0OW-8JxQ6RuoCsOxV3zyH-SfhT1YZBx5H1wpEfRRS_9qjqOfdP2mDwaumQKJFHHg6HgzZooxxS-7IjOXmABL9J_')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Hades II</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary-fixed font-code-sm text-code-sm">Epic Games</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-sm text-label-sm">Espelho Duplo OK</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">Prioridade Média</span>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface-variant mt-0.5 truncate max-w-md">
+                C:\Users\Luna\Saved Games\Hades II\
+              </span>
+<div class="flex items-center gap-space-md font-body-sm text-body-sm text-on-surface-variant mt-space-xs">
+<span class="text-on-surface font-label-md text-label-md">41 versões</span>
+<span>•</span>
+<span>Tamanho: 3.8 MB</span>
+<span>•</span>
+<span>Sincronizado ontem</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md w-full md:w-auto shrink-0 pt-space-xs md:pt-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Auto</span>
+<div class="w-11 h-6 rounded-full bg-primary-fixed-dim p-0.5 flex items-center justify-end cursor-pointer">
+<div class="w-5 h-5 rounded-full bg-on-primary-fixed shadow"></div>
+</div>
+</div>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Card 5: Pokémon Emerald (mGBA Emulator) -->
+<div class="rounded-lg bg-surface-container p-space-md flex flex-col md:flex-row items-center justify-between gap-space-md hover:bg-surface-container-high transition-all shadow-md group">
+<div class="flex items-center gap-space-md w-full md:w-auto">
+<div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative bg-surface-container-lowest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Retro handheld green game cartridge pixel emblem with glowing emulator border styling." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCw4jPsFmW01u1AcV4UI-bX2jXh0vSMfXqj7cHx8qcsOczMuH5aUeua_Eimez13ErAnOOA5iOqXzXFiiZOaAth3EK_kJ1wL1gIW0xNbknYcqQ3uuWdMV5oZXdNluqIMd1sz4BHS6n-MEMbXNgfuKhqxhKb_w_8-CihhCHmCe4HWVXbGN3nE8UnbMoPRNfZUOMyD3zXnCPji5LnRbHaAFRCqsJ-vzCHQoLCANUZ_P4GgdQkJqpcwvex8XTRlOfZXuPwpAm1xfuhq7fY4')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Pokémon Emerald [mGBA]</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-secondary font-code-sm text-code-sm">Emulador GBA</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-sm text-label-sm">SaveState + SRM</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">Prioridade Baixa</span>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface-variant mt-0.5 truncate max-w-md">
+                E:\Emuladores\mGBA\saves\Pokemon - Emerald Version (USA).sav
+              </span>
+<div class="flex items-center gap-space-md font-body-sm text-body-sm text-on-surface-variant mt-space-xs">
+<span class="text-on-surface font-label-md text-label-md">19 versões</span>
+<span>•</span>
+<span>Tamanho: 128 KB</span>
+<span>•</span>
+<span>Sincronizado há 3 dias</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-space-md w-full md:w-auto shrink-0 pt-space-xs md:pt-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Auto</span>
+<div class="w-11 h-6 rounded-full bg-primary-fixed-dim p-0.5 flex items-center justify-end cursor-pointer">
+<div class="w-5 h-5 rounded-full bg-on-primary-fixed shadow"></div>
+</div>
+</div>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT HUD COLUMN: FEEDS, TIMELINE & STORAGE WIDGETS (4 cols) -->
+<div class="xl:col-span-4 flex flex-col gap-space-md">
+<!-- WIDGET 1: PROVEDORES DE NUVEM & DESTINOS -->
+<div class="bg-surface-container-low p-space-md rounded-lg flex flex-col gap-space-md shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">cloud_sync</span>
+            Destinos &amp; Nuvem
+          </span>
+<button class="font-code-sm text-code-sm text-secondary hover:underline">Configurar</button>
+</div>
+<div class="flex flex-col gap-space-sm">
+<!-- OneDrive -->
+<div class="p-space-sm rounded-DEFAULT bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 text-primary-fixed-dim flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">cloud_done</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface text-sm">OneDrive Pro</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">12.4 GB / 100 GB</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-sm text-label-sm">Ativo</span>
+</div>
+<!-- Google Drive -->
+<div class="p-space-sm rounded-DEFAULT bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-secondary-container/40 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface text-sm">Google Drive (Espelho)</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Backup secundário OK</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/30 text-secondary font-label-sm text-label-sm">Espelho</span>
+</div>
+<!-- NVMe Externo SaveVault -->
+<div class="p-space-sm rounded-DEFAULT bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">hard_drive</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface text-sm">SaveVault Offline (D:\)</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">NVMe Externo • 842 GB livres</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">Local</span>
+</div>
+<!-- Dropbox Não Vinculado -->
+<div class="p-space-sm rounded-DEFAULT bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">cloud_off</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface-variant text-sm">Dropbox</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Não vinculado</span>
+</div>
+</div>
+<button class="px-2.5 py-1 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-secondary font-label-sm text-label-sm transition-all">
+              Conectar
+            </button>
+</div>
+</div>
+</div>
+<!-- WIDGET 2: ATIVIDADE RECENTE / HUD LIVE TIMELINE -->
+<div class="bg-surface-container-low p-space-md rounded-lg flex flex-col gap-space-md shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">browse_activity</span>
+            Atividade Recente
+          </span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Ao Vivo</span>
+</div>
+<div class="flex flex-col gap-space-md relative">
+<!-- Timeline Item 1 -->
+<div class="flex items-start gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-fixed-dim mt-1.5 shrink-0 shadow-[0_0_8px_rgba(0,226,147,0.8)]"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md text-on-surface">Elden Ring</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">há 4 min</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                18.4 MB sincronizados com sucesso no OneDrive (Slot #24).
+              </p>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="flex items-start gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-secondary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(219,184,255,0.8)]"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md text-on-surface">Hollow Knight: Silksong</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">há 42 min</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Delta salvo localmente (VSS). Alerta: pendente de envio para nuvem.
+              </p>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="flex items-start gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-fixed-dim mt-1.5 shrink-0"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md text-on-surface">Baldur's Gate 3</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">há 2 horas</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Compressão LZ4 reduziu 1.1 GB para 420 MB antes do upload.
+              </p>
+</div>
+</div>
+<!-- Timeline Item 4 -->
+<div class="flex items-start gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-surface-bright mt-1.5 shrink-0"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md text-on-surface">Sentinela Geral</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">há 3 horas</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Varredura automática: 142 jogos verificados, zero falhas.
+              </p>
+</div>
+</div>
+</div>
+<a class="text-center font-label-md text-label-md text-secondary hover:underline pt-space-xs" href="#">
+          Ver histórico completo de transações →
+        </a>
+</div>
+<!-- WIDGET 3: GARANTIA DE INTEGRIDADE SHA-256 -->
+<div class="rounded-lg bg-surface-container p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">verified</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">Garantia de Integridade</span>
+</div>
+<span class="font-code-sm text-code-sm text-primary-fixed-dim">0 corrupções</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          Todos os 284 snapshots possuem hash SHA-256 verificado em repouso e trânsito. Nenhuma inconsistência encontrada nos últimos 90 dias.
+        </p>
+<div class="w-full bg-surface-container-high p-space-xs rounded font-code-sm text-code-sm text-on-surface-variant flex items-center justify-between">
+<span>Checksum do Elden Ring:</span>
+<span class="text-secondary font-bold">9fa2..c831 [OK]</span>
+</div>
+</div>
+</div>
+</section>
+<!-- BOTTOM RETRO HUD CONTROLLER TOOLBAR -->
+<footer class="px-margin py-space-md bg-surface-container-lowest flex items-center justify-between text-on-surface-variant font-code-sm text-code-sm mt-space-md z-10">
+<div class="flex items-center gap-space-md">
+<span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-bold">A</kbd> Selecionar Jogo</span>
+<span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-bold">X</kbd> Backup Manual</span>
+<span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-bold">Y</kbd> Histórico de Saves</span>
+<span class="flex items-center gap-1"><kbd class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-bold">SELECT</kbd> Painel VSS</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="text-secondary">SaveGuard Launcher Console Edition • v2.4.9 PRO</span>
+<span>•</span>
+<span class="text-primary-fixed-dim">Status: 100% Protegido</span>
+</div>
+</footer>
+</div></main></div></body></html>
