@@ -11,7 +11,8 @@ use serde::Serialize;
 use crate::CoreError;
 use crate::backup::SnapshotMeta;
 use crate::backup::{
-    BackupOutcome, LibraryIndex, SnapshotRef, backup_game, load_meta, set_pinned, snapshot_paths,
+    BackupOutcome, LibraryIndex, SnapshotRef, backup_game, load_meta, set_pinned, set_safety,
+    snapshot_paths,
 };
 use crate::paths::expand;
 pub use crate::paths::{GameVars, PathContext};
@@ -278,7 +279,12 @@ pub fn apply_restore(
                 .ok_or_else(|| CoreError::Formato("versão de segurança sumiu".into()))?,
         };
         set_pinned(dest_root, &plan.game_id, &r.stem, true)?;
-        safety_snapshot = Some(SnapshotRef { pinned: true, ..r });
+        set_safety(dest_root, &plan.game_id, &r.stem)?;
+        safety_snapshot = Some(SnapshotRef {
+            pinned: true,
+            seguranca: true,
+            ..r
+        });
     }
 
     // 4. Escreve. Se algo falhar no meio, diz qual versão guarda o estado anterior.
@@ -555,6 +561,8 @@ mod tests {
             .find(|r| r.stem == safety.stem)
             .unwrap();
         assert!(r.pinned);
+        assert!(r.seguranca, "marcada como versão de segurança");
+        assert!(safety.seguranca);
         assert_eq!(fs::read(&alvo).unwrap(), b"progresso da ana");
         let meta = load_meta(&dest, "elden-ring", &safety.stem).unwrap();
         assert_eq!(meta.files.len(), 1);

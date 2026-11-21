@@ -30,6 +30,9 @@ pub struct SnapshotMeta {
     /// ID do jogo na loja (para achar a pasta de instalação no PC novo).
     #[serde(default)]
     pub store_game_id: Option<String>,
+    /// Versão de segurança criada antes de uma restauração.
+    #[serde(default)]
+    pub seguranca: bool,
 }
 
 /// Caminho legível dentro do zip: `<winAppData>/X/a.sav` → `winAppData/X/a.sav`.

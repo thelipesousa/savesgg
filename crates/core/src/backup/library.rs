@@ -24,6 +24,9 @@ pub struct SnapshotRef {
     pub content_hash: String,
     #[serde(default)]
     pub total_bytes: u64,
+    /// Cópia do que estava no PC antes de uma restauração (nunca é "a mais recente").
+    #[serde(default)]
+    pub seguranca: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,6 +120,7 @@ impl LibraryIndex {
                     pinned: meta.pinned,
                     content_hash: meta.content_hash,
                     total_bytes: meta.total_bytes,
+                    seguranca: meta.seguranca,
                 });
                 refs.sort_by_key(|r| r.created);
             }
