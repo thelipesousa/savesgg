@@ -8,8 +8,9 @@
 |---|---|---|
 | **SavesGG - backup de saves de jogos** (principal) | `18278923500053803314` | As telas dos 5 temas, o assistente, o design system e uma nota de texto que aponta para este índice |
 | **SavesGG - marca (logo)** | `12980498111637929696` | Os 4 conceitos de logo e a exploração de cores do coração |
+| **SavesGG - site (página de apresentação)** | `5332260852583762540` | A página de apresentação (tela `54d5a742a95746b5a6e45293cd0d318f`); cópia em `stitch/site/` |
 
-O Stitch não deixa mover telas de um projeto para outro, nem importar imagens. Por isso a marca continua em projeto próprio, e o projeto principal tem uma nota apontando para ele.
+Em 2026-11-21 o projeto principal parou de aceitar telas novas (as gerações não apareciam), por isso o site ganhou projeto próprio. O Stitch não deixa mover telas de um projeto para outro, nem importar imagens. Por isso a marca continua em projeto próprio, e o projeto principal tem uma nota apontando para ele.
 
 ### Telas do projeto principal
 
@@ -52,6 +53,7 @@ O Stitch não deixa mover telas de um projeto para outro, nem importar imagens. 
 - `tema-gamer.png`, `tema-pastel.png`, `tema-win11.png`, `tema-cyberpunk.png`, `tema-console.png`: os 5 temas.
 - `assistente-1.png`, `assistente-2.png`: o assistente da primeira execução.
 - `savesgg-inicio.png`, `savesgg-titulo.png`: o app depois de trocar o nome e a logo.
+- As capturas dos temas foram refeitas com a versão 0.2.0 (nome e coração novos) e são as usadas no site.
 
 ## Regra para telas novas
 
