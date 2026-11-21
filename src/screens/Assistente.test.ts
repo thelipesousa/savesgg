@@ -19,7 +19,8 @@ const onedrive = {
 
 function responder(dests: unknown[] = [onedrive], wizardDone = false) {
   invoke.mockImplementation((cmd: string) => {
-    if (cmd === "scan") return Promise.resolve([jogo("a", "baixa"), jogo("b", "alta"), jogo("c", "alta")]);
+    if (cmd === "scan")
+      return Promise.resolve([jogo("a", "baixa"), jogo("b", "alta"), jogo("c", "alta"), jogo("d", "media")]);
     if (cmd === "list_destinations_cmd") return Promise.resolve(dests);
     if (cmd === "get_settings")
       return Promise.resolve({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10, theme: "gamer", game_view: "lista", wizard_done: wizardDone });
@@ -37,6 +38,7 @@ describe("Assistente", () => {
     await fireEvent.click(screen.getByRole("button", { name: /Começar/ }));
     expect(await screen.findByText(/1 já protegido/)).toBeTruthy();
     expect(screen.getByText(/2 sem cópia fora do PC/)).toBeTruthy();
+    expect(screen.getByText(/1 com proteção incerta/)).toBeTruthy();
     await fireEvent.click(screen.getByRole("button", { name: /Continuar/ }));
     await fireEvent.click(await screen.findByRole("checkbox", { name: /OneDrive/ }));
     await fireEvent.click(screen.getByRole("button", { name: /Continuar/ }));

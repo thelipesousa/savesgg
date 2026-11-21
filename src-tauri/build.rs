@@ -20,6 +20,7 @@ fn main() {
         "set_theme",
         "set_game_view",
         "complete_wizard",
+        "cached_scan",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()
