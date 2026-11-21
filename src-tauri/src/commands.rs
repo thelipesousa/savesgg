@@ -248,6 +248,15 @@ pub async fn add_custom_folder(
     Ok(list_destinations(&cfg).into_iter().find(|d| d.root == path))
 }
 
+/// Destino configurado/detectado com esta raiz (para usar o mesmo id e a mesma trava).
+fn destino_da_raiz(dests: &[Destination], root: &std::path::Path) -> Option<Destination> {
+    let alvo = savesgg_core::paths::norm(root).to_lowercase();
+    dests
+        .iter()
+        .find(|d| savesgg_core::paths::norm(&d.root).to_lowercase() == alvo)
+        .cloned()
+}
+
 /// Abre o seletor e usa a pasta como origem de restauração só nesta sessão.
 #[tauri::command]
 pub async fn open_backup_folder(
@@ -263,6 +272,13 @@ pub async fn open_backup_folder(
     let root = blocking(move || Ok(savesgg_core::destinations::resolve_backup_folder(&picked)))
         .await?
         .ok_or_else(|| "Nenhum backup do SavesGG nesta pasta".to_string())?;
+    // Já é um destino conhecido: devolve ele, para a restauração e o motor automático
+    // usarem a mesma trava (senão os dois poderiam gravar o índice ao mesmo tempo).
+    let cfg = state.config();
+    let raiz = root.clone();
+    if let Some(d) = blocking(move || Ok(destino_da_raiz(&list_destinations(&cfg), &raiz))).await? {
+        return Ok(Some(d));
+    }
     {
         let mut abertas = state
             .pastas_abertas
@@ -594,7 +610,9 @@ pub async fn apply_restore(
     overrides: BTreeMap<String, String>,
 ) -> Res<RestoreReport> {
     let root = destination_root(&state, &destination_id)?;
+    let lock = state.locks.lock(&destination_id);
     blocking(move || {
+        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
         let installed = detect_all();
         let ctx = current_ctx(&installed);
         let meta = load_meta(&root, &game_id, &stem).map_err(|e| e.to_string())?;
@@ -639,7 +657,8 @@ pub async fn restore_many(
     let root = destination_root(&state, &destination_id)?;
     let lock = state.locks.lock(&destination_id);
     blocking(move || {
-        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+        // Detecção e leitura do índice fora da trava; a trava é pega jogo a jogo, para o
+        // motor automático e o "Fixar" não ficarem parados durante o lote inteiro.
         let idx = LibraryIndex::load(&root).map_err(|e| e.to_string())?;
         let installed = detect_all();
         let ctx = current_ctx(&installed);
@@ -662,6 +681,7 @@ pub async fn restore_many(
                 },
             );
             let resultado = if idx.games.contains_key(&id) {
+                let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
                 restore_latest(&root, &id, &ctx, &installed, Utc::now())
             } else {
                 LoteResultado::Erro {
@@ -696,11 +716,34 @@ fn adicionar_manual(
     Ok(())
 }
 
-/// Tira um jogo manual da configuração (os backups continuam). Devolve se achou.
-fn remover_manual(c: &mut savesgg_core::config::Config, game_id: &str) -> bool {
+/// O nome gera o id de um jogo manual ou de um jogo já detectado na varredura?
+/// (Ids iguais seriam trocados por `dedupe_ids` e o jogo detectado perderia o histórico.)
+fn nome_ja_usado(
+    nome: &str,
+    manuais: &[savesgg_core::config::ManualGame],
+    varredura: &[&savesgg_core::scan::DetectedGame],
+) -> bool {
+    let id = savesgg_core::scan::game_id(nome);
+    manuais
+        .iter()
+        .any(|g| savesgg_core::scan::game_id(&g.name) == id)
+        || varredura
+            .iter()
+            .any(|g| g.id == id || savesgg_core::scan::game_id(&g.name) == id)
+}
+
+/// Tira um jogo manual da configuração (os backups continuam). Procura pelo nome que
+/// a varredura mostrou (o id pode ter sido trocado por `dedupe_ids`); sem ele, pelo id.
+fn remover_manual(
+    c: &mut savesgg_core::config::Config,
+    game_id: &str,
+    nome_na_varredura: Option<&str>,
+) -> bool {
     let antes = c.manual_games.len();
-    c.manual_games
-        .retain(|g| savesgg_core::scan::game_id(&g.name) != game_id);
+    c.manual_games.retain(|g| match nome_na_varredura {
+        Some(nome) => g.name != nome,
+        None => savesgg_core::scan::game_id(&g.name) != game_id,
+    });
     c.manual_games.len() != antes
 }
 
@@ -713,13 +756,19 @@ pub async fn add_manual_game(
     name: String,
 ) -> Res<Option<Vec<GameView>>> {
     let name = savesgg_core::scan::validar_nome_jogo(&name)?;
-    let id = savesgg_core::scan::game_id(&name);
-    if state
-        .config()
-        .manual_games
-        .iter()
-        .any(|g| savesgg_core::scan::game_id(&g.name) == id)
-    {
+    let usado = {
+        let scan = state
+            .last_scan
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let jogos: Vec<&savesgg_core::scan::DetectedGame> = scan
+            .as_ref()
+            .map(|s| s.result.games.iter().chain(&s.result.over_limit).collect())
+            .unwrap_or_default();
+        nome_ja_usado(&name, &state.config().manual_games, &jogos)
+    };
+    if usado {
         return Err("Já existe um jogo com esse nome".into());
     }
     let Some(pasta) = app
@@ -742,6 +791,7 @@ pub async fn add_manual_game(
         .and_then(|f| f.into_path().ok());
     let mut erro = None;
     state.update_config(|c| {
+        // `adicionar_manual` confere de novo os outros jogos manuais (corrida entre cliques).
         erro = adicionar_manual(
             c,
             savesgg_core::config::ManualGame {
@@ -761,16 +811,29 @@ pub async fn add_manual_game(
         .map(Some)
 }
 
-/// Remove um jogo adicionado à mão (os backups dele continuam guardados).
+/// Remove um jogo adicionado à mão (os backups dele continuam guardados) e refaz a
+/// varredura, para ele sumir da tela e do backup automático.
 #[tauri::command]
-pub fn remove_manual_game(state: State<'_, AppState>, game_id: String) -> Res<()> {
+pub async fn remove_manual_game(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    game_id: String,
+) -> Res<Vec<GameView>> {
+    let nome = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .and_then(|s| s.find(&game_id))
+        .filter(|g| g.source == savesgg_core::scan::Source::Manual)
+        .map(|g| g.name.clone());
     let mut achou = false;
-    state.update_config(|c| achou = remover_manual(c, &game_id))?;
-    if achou {
-        Ok(())
-    } else {
-        Err("jogo não encontrado".into())
+    state.update_config(|c| achou = remover_manual(c, &game_id, nome.as_deref()))?;
+    if !achou {
+        return Err("jogo não encontrado".into());
     }
+    let app2 = app.clone();
+    blocking(move || run_scan_blocking(&app2.state::<AppState>())).await
 }
 
 #[derive(Debug, Serialize)]
@@ -939,10 +1002,40 @@ mod tests {
         let mut c = savesgg_core::config::Config::default();
         adicionar_manual(&mut c, manual("Meu Jogo")).unwrap();
         adicionar_manual(&mut c, manual("Outro")).unwrap();
-        assert!(remover_manual(&mut c, "meu-jogo"));
+        assert!(remover_manual(&mut c, "meu-jogo", None));
         assert_eq!(c.manual_games.len(), 1);
         assert_eq!(c.manual_games[0].name, "Outro");
-        assert!(!remover_manual(&mut c, "meu-jogo"));
+        assert!(!remover_manual(&mut c, "meu-jogo", None));
+    }
+
+    #[test]
+    fn remover_manual_pelo_nome_da_varredura_mesmo_com_id_trocado() {
+        // dedupe_ids pode trocar o id ("hades" vira "hades-1a2b"); o nome continua o mesmo.
+        let mut c = savesgg_core::config::Config::default();
+        adicionar_manual(&mut c, manual("Hades")).unwrap();
+        assert!(remover_manual(&mut c, "hades-1a2b", Some("Hades")));
+        assert!(c.manual_games.is_empty());
+    }
+
+    #[test]
+    fn nome_manual_igual_a_jogo_detectado_e_recusado() {
+        let c = savesgg_core::config::Config::default();
+        let mut detectado = jogo("hades");
+        detectado.name = "Hades".into();
+        assert!(nome_ja_usado("hades", &c.manual_games, &[&detectado]));
+        assert!(!nome_ja_usado("Celeste", &c.manual_games, &[&detectado]));
+    }
+
+    #[test]
+    fn pasta_aberta_que_ja_e_destino_usa_o_id_do_destino() {
+        let dests = savesgg_core::destinations::build_destinations(
+            &[],
+            &[],
+            &[PathBuf::from("D:/Backups")],
+        );
+        let achado = destino_da_raiz(&dests, std::path::Path::new("d:/BACKUPS/")).unwrap();
+        assert_eq!(achado.id, dests[0].id);
+        assert!(destino_da_raiz(&dests, std::path::Path::new("E:/Outra")).is_none());
     }
 
     #[test]

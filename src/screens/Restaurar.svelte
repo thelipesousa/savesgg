@@ -16,6 +16,10 @@
   let marcados = $state<Set<string>>(new Set());
   let progresso = $state<{ feitos: number; total: number; jogo: string } | null>(null);
   let resumo = $state<LoteItemView[] | null>(null);
+  /** Destino em que o último lote rodou (o resumo e "Escolher pasta…" valem para ele). */
+  let loteDestino = $state<string | null>(null);
+  /** Lote em andamento: a tela fica só de leitura até terminar. */
+  const ocupado = $derived(progresso !== null);
 
   /** Pastas abertas nesta sessão (somem ao recarregar a lista de destinos detectados). */
   let abertas = $state<Destination[]>([]);
@@ -49,6 +53,7 @@
   async function escolherDestino(id: string) {
     destinoId = id;
     plano = null;
+    loteDestino = null;
     relatorio = null;
     carregando = true;
     erro = null;
@@ -98,17 +103,20 @@
     relatorio = null;
     resumo = null;
     const ids = jogos.map((j) => j.game_id).filter((id) => marcados.has(id));
+    const destino = destinoId;
+    let parar: (() => void) | null = null;
     progresso = { feitos: 0, total: ids.length, jogo: "" };
-    const parar = await listen<{ feitos: number; total: number; jogo: string }>("restauracao-progresso", (ev) => {
-      progresso = ev.payload;
-    });
     try {
-      resumo = await api.restoreMany(destinoId, ids);
-      jogos = await api.listSnapshots(destinoId);
+      parar = await listen<{ feitos: number; total: number; jogo: string }>("restauracao-progresso", (ev) => {
+        progresso = ev.payload;
+      });
+      resumo = await api.restoreMany(destino, ids);
+      loteDestino = destino;
+      jogos = await api.listSnapshots(destino);
     } catch (e) {
       erro = errorMessage(e);
     } finally {
-      parar();
+      parar?.();
       progresso = null;
     }
   }
@@ -137,6 +145,7 @@
 
   /** Abre o fluxo de um jogo (escolher pasta) na versão que o lote tentou restaurar. */
   function abrirJogo(gameId: string) {
+    if (loteDestino && loteDestino !== destinoId) return;
     const j = jogos.find((x) => x.game_id === gameId);
     const stem = j && maisRecente(j);
     if (stem) prepararRestauracao(gameId, stem);
@@ -183,9 +192,17 @@
     <p class="muted">Nenhum backup encontrado. Plugue o pendrive/HD ou confira a pasta da nuvem.</p>
     <button type="button" class="botao-secundario" onclick={carregarDestinos}>Procurar de novo</button>
   {/if}
-  <button type="button" class="botao-secundario" onclick={abrirPasta}>Procurar backup em outra pasta…</button>
+  <button type="button" class="botao-secundario" onclick={abrirPasta} disabled={ocupado}>
+    Procurar backup em outra pasta…
+  </button>
   {#each destinos as d (d.id)}
-    <button type="button" class="cartao destino" class:ativo={d.id === destinoId} onclick={() => escolherDestino(d.id)}>
+    <button
+      type="button"
+      class="cartao destino"
+      class:ativo={d.id === destinoId}
+      disabled={ocupado}
+      onclick={() => escolherDestino(d.id)}
+    >
       <strong>{d.label}</strong>
       <span class="muted mono">{d.root}</span>
     </button>
@@ -201,7 +218,7 @@
   </div>
 {/if}
 
-{#if resumo}
+{#if resumo && loteDestino === destinoId}
   <section class="cartao resumo" aria-label="Resumo da restauração">
     <h2>{restaurados.length} {restaurados.length === 1 ? "restaurado" : "restaurados"}</h2>
     {#if precisam.length > 0}
@@ -276,10 +293,20 @@
               {#if s.pinned}<span class="chip" title="Versão fixada: nunca é apagada">📌 fixada</span>{/if}
               <span class="muted">{formatBytes(s.total_bytes)}</span>
               <span class="espaco"></span>
-              <button type="button" class="botao-secundario" onclick={() => fixar(j.game_id, s.stem, !s.pinned)}>
+              <button
+                type="button"
+                class="botao-secundario"
+                disabled={ocupado}
+                onclick={() => fixar(j.game_id, s.stem, !s.pinned)}
+              >
                 {s.pinned ? "Desafixar" : "Fixar"}
               </button>
-              <button type="button" class="botao-secundario" onclick={() => prepararRestauracao(j.game_id, s.stem)}>
+              <button
+                type="button"
+                class="botao-secundario"
+                disabled={ocupado}
+                onclick={() => prepararRestauracao(j.game_id, s.stem)}
+              >
                 Restaurar
               </button>
             </li>

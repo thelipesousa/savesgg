@@ -24,15 +24,23 @@ test("abre a pasta de logs", async () => {
 });
 
 test("procurar atualização sem versão nova avisa que está em dia", async () => {
-  procurar.mockResolvedValue(null);
+  procurar.mockResolvedValue({ nova: null, erro: null });
   render(Sobre);
   await fireEvent.click(screen.getByRole("button", { name: "Procurar atualização" }));
   expect(await screen.findByText("Você está na versão mais recente.")).toBeTruthy();
 });
 
 test("procurar atualização com versão nova mostra o aviso", async () => {
-  procurar.mockResolvedValue({ version: "0.2.1", body: "" });
+  procurar.mockResolvedValue({ nova: { version: "0.2.1", body: "" }, erro: null });
   render(Sobre);
   await fireEvent.click(screen.getByRole("button", { name: "Procurar atualização" }));
   expect(await screen.findByText("Versão 0.2.1 disponível")).toBeTruthy();
+});
+
+test("falha ao procurar atualização não diz que está em dia", async () => {
+  procurar.mockResolvedValue({ nova: null, erro: "sem internet" });
+  render(Sobre);
+  await fireEvent.click(screen.getByRole("button", { name: "Procurar atualização" }));
+  expect(await screen.findByText(/Não deu para procurar atualização/)).toBeTruthy();
+  expect(screen.queryByText("Você está na versão mais recente.")).toBeNull();
 });
