@@ -5,15 +5,18 @@
   import { listen } from "@tauri-apps/api/event";
   import type { AutoStatusView } from "../lib/types";
   import GameRow from "../components/GameRow.svelte";
+  import GameCard from "../components/GameCard.svelte";
   import DestinationPicker from "../components/DestinationPicker.svelte";
   import StatusAutomatico from "../components/StatusAutomatico.svelte";
   import AvisoDisco from "../components/AvisoDisco.svelte";
 
   let status = $state<AutoStatusView | null>(null);
+  let exibicao = $state<"lista" | "grade">("lista");
   let disco = $state<Destination | null>(null);
 
   $effect(() => {
     api.autoStatus().then((s) => (status = s)).catch(() => {});
+    api.getSettings().then((s) => (exibicao = s?.game_view === "grade" ? "grade" : "lista")).catch(() => {});
     const parar = [
       listen<AutoStatusView>("status-automatico", (e) => (status = e.payload)),
       listen<Destination>("disco-plugado", (e) => (disco = e.payload)),
@@ -189,12 +192,20 @@
     <p class="muted">Nenhum save encontrado. Se algum jogo ficou de fora, ele poderá ser adicionado à mão em breve.</p>
   {/if}
 
-  <ul class="lista">
-    {#each normais as g (g.id)}
-      <GameRow game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
-        onconfirm={(keep) => confirmar(g.id, keep)} />
-    {/each}
-  </ul>
+  {#if exibicao === "grade"}
+    <ul class="grade">
+      {#each normais as g (g.id)}
+        <GameCard game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)} />
+      {/each}
+    </ul>
+  {:else}
+    <ul class="lista">
+      {#each normais as g (g.id)}
+        <GameRow game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
+          onconfirm={(keep) => confirmar(g.id, keep)} />
+      {/each}
+    </ul>
+  {/if}
 
   {#if grandes.length > 0}
     <details class="grandes" bind:open={mostrarGrandes}>
@@ -263,6 +274,13 @@
   .lista {
     display: grid;
     gap: 10px;
+    padding: 0;
+    margin: 0;
+  }
+  .grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
     padding: 0;
     margin: 0;
   }

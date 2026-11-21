@@ -17,6 +17,7 @@ export interface GameView {
   save_roots: string[];
   grande: boolean;
   confirmado: boolean;
+  cover_url: string | null;
 }
 
 export type DestinationKind =
