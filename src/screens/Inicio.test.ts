@@ -3,7 +3,13 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(() => {})) }));
+const ouvintes: Record<string, (e: { payload: unknown }) => void> = {};
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn((nome: string, cb: (e: { payload: unknown }) => void) => {
+    ouvintes[nome] = cb;
+    return Promise.resolve(() => {});
+  }),
+}));
 
 import Inicio from "./Inicio.svelte";
 
@@ -29,4 +35,12 @@ test("sem varredura ainda, pede para escanear", async () => {
   invoke.mockResolvedValue(null);
   render(Inicio);
   expect(await screen.findByRole("button", { name: "Escanear PC" })).toBeTruthy();
+});
+
+test("atualiza quando o motor termina a varredura depois de abrir", async () => {
+  invoke.mockResolvedValue(null);
+  render(Inicio);
+  await screen.findByRole("button", { name: "Escanear PC" });
+  ouvintes["varredura-concluida"]({ payload: [jogo("c", "Charlie")] });
+  expect(await screen.findByText("Charlie")).toBeTruthy();
 });

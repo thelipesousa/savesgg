@@ -2,6 +2,7 @@
    Cada tema só redefine variáveis; o tema console também troca o topo do Início. */
 
 [data-theme="gamer"] {
+  --destaque-fundo: rgb(25 230 160 / 0.12);
   --fundo: #0b100e;
   --superficie: #131a17;
   --superficie-2: #1a2420;
@@ -26,6 +27,7 @@
 }
 
 [data-theme="pastel"] {
+  --destaque-fundo: #ebe5ff;
   --fundo: #f4effc;
   --superficie: #ffffff;
   --superficie-2: #eee4f9;
@@ -50,6 +52,7 @@
 }
 
 [data-theme="win11"] {
+  --destaque-fundo: #e5f1fb;
   --fundo: #f3f3f3;
   --superficie: #ffffff;
   --superficie-2: #f9fafb;
@@ -74,6 +77,7 @@
 }
 
 [data-theme="cyberpunk"] {
+  --destaque-fundo: rgb(0 240 255 / 0.1);
   --fundo: #07090e;
   --superficie: #0c1220;
   --superficie-2: #101a2c;
@@ -98,6 +102,7 @@
 }
 
 [data-theme="console"] {
+  --destaque-fundo: rgb(219 184 255 / 0.14);
   --fundo: #10131a;
   --superficie: #1d2026;
   --superficie-2: #272a31;
