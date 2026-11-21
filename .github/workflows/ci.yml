@@ -34,6 +34,11 @@ jobs:
 
   auditoria:
     runs-on: ubuntu-latest
+    # rustsec/audit-check publica o resultado como "check run"; sem isso o job falha
+    # nos pushes para a dev/main mesmo sem nenhuma vulnerabilidade.
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
