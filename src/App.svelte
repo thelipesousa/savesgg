@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from "./components/Logo.svelte";
   import Inicio from "./screens/Inicio.svelte";
   import Restaurar from "./screens/Restaurar.svelte";
   import Sobre from "./screens/Sobre.svelte";
@@ -38,7 +39,7 @@
 {:else}
 <div class="app">
   <nav class="lateral" aria-label="Menu principal">
-    <h1 class="marca">🛡️ SavesGG</h1>
+    <h1 class="marca"><Logo tamanho={26} /><span>Saves<span class="gg">GG</span></span></h1>
     <ul>
       {#each menu as m (m.id)}
         <li>
@@ -76,8 +77,14 @@
     padding: 20px 14px;
   }
   .marca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 1.2em;
     margin: 0 8px 24px;
+  }
+  .gg {
+    color: var(--marca);
   }
   .lateral ul {
     list-style: none;

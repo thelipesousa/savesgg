@@ -10,8 +10,8 @@ use crate::state::AppState;
 
 pub const TRAY_ID: &str = "principal";
 /// Centro do ponto de estado no ícone.
-pub const DOT_X: u32 = 23;
-pub const DOT_Y: u32 = 23;
+pub const DOT_X: u32 = 24;
+pub const DOT_Y: u32 = 24;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayState {
@@ -33,31 +33,74 @@ pub fn tray_state(s: &AutoStatusView) -> TrayState {
     }
 }
 
-/// Ícone 32×32 desenhado no código: escudo verde com um ponto da cor do estado.
+/// Coração pixel da logo (grade de 64, igual a `design/marca/savesgg-coracao.svg`):
+/// retângulos `(x, y, largura, altura)`.
+const CORACAO: [(u32, u32, u32, u32); 15] = [
+    (16, 16, 6, 6),
+    (22, 16, 6, 6),
+    (36, 16, 6, 6),
+    (42, 16, 6, 6),
+    (10, 22, 6, 6),
+    (22, 22, 6, 6),
+    (28, 22, 8, 6),
+    (36, 22, 6, 6),
+    (42, 22, 6, 6),
+    (48, 22, 6, 6),
+    (10, 28, 44, 6),
+    (16, 34, 32, 6),
+    (22, 40, 20, 6),
+    (26, 46, 12, 6),
+    (29, 52, 6, 6),
+];
+const BRILHO: (u32, u32, u32, u32) = (16, 22, 6, 6);
+const CHECK: [(u32, u32, u32, u32); 5] = [
+    (20, 31, 4, 5),
+    (24, 34, 4, 5),
+    (28, 30, 4, 5),
+    (32, 26, 4, 5),
+    (36, 22, 4, 5),
+];
+
+fn dentro(r: &(u32, u32, u32, u32), x: u32, y: u32) -> bool {
+    x >= r.0 && x < r.0 + r.2 && y >= r.1 && y < r.1 + r.3
+}
+
+/// Cor do coração no ponto `(x, y)` da grade de 64, se houver.
+fn cor_do_coracao(x: u32, y: u32) -> Option<[u8; 4]> {
+    if CHECK.iter().any(|r| dentro(r, x, y)) {
+        Some([0x0d, 0x11, 0x17, 0xff])
+    } else if dentro(&BRILHO, x, y) {
+        Some([0xff, 0xd6, 0xdb, 0xff])
+    } else if CORACAO.iter().any(|r| dentro(r, x, y)) {
+        Some([0xff, 0x3b, 0x4f, 0xff])
+    } else {
+        None
+    }
+}
+
+/// Ícone 32×32 desenhado no código: o coração da logo com um ponto da cor do estado.
 pub fn tray_icon_rgba(state: TrayState) -> (Vec<u8>, u32, u32) {
     const W: u32 = 32;
     let dot: [u8; 4] = match state {
         TrayState::Protegido => [0x19, 0xe6, 0xa0, 0xff],
-        TrayState::EmRisco => [0xff, 0x5a, 0x5f, 0xff],
+        // amarelo, para não sumir em cima do coração vermelho
+        TrayState::EmRisco => [0xff, 0xc2, 0x33, 0xff],
         TrayState::Copiando => [0x4d, 0x9f, 0xff, 0xff],
         TrayState::Pausado => [0x9a, 0xa5, 0xa0, 0xff],
     };
-    let shield = [0x13, 0x8a, 0x66, 0xff];
     let edge = [0x0b, 0x10, 0x0e, 0xff];
     let mut v = vec![0u8; (W * W * 4) as usize];
     let mut put = |x: u32, y: u32, c: [u8; 4]| {
         let i = ((y * W + x) * 4) as usize;
         v[i..i + 4].copy_from_slice(&c);
     };
-    for y in 2..30u32 {
-        // escudo: reto em cima, afinando até a ponta embaixo
-        let half = if y < 17 {
-            12
-        } else {
-            12u32.saturating_sub((y - 17) * 12 / 13)
-        };
-        for x in 16u32.saturating_sub(half)..(16 + half).min(W) {
-            put(x, y, shield);
+    // o coração ocupa x 10..54 e y 16..58 da grade de 64; amostra o centro de cada
+    // pixel (escala 1:2), subindo 5 para centralizar na vertical
+    for y in 0..W {
+        for x in 0..W {
+            if let Some(c) = cor_do_coracao(x * 2 + 1, y * 2 + 1 + 5) {
+                put(x, y, c);
+            }
         }
     }
     for y in 0..W {
@@ -233,6 +276,17 @@ mod tests {
         let (v, w, h) = tray_icon_rgba(TrayState::Protegido);
         assert_eq!((w, h), (32, 32));
         assert_eq!(v.len(), 32 * 32 * 4);
+    }
+
+    #[test]
+    fn icone_desenha_o_coracao() {
+        let (v, w, _) = tray_icon_rgba(TrayState::Protegido);
+        let px = |x: u32, y: u32| {
+            let i = ((y * w + x) * 4) as usize;
+            [v[i], v[i + 1], v[i + 2], v[i + 3]]
+        };
+        assert_eq!(px(0, 0)[3], 0, "canto transparente");
+        assert_eq!(px(6, 13), [0xff, 0x3b, 0x4f, 0xff], "corpo vermelho");
     }
 
     #[test]

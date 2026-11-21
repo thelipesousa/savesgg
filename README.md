@@ -26,7 +26,7 @@ Testes com os dados reais do seu PC (não alteram os saves): veja os comandos `-
 - **Quando copia:** 10 s depois de você fechar o jogo (mesmo se ele travar) ou, para jogos sem executável conhecido, 2 min depois de a pasta do save parar de mudar. Com o jogo aberto, nada é copiado: a cópia espera o fechamento para não pesar e não pegar arquivo pela metade.
 - **Para onde:** os destinos marcados em **Configurações → Destinos do backup automático**. O backup manual ("Fazer backup dos selecionados") continua perguntando o destino toda vez.
 - **Destino fora do ar** (pendrive desplugado, pasta da nuvem sumida): o backup fica na fila em `%LOCALAPPDATA%\SavesGG\pendentes` e é enviado sozinho quando o destino volta.
-- **Bandeja:** fechar a janela deixa o SavesGG na bandeja. O ícone mostra o estado (verde protegido, vermelho com jogo sem cópia fora do PC, azul copiando, cinza pausado) e o menu tem backup agora, pausar/retomar, copiar tudo para um disco plugado e sair.
+- **Bandeja:** fechar a janela deixa o SavesGG na bandeja. O ícone mostra o estado (o coração da logo com um ponto: verde protegido, amarelo com jogo sem cópia fora do PC, azul copiando, cinza pausado) e o menu tem backup agora, pausar/retomar, copiar tudo para um disco plugado e sair.
 - **Pendrive/HD:** ao plugar, aparece uma notificação e um aviso no Início para copiar tudo (ou atualizar o backup que já está nele).
 - **Iniciar com o Windows:** ligado por padrão, abrindo minimizado na bandeja. Desligue em **Configurações → Iniciar com o Windows**. Só vale no app instalado (em desenvolvimento não é registrado).
 - **Possíveis saves** (heurística) e jogos acima de 2 GB só entram no automático depois de confirmados.

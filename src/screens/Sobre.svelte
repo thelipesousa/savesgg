@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from "../components/Logo.svelte";
   import { api } from "../lib/api";
 
   let versao = $state("");
@@ -7,7 +8,7 @@
   });
 </script>
 
-<h1>Sobre o SavesGG</h1>
+<h1 class="titulo-sobre"><Logo tamanho={36} /> Sobre o SavesGG</h1>
 <div class="cartao sobre">
   <p>Versão {versao}</p>
   <p>
@@ -21,6 +22,11 @@
 </div>
 
 <style>
+  .titulo-sobre {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
   h1 {
     margin-bottom: 16px;
   }
