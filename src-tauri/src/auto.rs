@@ -417,7 +417,7 @@ pub fn spawn(app: AppHandle) {
                         }
                         watched = watch_roots(&games);
                         for (p, e) in try_watch(w, &watched) {
-                            eprintln!("vigia: não deu para vigiar {}: {e}", p.display());
+                            log::warn!("vigia: não deu para vigiar {}: {e}", p.display());
                         }
                     }
                 }
@@ -458,6 +458,9 @@ pub fn spawn(app: AppHandle) {
                     if !due.is_empty() {
                         publish(&app, |s| s.copying = true);
                         let out = execute_due(&due, scan, &cfg, &dests, &state.pending_base, &state.locks, Utc::now());
+                        for o in &out {
+                            log::info!("backup automático: {o:?}");
+                        }
                         let copied = out.iter().any(|o| matches!(o, AutoOutcome::Copiado { .. }));
                         let mut err = None;
                         for o in &out {
@@ -568,6 +571,7 @@ mod tests {
             store_game_id: None,
             patterns: vec![save.to_string_lossy().replace('\\', "/")],
             steam_app_id: None,
+            last_modified: None,
         };
         let scan = ScanData {
             result: ScanResult {

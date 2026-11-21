@@ -28,6 +28,8 @@ pub struct GameView {
     pub confirmado: bool,
     /// Capa no CDN da Steam (a interface cai no cartão com a inicial se falhar).
     pub cover_url: Option<String>,
+    /// Data do save mais novo (RFC 3339), para "Jogado há…".
+    pub last_played: Option<String>,
 }
 
 fn provider_name(p: SyncProvider) -> &'static str {
@@ -75,6 +77,7 @@ pub fn game_view(
         save_roots: g.save_roots.iter().map(|r| contract(r, ctx)).collect(),
         grande,
         confirmado,
+        last_played: g.last_modified.map(|d| d.to_rfc3339()),
         cover_url: g.steam_app_id.map(|id| {
             format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/library_600x900.jpg")
         }),
@@ -124,6 +127,7 @@ mod tests {
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         }
     }
 

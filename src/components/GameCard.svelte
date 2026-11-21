@@ -9,9 +9,15 @@
     selected: boolean;
     ontoggle: () => void;
     onconfirm?: (keep: boolean) => void;
+    /** Só para jogos adicionados à mão. */
+    onremove?: () => void;
   }
 
-  let { game, selected, ontoggle, onconfirm }: Props = $props();
+  let { game, selected, ontoggle, onconfirm, onremove }: Props = $props();
+  function remover() {
+    if (onremove && confirm(`Remover ${game.name} da lista? Os backups continuam guardados.`)) onremove();
+  }
+
   const pendente = $derived(game.source === "heuristica" && !game.confirmado);
 </script>
 
@@ -31,7 +37,11 @@
       </span>
     {/if}
   {/if}
+  {#if game.last_played}<span class="muted pequeno">Jogado {formatRelative(game.last_played)}</span>{/if}
   <span class="muted pequeno">Último backup: {formatRelative(game.last_backup)}</span>
+  {#if game.source === "manual" && onremove}
+    <button type="button" class="botao-secundario" onclick={remover}>Remover</button>
+  {/if}
 </li>
 
 <style>

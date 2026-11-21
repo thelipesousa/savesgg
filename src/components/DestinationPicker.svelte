@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AvisoNuvem from "./AvisoNuvem.svelte";
   import type { Destination } from "../lib/types";
   import { formatBytes } from "../lib/format";
 
@@ -61,6 +62,7 @@
               {#if d.has_backup}<span class="chip">já tem backup</span>{/if}
             </span>
           </label>
+          <AvisoNuvem destino={d} />
         </li>
       {/each}
     </ul>

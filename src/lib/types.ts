@@ -18,6 +18,7 @@ export interface GameView {
   grande: boolean;
   confirmado: boolean;
   cover_url: string | null;
+  last_played?: string | null;
 }
 
 export type DestinationKind =
@@ -33,6 +34,7 @@ export interface Destination {
   available: boolean;
   free_bytes: number | null;
   has_backup: boolean;
+  cliente_ativo?: boolean | null;
 }
 
 export interface BackupResultView {
@@ -47,12 +49,14 @@ export interface SnapshotView {
   created: string;
   pinned: boolean;
   total_bytes: number;
+  seguranca: boolean;
 }
 
 export interface GameSnapshotsView {
   game_id: string;
   game_name: string;
   snapshots: SnapshotView[];
+  keep?: number | null;
 }
 
 export interface RestoreItem {
@@ -96,4 +100,20 @@ export interface AutoStatusView {
   at_risk: number;
   copying: boolean;
   last_error: string | null;
+}
+
+export type LoteResultado =
+  | { tipo: "restaurado"; arquivos: number; seguranca: string | null }
+  | { tipo: "precisa_de_pasta"; faltando: number }
+  | { tipo: "erro"; mensagem: string };
+
+export interface LoteItemView {
+  game_id: string;
+  game_name: string;
+  resultado: LoteResultado;
+}
+
+export interface IgnoredView {
+  id: string;
+  name: string;
 }

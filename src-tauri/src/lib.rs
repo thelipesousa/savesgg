@@ -11,6 +11,26 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Log em %LOCALAPPDATA%\com.savesgg.app\logs (1 MB por arquivo, guarda 5).
+        // Nunca registra conteúdo de saves nem tokens.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("savesgg".into()),
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .max_file_size(1_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+                .level(if cfg!(debug_assertions) {
+                    log::LevelFilter::Debug
+                } else {
+                    log::LevelFilter::Info
+                })
+                .build(),
+        )
         // Uma instância só: abrir de novo traz a janela que já existe.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_main(app);
@@ -21,6 +41,9 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // Atualização assinada (chave pública em tauri.conf.json) e reinício depois dela.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .on_window_event(|window, event| {
             // Fechar a janela só esconde: o app segue protegendo na bandeja.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -38,6 +61,7 @@ pub fn run() {
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("resources/manifest.yaml"),
             );
+            log::info!("SavesGG {} iniciando", env!("CARGO_PKG_VERSION"));
             app.manage(state::AppState::new(bundled));
             sync_autostart(app.handle());
             tray::build(app.handle())?;
@@ -68,6 +92,15 @@ pub fn run() {
             commands::set_game_view,
             commands::complete_wizard,
             commands::cached_scan,
+            commands::restore_many,
+            commands::open_backup_folder,
+            commands::set_pinned_cmd,
+            commands::set_keep_versions,
+            commands::set_game_keep,
+            commands::add_manual_game,
+            commands::remove_manual_game,
+            commands::ignored_games,
+            commands::open_logs_folder,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SavesGG");
@@ -93,7 +126,7 @@ pub(crate) fn sync_autostart(app: &tauri::AppHandle) {
         _ => Ok(()),
     };
     if let Err(e) = r {
-        eprintln!("início com o Windows: {e}");
+        log::warn!("início com o Windows: {e}");
     }
 }
 
@@ -101,6 +134,6 @@ pub(crate) fn sync_autostart(app: &tauri::AppHandle) {
 pub(crate) fn notify_user(app: &tauri::AppHandle, title: &str, body: &str) {
     use tauri_plugin_notification::NotificationExt;
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
-        eprintln!("notificação ({title}): {e}");
+        log::warn!("notificação ({title}): {e}");
     }
 }

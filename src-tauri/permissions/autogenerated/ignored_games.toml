@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ignored-games"
+description = "Enables the ignored_games command without any pre-configured scope."
+commands.allow = ["ignored_games"]
+
+[[permission]]
+identifier = "deny-ignored-games"
+description = "Denies the ignored_games command without any pre-configured scope."
+commands.deny = ["ignored_games"]
