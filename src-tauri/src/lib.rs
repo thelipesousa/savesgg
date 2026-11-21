@@ -2,6 +2,7 @@ mod auto;
 mod commands;
 mod drives;
 mod manifest_source;
+mod oauth;
 mod state;
 mod tray;
 mod views;
