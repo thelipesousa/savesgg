@@ -224,7 +224,8 @@
   {#if exibicao === "grade"}
     <ul class="grade">
       {#each normais as g (g.id)}
-        <GameCard game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)} />
+        <GameCard game={g} selected={selected.includes(g.id)} ontoggle={() => alternar(g.id)}
+          onconfirm={(keep) => confirmar(g.id, keep)} />
       {/each}
     </ul>
   {:else}

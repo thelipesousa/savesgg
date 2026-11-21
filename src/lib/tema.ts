@@ -8,7 +8,7 @@ export interface Tema {
 
 export const TEMAS: Tema[] = [
   { id: "gamer", nome: "Gamer", descricao: "Escuro com verde neon", amostra: ["#0b100e", "#131a17", "#19e6a0"] },
-  { id: "pastel", nome: "Pastel", descricao: "Claro e fofinho", amostra: ["#f4effc", "#ffffff", "#9b87f5"] },
+  { id: "pastel", nome: "Pastel", descricao: "Claro e fofinho", amostra: ["#f4effc", "#ffffff", "#6d55d9"] },
   { id: "win11", nome: "Windows 11", descricao: "Claro e limpo", amostra: ["#f3f3f3", "#ffffff", "#0067c0"] },
   { id: "cyberpunk", nome: "Cyberpunk", descricao: "Neon ciano e rosa", amostra: ["#07090e", "#0c1220", "#00f0ff"] },
   { id: "console", nome: "Console", descricao: "Capas em destaque", amostra: ["#10131a", "#1d2026", "#dbb8ff"] },

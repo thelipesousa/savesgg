@@ -53,6 +53,26 @@ describe("Assistente", () => {
     expect(invoke).toHaveBeenCalledWith("set_theme", { theme: "pastel" });
   });
 
+  test("mantém os destinos de quem já tinha configurado", async () => {
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "scan") return Promise.resolve([jogo("a", "alta")]);
+      if (cmd === "list_destinations_cmd") return Promise.resolve([onedrive]);
+      if (cmd === "get_settings")
+        return Promise.resolve({ auto_destinations: ["sync:c:/users/ana/onedrive", "disco:00000001"], autostart: true,
+          auto_paused: false, keep_versions: 10, theme: "gamer", game_view: "lista", wizard_done: false });
+      return Promise.resolve(null);
+    });
+    render(Assistente, { onfinish: vi.fn() });
+    await fireEvent.click(screen.getByRole("button", { name: /Começar/ }));
+    await screen.findByText(/sem cópia fora do PC/);
+    await fireEvent.click(screen.getByRole("button", { name: /Continuar/ }));
+    expect(((await screen.findByRole("checkbox", { name: /OneDrive/ })) as HTMLInputElement).checked).toBe(true);
+    await fireEvent.click(screen.getByRole("button", { name: /Continuar/ }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_auto_destinations", { ids: ["sync:c:/users/ana/onedrive", "disco:00000001"] }),
+    );
+  });
+
   test("sem destino mostra aviso e deixa seguir", async () => {
     responder([]);
     render(Assistente, { onfinish: vi.fn() });
@@ -60,7 +80,9 @@ describe("Assistente", () => {
     await screen.findByText(/1 já protegido/);
     await fireEvent.click(screen.getByRole("button", { name: /Continuar/ }));
     expect(await screen.findByText(/Nenhum destino marcado/)).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Continuar/ }) as HTMLButtonElement).disabled).toBe(false);
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: /Continuar/ }) as HTMLButtonElement).disabled).toBe(false),
+    );
   });
 
   test("pular conclui", async () => {

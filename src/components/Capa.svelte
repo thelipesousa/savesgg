@@ -10,8 +10,9 @@
   let { game, tamanho = "pequena" }: Props = $props();
 
   // Sem internet ou sem capa na Steam: cartão com a inicial (nunca ícone quebrado).
-  let falhou = $state(false);
-  const url = $derived(falhou ? null : game.cover_url);
+  // Guarda qual URL falhou, para a mesma Capa voltar a tentar quando o jogo muda.
+  let urlQueFalhou = $state<string | null>(null);
+  const url = $derived(game.cover_url && game.cover_url !== urlQueFalhou ? game.cover_url : null);
   const inicial = $derived(game.name.trim().charAt(0).toUpperCase() || "?");
   // Cor estável a partir do id.
   const matiz = $derived([...game.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7));
@@ -19,7 +20,7 @@
 
 <div class="capa {tamanho}" style:background={`hsl(${matiz} 45% 30%)`} aria-hidden="true">
   {#if url}
-    <img src={url} alt="" loading="lazy" onerror={() => (falhou = true)} />
+    <img src={url} alt="" loading="lazy" onerror={() => (urlQueFalhou = url)} />
   {:else}
     <span>{inicial}</span>
   {/if}
