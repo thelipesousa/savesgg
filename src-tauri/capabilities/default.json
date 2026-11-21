@@ -37,6 +37,8 @@
     "allow-add-manual-game",
     "allow-remove-manual-game",
     "allow-ignored-games",
-    "allow-open-logs-folder"
+    "allow-open-logs-folder",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

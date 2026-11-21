@@ -38,6 +38,29 @@ Testes com os dados reais do seu PC (não alteram os saves): veja os comandos `-
 - **Lista ou grade de capas** para os jogos, também em Aparência.
 - **Capas:** vêm da Steam pelo AppID do jogo (`cdn.cloudflare.steamstatic.com`). Sem internet ou sem capa, aparece um cartão com a inicial do jogo. As referências visuais (Google Stitch) e capturas reais ficam em `design/`.
 
+## Restaurar, versões e jogos à mão
+
+- **Restaurar vários jogos de uma vez:** na tela Restaurar, escolha o destino, deixe marcados os jogos e clique em "Restaurar selecionados". Cada jogo volta na versão mais recente que não seja de segurança; antes de substituir um save, o app guarda o atual numa **versão de segurança** (fixada, com selo próprio). Jogos com arquivo sem lugar neste PC aparecem em "precisa de você" para escolher a pasta.
+- **Backup em outra pasta:** "Procurar backup em outra pasta…" aceita a pasta que contém `SavesGG`, a própria `SavesGG` ou a raiz da nuvem com `SavesGG Backups`. Vale só até fechar o app (não vira destino automático).
+- **Versões:** fixe ou desafixe cada versão (fixadas nunca são apagadas). Quantas guardar: no geral em Configurações e por jogo na tela Restaurar (de 1 a 100).
+- **Jogo à mão:** "Adicionar jogo" no Início (nome, pasta do save e, se quiser, o .exe). "Remover" tira da lista e mantém os backups. Possíveis saves descartados podem voltar em Configurações.
+- **Aviso da nuvem:** se o OneDrive/Google Drive/Dropbox estiver fechado, o app avisa que os backups não estão subindo.
+- **Log:** `%LOCALAPPDATA%\com.savesgg.app\logs\savesgg.log` (botão "Abrir pasta de logs" em Sobre).
+
+## Atualização automática e lançamentos
+
+O app instalado procura versão nova 30 s depois de abrir e a cada 6 h (também em Sobre → "Procurar atualização"). As versões ficam no repositório público [`thelipesousa/savesgg-releases`](https://github.com/thelipesousa/savesgg-releases); o código continua privado. Toda atualização é **assinada**: o app recusa arquivo sem assinatura válida.
+
+**Chave de assinatura:** `%USERPROFILE%\.tauri\savesgg.key` (fora do repositório; `*.key` está no `.gitignore`). **Guarde uma cópia em lugar seguro** (ex.: gerenciador de senhas): sem ela não há como publicar atualizações para quem já instalou. A chave pública está em `src-tauri/tauri.conf.json`.
+
+**Lançar uma versão** (na `main`, depois do PR `dev` → `main`):
+
+```powershell
+powershell -File scripts/lancar.ps1 -Notas "O que mudou nesta versão"
+```
+
+O script compila, assina, gera `latest.json` e `SHA256SUMS.txt` e publica a release `vX.Y.Z` em `savesgg-releases`, com o instalador em nome estável (`SavesGG_x64-setup.exe`). Para testar sem publicar: `-Ensaio`. Antes, suba a versão em `tauri.conf.json`, `Cargo.toml` (workspace) e `package.json`.
+
 ## Fluxo de branches
 
 - `main`: produção e branch padrão; só código estável, é dela que sai o release.

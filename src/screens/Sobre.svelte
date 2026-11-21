@@ -1,9 +1,24 @@
 <script lang="ts">
   import Logo from "../components/Logo.svelte";
   import { api, errorMessage } from "../lib/api";
+  import { procurarAtualizacao } from "../lib/atualizacao";
+  import AvisoAtualizacao from "../components/AvisoAtualizacao.svelte";
+  import type { Update } from "@tauri-apps/plugin-updater";
 
   let versao = $state("");
   let erro = $state<string | null>(null);
+
+  let procurando = $state(false);
+  let emDia = $state(false);
+  let nova = $state<Update | null>(null);
+
+  async function procurar() {
+    procurando = true;
+    emDia = false;
+    nova = await procurarAtualizacao();
+    emDia = nova === null;
+    procurando = false;
+  }
 
   async function abrirLogs() {
     erro = null;
@@ -30,8 +45,13 @@
     <strong>PCGamingWiki</strong>. Obrigado a esses projetos.
   </p>
   <div class="acoes">
+    <button type="button" class="botao-secundario" onclick={procurar} disabled={procurando}>
+      {procurando ? "Procurando…" : "Procurar atualização"}
+    </button>
     <button type="button" class="botao-secundario" onclick={abrirLogs}>Abrir pasta de logs</button>
   </div>
+  {#if emDia}<p class="muted" role="status">Você está na versão mais recente.</p>{/if}
+  {#if nova}<AvisoAtualizacao atualizacao={nova} />{/if}
   {#if erro}<p class="erro" role="alert">{erro}</p>{/if}
 </div>
 
