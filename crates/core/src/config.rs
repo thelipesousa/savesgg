@@ -49,6 +49,8 @@ pub struct Config {
     pub game_view: String,
     /// Assistente da primeira execução concluído (ou pulado).
     pub wizard_done: bool,
+    /// Contas de nuvem conectadas (sem tokens).
+    pub contas_nuvem: Vec<crate::nuvem::ContaNuvem>,
 }
 
 impl Default for Config {
@@ -67,6 +69,7 @@ impl Default for Config {
             auto_paused: false,
             game_view: EXIBICOES[0].into(),
             wizard_done: false,
+            contas_nuvem: Vec::new(),
         }
     }
 }
@@ -247,6 +250,14 @@ mod tests {
         assert!(validar_keep(101).is_err());
         assert_eq!(validar_keep(1), Ok(1));
         assert_eq!(validar_keep(100), Ok(100));
+    }
+
+    #[test]
+    fn config_antiga_sem_contas_nuvem() {
+        let t = tempfile::tempdir().unwrap();
+        let p = t.path().join("config.json");
+        fs::write(&p, r#"{"version":1}"#).unwrap();
+        assert!(Config::load_or_default(&p).contas_nuvem.is_empty());
     }
 
     #[test]
