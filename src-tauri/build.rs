@@ -29,6 +29,7 @@ fn main() {
         "add_manual_game",
         "remove_manual_game",
         "ignored_games",
+        "open_logs_folder",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

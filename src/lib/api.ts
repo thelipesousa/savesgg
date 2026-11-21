@@ -45,6 +45,7 @@ export const api = {
   addManualGame: (name: string) => invoke<GameView[] | null>("add_manual_game", { name }),
   removeManualGame: (gameId: string) => invoke<void>("remove_manual_game", { gameId }),
   ignoredGames: () => invoke<IgnoredView[]>("ignored_games"),
+  openLogsFolder: () => invoke<void>("open_logs_folder"),
   restoreMany: (destinationId: string, gameIds: string[]) =>
     invoke<LoteItemView[]>("restore_many", { destinationId, gameIds }),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),

@@ -1,8 +1,18 @@
 <script lang="ts">
   import Logo from "../components/Logo.svelte";
-  import { api } from "../lib/api";
+  import { api, errorMessage } from "../lib/api";
 
   let versao = $state("");
+  let erro = $state<string | null>(null);
+
+  async function abrirLogs() {
+    erro = null;
+    try {
+      await api.openLogsFolder();
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
   $effect(() => {
     api.appVersion().then((v) => (versao = v)).catch(() => {});
   });
@@ -19,6 +29,10 @@
     Locais de saves baseados no <strong>ludusavi-manifest</strong> (licença MIT), com dados da
     <strong>PCGamingWiki</strong>. Obrigado a esses projetos.
   </p>
+  <div class="acoes">
+    <button type="button" class="botao-secundario" onclick={abrirLogs}>Abrir pasta de logs</button>
+  </div>
+  {#if erro}<p class="erro" role="alert">{erro}</p>{/if}
 </div>
 
 <style>
@@ -29,6 +43,10 @@
   }
   h1 {
     margin-bottom: 16px;
+  }
+  .acoes {
+    display: flex;
+    gap: 10px;
   }
   .sobre {
     display: grid;

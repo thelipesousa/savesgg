@@ -36,6 +36,7 @@
     "allow-set-game-keep",
     "allow-add-manual-game",
     "allow-remove-manual-game",
-    "allow-ignored-games"
+    "allow-ignored-games",
+    "allow-open-logs-folder"
   ]
 }
