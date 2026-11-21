@@ -41,6 +41,13 @@
       listen<string>("disco-removido", (e) => {
         if (disco?.id === e.payload) disco = null;
       }),
+      // A varredura do motor ao abrir termina depois que a tela já apareceu.
+      listen<GameView[]>("varredura-concluida", (e) => {
+        if (!scanning && Array.isArray(e.payload)) {
+          games = e.payload;
+          scanned = true;
+        }
+      }),
     ];
     return () => parar.forEach((p) => p.then((f) => f()));
   });

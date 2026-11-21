@@ -100,7 +100,7 @@
     color: var(--texto);
   }
   .lateral button.ativo {
-    background: var(--ok-fundo);
+    background: var(--destaque-fundo);
     color: var(--destaque);
   }
   .conteudo {
