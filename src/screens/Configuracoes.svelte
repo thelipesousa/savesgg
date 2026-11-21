@@ -74,6 +74,21 @@
     if (d.kind.tipo === "disco_removivel") return "💾";
     return "📁";
   }
+
+  let erroVersoes = $state<string | null>(null);
+
+  async function salvarVersoes(valor: string) {
+    if (!settings) return;
+    const n = Number(valor);
+    erroVersoes = null;
+    if (n === settings.keep_versions) return;
+    try {
+      await api.setKeepVersions(n);
+      settings = { ...settings, keep_versions: n };
+    } catch (e) {
+      erroVersoes = errorMessage(e);
+    }
+  }
 </script>
 
 <h1>Configurações</h1>
@@ -163,13 +178,33 @@
         <span class="muted">Os backups ficam agendados e voltam quando você retomar.</span>
       </span>
     </label>
-    <p class="muted">Versões guardadas por jogo: {settings.keep_versions} (as fixadas nunca são apagadas).</p>
+    <label class="versoes-campo">
+      Versões guardadas por jogo
+      <input
+        type="number"
+        min="1"
+        max="100"
+        value={settings.keep_versions}
+        onblur={(e) => salvarVersoes((e.currentTarget as HTMLInputElement).value)}
+      />
+      <span class="muted">(as fixadas nunca são apagadas)</span>
+    </label>
+    {#if erroVersoes}<p class="erro" role="alert">{erroVersoes}</p>{/if}
   </section>
 {:else if !erro}
   <p class="muted">Carregando…</p>
 {/if}
 
 <style>
+  .versoes-campo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .versoes-campo input {
+    width: 5em;
+  }
   h1 {
     margin-bottom: 16px;
   }

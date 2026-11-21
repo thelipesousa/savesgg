@@ -143,4 +143,28 @@ describe("Restaurar", () => {
     await fireEvent.click(await screen.findByRole("button", { name: "Procurar backup em outra pasta…" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Nenhum backup do SavesGG nesta pasta");
   });
+
+  test("fixar uma versão chama a API e recarrega", async () => {
+    jogos = [{ game_id: "hades", game_name: "Hades", snapshots: [snap("2026-11-20_10-00-00")], keep: null }];
+    responder();
+    await abrirPendrive();
+    await fireEvent.click(await screen.findByRole("button", { name: "Fixar" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_pinned_cmd", {
+        destinationId: "disco:00000001",
+        gameId: "hades",
+        stem: "2026-11-20_10-00-00",
+        pinned: true,
+      }),
+    );
+  });
+
+  test("guardar versões por jogo", async () => {
+    jogos = [{ game_id: "hades", game_name: "Hades", snapshots: [snap("2026-11-20_10-00-00")], keep: null }];
+    responder();
+    await abrirPendrive();
+    const sel = await screen.findByRole("combobox", { name: "Versões guardadas de Hades" });
+    await fireEvent.change(sel, { target: { value: "5" } });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_game_keep", { gameId: "hades", n: 5 }));
+  });
 });

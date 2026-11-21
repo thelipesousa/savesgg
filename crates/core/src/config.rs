@@ -11,6 +11,19 @@ pub use crate::scan::ManualGame;
 
 /// Temas da interface (o primeiro é o padrão).
 pub const TEMAS: [&str; 5] = ["gamer", "pastel", "win11", "cyberpunk", "console"];
+/// Quantas versões guardar por jogo: mínimo e máximo aceitos.
+pub const KEEP_MIN: usize = 1;
+pub const KEEP_MAX: usize = 100;
+
+/// Valida o número de versões vindo da interface.
+pub fn validar_keep(n: usize) -> Result<usize, String> {
+    if (KEEP_MIN..=KEEP_MAX).contains(&n) {
+        Ok(n)
+    } else {
+        Err("Escolha entre 1 e 100 versões".into())
+    }
+}
+
 /// Exibição da lista de jogos (o primeiro é o padrão).
 pub const EXIBICOES: [&str; 2] = ["lista", "grade"];
 
@@ -112,12 +125,14 @@ impl Config {
             .unwrap_or(EXIBICOES[0])
     }
 
-    /// Quantas versões manter para um jogo.
+    /// Quantas versões manter para um jogo (sempre entre 1 e 100, mesmo com a
+    /// configuração editada à mão: 0 apagaria a versão recém-criada).
     pub fn keep_for(&self, game_id: &str) -> usize {
         self.per_game_keep
             .get(game_id)
             .copied()
             .unwrap_or(self.keep_versions)
+            .clamp(KEEP_MIN, KEEP_MAX)
     }
 }
 
@@ -213,6 +228,25 @@ mod tests {
         let c = Config::load_or_default(&p);
         assert!(!c.wizard_done);
         assert_eq!(c.game_view, "lista");
+    }
+
+    #[test]
+    fn keep_fora_do_intervalo_e_limitado() {
+        let mut c = Config::default();
+        c.per_game_keep.insert("zero".into(), 0);
+        c.per_game_keep.insert("mil".into(), 1000);
+        assert_eq!(c.keep_for("zero"), 1);
+        assert_eq!(c.keep_for("mil"), 100);
+        c.keep_versions = 0;
+        assert_eq!(c.keep_for("outro"), 1);
+    }
+
+    #[test]
+    fn validar_keep_rejeita_0_e_101() {
+        assert!(validar_keep(0).is_err());
+        assert!(validar_keep(101).is_err());
+        assert_eq!(validar_keep(1), Ok(1));
+        assert_eq!(validar_keep(100), Ok(100));
     }
 
     #[test]

@@ -104,4 +104,13 @@ describe("AvisoDisco", () => {
     render(AvisoDisco, { disco: pen, onclose: vi.fn() });
     expect(screen.getByRole("button", { name: /Atualizar backup/ })).toBeTruthy();
   });
+
+  test("muda quantas versões guardar", async () => {
+    responder({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10 });
+    render(Configuracoes);
+    const campo = await screen.findByRole("spinbutton", { name: /Versões guardadas por jogo/ });
+    await fireEvent.input(campo, { target: { value: "20" } });
+    await fireEvent.blur(campo);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_keep_versions", { n: 20 }));
+  });
 });

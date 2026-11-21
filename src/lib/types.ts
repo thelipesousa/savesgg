@@ -54,6 +54,7 @@ export interface GameSnapshotsView {
   game_id: string;
   game_name: string;
   snapshots: SnapshotView[];
+  keep?: number | null;
 }
 
 export interface RestoreItem {

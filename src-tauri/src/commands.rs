@@ -401,6 +401,61 @@ pub struct GameSnapshotsView {
     pub game_id: String,
     pub game_name: String,
     pub snapshots: Vec<SnapshotView>,
+    /// Quantas versões guardar deste jogo, se diferente do padrão.
+    pub keep: Option<usize>,
+}
+
+/// Confere se a versão existe no índice do destino (não confia na interface).
+fn versao_existe(root: &std::path::Path, game_id: &str, stem: &str) -> Res<()> {
+    let idx = LibraryIndex::load(root).map_err(|e| e.to_string())?;
+    idx.games
+        .get(game_id)
+        .is_some_and(|v| v.iter().any(|r| r.stem == stem))
+        .then_some(())
+        .ok_or_else(|| "versão não encontrada neste backup".to_string())
+}
+
+/// Fixa ou solta uma versão (fixadas nunca são apagadas).
+#[tauri::command]
+pub async fn set_pinned_cmd(
+    state: State<'_, AppState>,
+    destination_id: String,
+    game_id: String,
+    stem: String,
+    pinned: bool,
+) -> Res<()> {
+    let root = destination_root(&state, &destination_id)?;
+    let lock = state.locks.lock(&destination_id);
+    blocking(move || {
+        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+        versao_existe(&root, &game_id, &stem)?;
+        savesgg_core::backup::set_pinned(&root, &game_id, &stem, pinned).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// Quantas versões guardar por jogo (padrão de todos).
+#[tauri::command]
+pub fn set_keep_versions(state: State<'_, AppState>, n: usize) -> Res<()> {
+    let n = savesgg_core::config::validar_keep(n)?;
+    state.update_config(|c| c.keep_versions = n)
+}
+
+/// Quantas versões guardar de um jogo; `None` volta ao padrão.
+#[tauri::command]
+pub fn set_game_keep(state: State<'_, AppState>, game_id: String, n: Option<usize>) -> Res<()> {
+    let n = n.map(savesgg_core::config::validar_keep).transpose()?;
+    if game_id.is_empty() || game_id.len() > 200 {
+        return Err("jogo inválido".into());
+    }
+    state.update_config(|c| match n {
+        Some(n) => {
+            c.per_game_keep.insert(game_id.clone(), n);
+        }
+        None => {
+            c.per_game_keep.remove(&game_id);
+        }
+    })
 }
 
 /// Id de uma pasta aberta na tela Restaurar.
@@ -433,6 +488,7 @@ pub async fn list_snapshots(
     destination_id: String,
 ) -> Res<Vec<GameSnapshotsView>> {
     let root = destination_root(&state, &destination_id)?;
+    let per_game = state.config().per_game_keep;
     blocking(move || {
         let idx = LibraryIndex::load(&root).map_err(|e| e.to_string())?;
         let mut out: Vec<GameSnapshotsView> = idx
@@ -460,6 +516,7 @@ pub async fn list_snapshots(
                     game_id: id.clone(),
                     game_name,
                     snapshots,
+                    keep: per_game.get(id).copied(),
                 }
             })
             .collect();
@@ -690,6 +747,14 @@ pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixar_versao_inexistente_falha() {
+        let t = tempfile::tempdir().unwrap();
+        let idx = LibraryIndex::default();
+        idx.save_atomic(t.path()).unwrap();
+        assert!(versao_existe(t.path(), "hades", "2026-11-20_10-00-00").is_err());
+    }
 
     struct Hist(Option<DateTime<Utc>>);
     impl BackupHistory for Hist {
