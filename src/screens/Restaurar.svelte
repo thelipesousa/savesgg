@@ -1,7 +1,8 @@
 <script lang="ts">
   import { api, errorMessage } from "../lib/api";
   import { formatBytes, formatDateTime } from "../lib/format";
-  import type { Destination, GameSnapshotsView, RestorePlan, RestoreReport } from "../lib/types";
+  import { listen } from "@tauri-apps/api/event";
+  import type { Destination, GameSnapshotsView, LoteItemView, RestorePlan, RestoreReport } from "../lib/types";
 
   let destinos = $state<Destination[]>([]);
   let destinoId = $state<string | null>(null);
@@ -11,6 +12,10 @@
   let relatorio = $state<RestoreReport | null>(null);
   let carregando = $state(false);
   let erro = $state<string | null>(null);
+  /** Jogos marcados para restaurar em lote. */
+  let marcados = $state<Set<string>>(new Set());
+  let progresso = $state<{ feitos: number; total: number; jogo: string } | null>(null);
+  let resumo = $state<LoteItemView[] | null>(null);
 
   async function carregarDestinos() {
     try {
@@ -30,8 +35,10 @@
     relatorio = null;
     carregando = true;
     erro = null;
+    resumo = null;
     try {
       jogos = await api.listSnapshots(id);
+      marcados = new Set(jogos.map((j) => j.game_id));
     } catch (e) {
       erro = errorMessage(e);
     } finally {
@@ -60,6 +67,45 @@
   function maisRecente(j: GameSnapshotsView): string | undefined {
     return j.snapshots.find((s) => !s.seguranca)?.stem;
   }
+
+  function alternar(id: string) {
+    const novo = new Set(marcados);
+    if (novo.has(id)) novo.delete(id);
+    else novo.add(id);
+    marcados = novo;
+  }
+
+  async function restaurarSelecionados() {
+    if (!destinoId || marcados.size === 0) return;
+    erro = null;
+    relatorio = null;
+    resumo = null;
+    const ids = jogos.map((j) => j.game_id).filter((id) => marcados.has(id));
+    progresso = { feitos: 0, total: ids.length, jogo: "" };
+    const parar = await listen<{ feitos: number; total: number; jogo: string }>("restauracao-progresso", (ev) => {
+      progresso = ev.payload;
+    });
+    try {
+      resumo = await api.restoreMany(destinoId, ids);
+      jogos = await api.listSnapshots(destinoId);
+    } catch (e) {
+      erro = errorMessage(e);
+    } finally {
+      parar();
+      progresso = null;
+    }
+  }
+
+  /** Abre o fluxo de um jogo (escolher pasta) na versão que o lote tentou restaurar. */
+  function abrirJogo(gameId: string) {
+    const j = jogos.find((x) => x.game_id === gameId);
+    const stem = j && maisRecente(j);
+    if (stem) prepararRestauracao(gameId, stem);
+  }
+
+  const restaurados = $derived(resumo?.filter((r) => r.resultado.tipo === "restaurado") ?? []);
+  const precisam = $derived(resumo?.filter((r) => r.resultado.tipo === "precisa_de_pasta") ?? []);
+  const comErro = $derived(resumo?.filter((r) => r.resultado.tipo === "erro") ?? []);
 
   const faltando = $derived(plano ? plano.items.filter((i) => !i.target && !pastas[i.zip_path]).length : 0);
 
@@ -108,11 +154,66 @@
 
 {#if carregando}<p class="muted" role="status">Carregando…</p>{/if}
 
+{#if progresso}
+  <div class="cartao" role="status">
+    <p>Restaurando {progresso.jogo || "…"} ({progresso.feitos + 1} de {progresso.total})</p>
+    <progress max={progresso.total} value={progresso.feitos}></progress>
+  </div>
+{/if}
+
+{#if resumo}
+  <section class="cartao resumo" aria-label="Resumo da restauração">
+    <h2>{restaurados.length} {restaurados.length === 1 ? "restaurado" : "restaurados"}</h2>
+    {#if precisam.length > 0}
+      <p>Precisam que você escolha a pasta:</p>
+      <ul>
+        {#each precisam as r (r.game_id)}
+          <li>
+            {r.game_name}
+            <button
+              type="button"
+              class="botao-secundario"
+              aria-label={`Escolher pasta para ${r.game_name}`}
+              onclick={() => abrirJogo(r.game_id)}>Escolher pasta…</button
+            >
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    {#if comErro.length > 0}
+      <p class="erro">Não foi possível restaurar:</p>
+      <ul>
+        {#each comErro as r (r.game_id)}
+          <li>{r.game_name}: {r.resultado.tipo === "erro" ? r.resultado.mensagem : ""}</li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+{/if}
+
 {#if destinoId && !plano}
+  {#if jogos.length > 0}
+    <div class="acoes-lote">
+      <button type="button" class="botao-secundario" onclick={() => (marcados = new Set(jogos.map((j) => j.game_id)))}>
+        Marcar todos
+      </button>
+      <button type="button" class="botao-secundario" onclick={() => (marcados = new Set())}>Nenhum</button>
+      <span class="espaco"></span>
+      <button
+        type="button"
+        class="botao-primario"
+        disabled={marcados.size === 0 || progresso !== null}
+        onclick={restaurarSelecionados}>Restaurar selecionados ({marcados.size})</button
+      >
+    </div>
+  {/if}
   <ul class="jogos">
     {#each jogos as j (j.game_id)}
       <li class="cartao">
-        <h3>{j.game_name}</h3>
+        <label class="titulo-jogo">
+          <input type="checkbox" checked={marcados.has(j.game_id)} onchange={() => alternar(j.game_id)} />
+          <h3>{j.game_name}</h3>
+        </label>
         <ul class="versoes">
           {#each j.snapshots as s (s.stem)}
             <li>
@@ -209,6 +310,26 @@
   }
   .versoes button {
     padding: 4px 14px;
+  }
+  .acoes-lote {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .titulo-jogo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .resumo ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  progress {
+    width: 100%;
   }
   .plano {
     display: grid;

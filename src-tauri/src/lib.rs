@@ -68,6 +68,7 @@ pub fn run() {
             commands::set_game_view,
             commands::complete_wizard,
             commands::cached_scan,
+            commands::restore_many,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SavesGG");

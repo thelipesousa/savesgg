@@ -11,8 +11,8 @@ use serde::Serialize;
 use crate::CoreError;
 use crate::backup::SnapshotMeta;
 use crate::backup::{
-    BackupOutcome, LibraryIndex, SnapshotRef, backup_game, load_meta, set_pinned, set_safety,
-    snapshot_paths,
+    BackupOutcome, LibraryIndex, SnapshotRef, backup_game, latest_restorable, load_meta,
+    set_pinned, set_safety, snapshot_paths,
 };
 use crate::paths::expand;
 pub use crate::paths::{GameVars, PathContext};
@@ -313,6 +313,78 @@ pub fn apply_restore(
     })
 }
 
+/// Resultado da restauração de um jogo dentro de um lote.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "tipo", rename_all = "snake_case")]
+pub enum LoteResultado {
+    /// `seguranca`: versão criada com o que estava no PC antes (se havia algo).
+    Restaurado {
+        arquivos: usize,
+        seguranca: Option<String>,
+    },
+    /// Algum arquivo não tem destino neste PC; o usuário escolhe a pasta pelo fluxo de um jogo.
+    PrecisaDePasta {
+        faltando: usize,
+    },
+    Erro {
+        mensagem: String,
+    },
+}
+
+/// Restaura a versão mais recente (que não seja de segurança) de um jogo, só se todos os
+/// arquivos tiverem destino resolvido. Erros viram `Erro`, para o lote seguir.
+pub fn restore_latest(
+    dest_root: &Path,
+    game_id: &str,
+    ctx: &PathContext,
+    installed: &[InstalledGame],
+    now: DateTime<Utc>,
+) -> LoteResultado {
+    let erro = |e: CoreError| LoteResultado::Erro {
+        mensagem: e.to_string(),
+    };
+    let idx = match LibraryIndex::load(dest_root) {
+        Ok(i) => i,
+        Err(e) => return erro(e),
+    };
+    let Some(refs) = idx.games.get(game_id).filter(|v| !v.is_empty()) else {
+        return LoteResultado::Erro {
+            mensagem: "jogo não encontrado neste backup".into(),
+        };
+    };
+    let Some(r) = latest_restorable(refs) else {
+        return LoteResultado::Erro {
+            mensagem: "só há versões de segurança deste jogo".into(),
+        };
+    };
+    let meta = match load_meta(dest_root, game_id, &r.stem) {
+        Ok(m) => m,
+        Err(e) => return erro(e),
+    };
+    let plan = match plan_restore(
+        dest_root,
+        game_id,
+        &r.stem,
+        ctx,
+        &vars_for(&meta, installed),
+    ) {
+        Ok(p) => p,
+        Err(e) => return erro(e),
+    };
+    if plan.unresolved > 0 {
+        return LoteResultado::PrecisaDePasta {
+            faltando: plan.unresolved,
+        };
+    }
+    match apply_restore(&plan, dest_root, ctx, &BTreeMap::new(), now) {
+        Ok(rep) => LoteResultado::Restaurado {
+            arquivos: rep.restored,
+            seguranca: rep.safety_snapshot.map(|s| s.stem),
+        },
+        Err(e) => erro(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -373,6 +445,121 @@ mod tests {
             panic!()
         };
         (t, dest, r.stem)
+    }
+
+    /// Faz outra versão do save da Ana com `conteudo`, `horas` depois de `now()`.
+    fn outra_versao_da_ana(root: &Path, dest: &Path, conteudo: &[u8], horas: i64) -> String {
+        let a = ctx(root, "Ana", "111");
+        let save = a.app_data.join("EldenRing/111");
+        fs::write(save.join("ER0000.sl2"), conteudo).unwrap();
+        let game = DetectedGame {
+            id: "elden-ring".into(),
+            name: "Elden Ring".into(),
+            store: Store::Steam,
+            save_roots: vec![save.clone()],
+            files: vec![save.join("ER0000.sl2")],
+            total_bytes: conteudo.len() as u64,
+            cloud: CloudFlags::default(),
+            source: Source::Manifesto,
+            exe_hint: None,
+            base: None,
+            root: None,
+            store_game_id: None,
+            patterns: Vec::new(),
+            steam_app_id: None,
+        };
+        match backup_game(&game, &a, dest, 10, now() + Duration::hours(horas)).unwrap() {
+            BackupOutcome::Criado(r) => r.stem,
+            BackupOutcome::SemMudanca => panic!("sem mudança"),
+        }
+    }
+
+    #[test]
+    fn lote_restaura_a_mais_recente() {
+        let (t, dest, _) = backup_da_ana();
+        outra_versao_da_ana(t.path(), &dest, b"chefe final", 1);
+        let b = ctx(t.path(), "Bruno", "222");
+        let r = restore_latest(&dest, "elden-ring", &b, &[], now() + Duration::hours(2));
+        assert_eq!(
+            r,
+            LoteResultado::Restaurado {
+                arquivos: 1,
+                seguranca: None
+            }
+        );
+        let alvo = b.app_data.join("EldenRing/222/ER0000.sl2");
+        assert_eq!(fs::read(alvo).unwrap(), b"chefe final");
+    }
+
+    #[test]
+    fn lote_pula_versao_de_seguranca() {
+        let (t, dest, _) = backup_da_ana();
+        let nova = outra_versao_da_ana(t.path(), &dest, b"estado antigo do pc", 1);
+        set_safety(&dest, "elden-ring", &nova).unwrap();
+        let b = ctx(t.path(), "Bruno", "222");
+        restore_latest(&dest, "elden-ring", &b, &[], now() + Duration::hours(2));
+        let alvo = b.app_data.join("EldenRing/222/ER0000.sl2");
+        assert_eq!(fs::read(alvo).unwrap(), b"progresso da ana");
+    }
+
+    #[test]
+    fn lote_so_seguranca_vira_erro() {
+        let (t, dest, stem) = backup_da_ana();
+        set_safety(&dest, "elden-ring", &stem).unwrap();
+        let b = ctx(t.path(), "Bruno", "222");
+        match restore_latest(&dest, "elden-ring", &b, &[], now()) {
+            LoteResultado::Erro { mensagem } => {
+                assert!(
+                    mensagem.contains("só há versões de segurança"),
+                    "{mensagem}"
+                )
+            }
+            outro => panic!("{outro:?}"),
+        }
+    }
+
+    #[test]
+    fn lote_sem_destino_resolvido_pede_pasta() {
+        let (t, dest, stem) = backup_da_ana();
+        let (_, json) = snapshot_paths(&dest, "elden-ring", &stem);
+        let mut meta = load_meta(&dest, "elden-ring", &stem).unwrap();
+        meta.files[0].template = "Q:/Jogos/Elden/ER0000.sl2".into();
+        fs::write(&json, serde_json::to_vec(&meta).unwrap()).unwrap();
+        let b = ctx(t.path(), "Bruno", "222");
+        assert_eq!(
+            restore_latest(&dest, "elden-ring", &b, &[], now()),
+            LoteResultado::PrecisaDePasta { faltando: 1 }
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn lote_arquivo_travado_vira_erro() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let (t, dest, _) = backup_da_ana();
+        let b = ctx(t.path(), "Bruno", "222");
+        let alvo = b.app_data.join("EldenRing/222/ER0000.sl2");
+        fs::create_dir_all(alvo.parent().unwrap()).unwrap();
+        fs::write(&alvo, b"progresso do bruno").unwrap();
+        let _jogo = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(&alvo)
+            .unwrap();
+        assert!(matches!(
+            restore_latest(&dest, "elden-ring", &b, &[], now() + Duration::hours(1)),
+            LoteResultado::Erro { .. }
+        ));
+    }
+
+    #[test]
+    fn lote_jogo_inexistente_vira_erro() {
+        let (t, dest, _) = backup_da_ana();
+        let b = ctx(t.path(), "Bruno", "222");
+        assert!(matches!(
+            restore_latest(&dest, "nao-existe", &b, &[], now()),
+            LoteResultado::Erro { .. }
+        ));
     }
 
     #[test]

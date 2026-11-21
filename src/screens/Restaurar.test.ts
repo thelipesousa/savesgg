@@ -65,4 +65,50 @@ describe("Restaurar", () => {
     expect(itens).toHaveLength(1);
     expect(itens[0].textContent).not.toContain("versão de segurança");
   });
+
+  test("marca todos e restaura os selecionados", async () => {
+    jogos = [
+      { game_id: "hades", game_name: "Hades", snapshots: [snap("2026-11-20_10-00-00")] },
+      { game_id: "celeste", game_name: "Celeste", snapshots: [snap("2026-11-20_11-00-00")] },
+    ];
+    extras.restore_many = () => [];
+    responder();
+    await abrirPendrive();
+    const hades = await screen.findByRole("checkbox", { name: /Hades/ });
+    const celeste = screen.getByRole("checkbox", { name: /Celeste/ });
+    expect((hades as HTMLInputElement).checked).toBe(true);
+    expect((celeste as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("button", { name: "Restaurar selecionados (2)" })).toBeTruthy();
+    await fireEvent.click(celeste);
+    await fireEvent.click(screen.getByRole("button", { name: "Restaurar selecionados (1)" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("restore_many", { destinationId: "disco:00000001", gameIds: ["hades"] }),
+    );
+  });
+
+  test("mostra o resumo por resultado", async () => {
+    jogos = [
+      { game_id: "hades", game_name: "Hades", snapshots: [snap("2026-11-20_10-00-00")] },
+      { game_id: "celeste", game_name: "Celeste", snapshots: [snap("2026-11-20_11-00-00")] },
+    ];
+    extras.restore_many = () => [
+      { game_id: "hades", game_name: "Hades", resultado: { tipo: "restaurado", arquivos: 3, seguranca: null } },
+      { game_id: "celeste", game_name: "Celeste", resultado: { tipo: "precisa_de_pasta", faltando: 1 } },
+    ];
+    extras.plan_restore = () => ({ game_id: "celeste", game_name: "Celeste", stem: "2026-11-20_11-00-00", items: [], conflicts: 0, unresolved: 1 });
+    responder();
+    await abrirPendrive();
+    await fireEvent.click(await screen.findByRole("button", { name: /Restaurar selecionados/ }));
+    expect(await screen.findByText("1 restaurado")).toBeTruthy();
+    const resumo = screen.getByRole("region", { name: "Resumo da restauração" });
+    expect(resumo.textContent).toContain("Celeste");
+    await fireEvent.click(screen.getByRole("button", { name: "Escolher pasta para Celeste" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("plan_restore", {
+        destinationId: "disco:00000001",
+        gameId: "celeste",
+        stem: "2026-11-20_11-00-00",
+      }),
+    );
+  });
 });

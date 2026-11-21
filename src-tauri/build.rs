@@ -21,6 +21,7 @@ fn main() {
         "set_game_view",
         "complete_wizard",
         "cached_scan",
+        "restore_many",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()
