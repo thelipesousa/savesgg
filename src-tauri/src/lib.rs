@@ -2,6 +2,7 @@ mod auto;
 mod commands;
 mod drives;
 mod manifest_source;
+mod nuvem;
 mod oauth;
 mod state;
 mod tray;
@@ -70,6 +71,7 @@ pub fn run() {
                 tray::show_main(app.handle());
             }
             auto::spawn(app.handle().clone());
+            nuvem::iniciar(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -102,6 +104,11 @@ pub fn run() {
             commands::remove_manual_game,
             commands::ignored_games,
             commands::open_logs_folder,
+            commands::login_nuvem_disponivel,
+            commands::entrar_nuvem,
+            commands::sair_nuvem,
+            commands::enviar_agora,
+            commands::atualizar_da_nuvem_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SavesGG");

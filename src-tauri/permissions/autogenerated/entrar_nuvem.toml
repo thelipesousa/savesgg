@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-entrar-nuvem"
+description = "Enables the entrar_nuvem command without any pre-configured scope."
+commands.allow = ["entrar_nuvem"]
+
+[[permission]]
+identifier = "deny-entrar-nuvem"
+description = "Denies the entrar_nuvem command without any pre-configured scope."
+commands.deny = ["entrar_nuvem"]

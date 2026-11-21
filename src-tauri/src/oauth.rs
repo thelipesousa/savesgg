@@ -3,9 +3,6 @@
 //!
 //! Nenhum token vai para log, arquivo, interface ou mensagem de erro.
 
-// Ligado aos comandos na tarefa seguinte do plano 5; até lá parte dele não é usada.
-#![allow(dead_code)]
-
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Mutex;
@@ -78,11 +75,14 @@ fn redirect(porta: u16) -> String {
 }
 
 pub fn url_autorizacao(c: &ClienteOAuth, porta: u16, state: &str, challenge: &str) -> String {
+    let (autorizacao, escopos) = match c.provedor {
+        ProvedorNuvem::Gdrive => (GOOGLE_AUTH, GOOGLE_ESCOPOS),
+    };
     let pares = [
         ("client_id", c.client_id.to_string()),
         ("redirect_uri", redirect(porta)),
         ("response_type", "code".into()),
-        ("scope", GOOGLE_ESCOPOS.into()),
+        ("scope", escopos.into()),
         ("code_challenge", challenge.into()),
         ("code_challenge_method", "S256".into()),
         ("state", state.into()),
@@ -93,7 +93,7 @@ pub fn url_autorizacao(c: &ClienteOAuth, porta: u16, state: &str, challenge: &st
         .iter()
         .map(|(k, v)| format!("{k}={}", codificar(v)))
         .collect();
-    format!("{GOOGLE_AUTH}?{}", q.join("&"))
+    format!("{autorizacao}?{}", q.join("&"))
 }
 
 fn decodificar(s: &str) -> String {
