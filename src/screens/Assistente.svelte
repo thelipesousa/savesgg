@@ -40,10 +40,19 @@
     });
   }
 
+  let destinosCarregados = false;
+
   function irParaDestinos() {
     passo = 2;
     tentar(async () => {
       destinos = await api.listDestinations();
+      // Quem já tinha configurado (vindo de versão anterior) não perde os destinos,
+      // inclusive um pendrive desplugado agora.
+      if (!destinosCarregados) {
+        destinosCarregados = true;
+        const s = await api.getSettings();
+        if (Array.isArray(s?.auto_destinations) && marcados.length === 0) marcados = [...s.auto_destinations];
+      }
     });
   }
 

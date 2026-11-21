@@ -43,6 +43,16 @@ describe("Capa", () => {
   });
 });
 
+describe("Capa que troca de jogo", () => {
+  test("volta a mostrar imagem depois de uma capa falhar", async () => {
+    const { container, rerender } = render(Capa, { game: jogo() });
+    await fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")).toBeNull();
+    await rerender({ game: jogo({ id: "hades", name: "Hades", cover_url: "https://cdn.cloudflare.steamstatic.com/steam/apps/1145350/library_600x900.jpg" }) });
+    expect(container.querySelector("img")?.getAttribute("src")).toContain("/1145350/");
+  });
+});
+
 describe("GameCard", () => {
   test("mostra nome, prioridade e seleção", async () => {
     const ontoggle = vi.fn();
@@ -51,5 +61,13 @@ describe("GameCard", () => {
     expect(screen.getByText(/Prioridade alta/)).toBeTruthy();
     await fireEvent.click(screen.getByRole("checkbox", { name: "Selecionar Elden Ring" }));
     expect(ontoggle).toHaveBeenCalled();
+  });
+
+  test("possível save na grade pode ser confirmado ou descartado", async () => {
+    const onconfirm = vi.fn();
+    render(GameCard, { game: jogo({ source: "heuristica" }), selected: false, ontoggle: vi.fn(), onconfirm });
+    expect(screen.getByText(/Possível save/)).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: /Descartar/ }));
+    expect(onconfirm).toHaveBeenCalledWith(false);
   });
 });

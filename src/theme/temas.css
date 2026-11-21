@@ -27,18 +27,18 @@
 }
 
 [data-theme="pastel"] {
-  --destaque-fundo: #ebe5ff;
+  --destaque-fundo: #f1edff;
   --fundo: #f4effc;
   --superficie: #ffffff;
   --superficie-2: #eee4f9;
   --borda: #e3d8f5;
   --texto: #3b3355;
-  --texto-suave: #8c82a1;
-  --destaque: #9b87f5;
+  --texto-suave: #635a7d;
+  --destaque: #6d55d9;
   --destaque-texto: #ffffff;
-  --alerta: #e0465f;
-  --aviso: #c27a0e;
-  --ok: #16a34a;
+  --alerta: #b3213b;
+  --aviso: #8a5300;
+  --ok: #11733a;
   --alerta-fundo: #ffe4e9;
   --aviso-fundo: #fff1d6;
   --ok-fundo: #ddfaeb;

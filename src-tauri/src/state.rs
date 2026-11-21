@@ -46,8 +46,6 @@ pub struct AppState {
     pub drive_watcher: Mutex<crate::drives::DriveWatcher>,
     /// Jogos sem cópia fora do PC (cor da bandeja); atualizado a cada backup.
     pub at_risk_ids: Mutex<std::collections::BTreeSet<String>>,
-    /// Lista da última varredura (o Início mostra sem precisar escanear de novo).
-    pub last_views: Mutex<Option<Vec<crate::views::GameView>>>,
 }
 
 impl AppState {
@@ -72,7 +70,6 @@ impl AppState {
             plugged: Mutex::new(Vec::new()),
             drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
             at_risk_ids: Mutex::new(std::collections::BTreeSet::new()),
-            last_views: Mutex::new(None),
         }
     }
 

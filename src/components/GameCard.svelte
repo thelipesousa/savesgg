@@ -8,9 +8,11 @@
     game: GameView;
     selected: boolean;
     ontoggle: () => void;
+    onconfirm?: (keep: boolean) => void;
   }
 
-  let { game, selected, ontoggle }: Props = $props();
+  let { game, selected, ontoggle, onconfirm }: Props = $props();
+  const pendente = $derived(game.source === "heuristica" && !game.confirmado);
 </script>
 
 <li class="cartao-jogo" class:selecionado={selected}>
@@ -20,6 +22,15 @@
   <Capa {game} tamanho="grande" />
   <h3 title={game.name}>{game.name}</h3>
   <PriorityBadge priority={game.priority} />
+  {#if pendente}
+    <span class="chip aviso">Possível save — confirmar</span>
+    {#if onconfirm}
+      <span class="confirmar">
+        <button type="button" class="botao-secundario" onclick={() => onconfirm(true)}>Confirmar</button>
+        <button type="button" class="botao-perigo" onclick={() => onconfirm(false)}>Descartar</button>
+      </span>
+    {/if}
+  {/if}
   <span class="muted pequeno">Último backup: {formatRelative(game.last_backup)}</span>
 </li>
 
@@ -52,5 +63,18 @@
   }
   .pequeno {
     font-size: 0.8em;
+  }
+  .chip.aviso {
+    color: var(--aviso);
+    border-color: var(--aviso);
+    justify-self: start;
+  }
+  .confirmar {
+    display: flex;
+    gap: 6px;
+  }
+  .confirmar button {
+    padding: 4px 10px;
+    font-size: 0.85em;
   }
 </style>
