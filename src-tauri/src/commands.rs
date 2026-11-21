@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use savesgg_core::backup::{BackupOutcome, LibraryIndex, backup_game, load_meta};
@@ -15,8 +15,8 @@ use savesgg_core::destinations::{
 };
 use savesgg_core::protection::{BackupHistory, assess, sort_for_display};
 use savesgg_core::restore::{
-    RestorePlan, RestoreReport, apply_restore as core_apply, plan_restore as core_plan,
-    resolve_overrides, vars_for,
+    LoteResultado, RestorePlan, RestoreReport, apply_restore as core_apply,
+    plan_restore as core_plan, resolve_overrides, restore_latest, vars_for,
 };
 use savesgg_core::scan::{ScanOptions, find_emulator_roots, scan as core_scan};
 use savesgg_core::stores::detect_all;
@@ -86,7 +86,14 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
         extra_roots: find_emulator_roots(&drive_roots()),
         manual: cfg.manual_games.clone(),
     };
+    let inicio = std::time::Instant::now();
     let result = core_scan(&ctx, &manifest, &installed, &opts);
+    log::info!(
+        "varredura: {} jogos ({} acima do limite) em {} ms",
+        result.games.len(),
+        result.over_limit.len(),
+        inicio.elapsed().as_millis()
+    );
     let dests = list_destinations(&cfg);
     let (views, risk_ids) = make_views(
         &result,
@@ -197,10 +204,27 @@ pub async fn scan(app: tauri::AppHandle) -> Res<Vec<GameView>> {
     blocking(move || run_scan_blocking(&app.state::<AppState>())).await
 }
 
+/// Nomes dos processos abertos agora (para saber se o app da nuvem está rodando).
+fn nomes_de_processos() -> Vec<String> {
+    let Ok(mut sys) = sysinfo::System::new() else {
+        return Vec::new();
+    };
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    sys.processes()
+        .values()
+        .map(|p| p.name().to_string_lossy().into_owned())
+        .collect()
+}
+
 #[tauri::command]
 pub async fn list_destinations_cmd(state: State<'_, AppState>) -> Res<Vec<Destination>> {
     let cfg = state.config();
-    blocking(move || Ok(list_destinations(&cfg))).await
+    blocking(move || {
+        let mut d = list_destinations(&cfg);
+        savesgg_core::destinations::marcar_clientes(&mut d, &nomes_de_processos());
+        Ok(d)
+    })
+    .await
 }
 
 /// Abre o seletor de pasta e adiciona a pasta como destino.
@@ -222,6 +246,73 @@ pub async fn add_custom_folder(
     })?;
     let cfg = state.config();
     Ok(list_destinations(&cfg).into_iter().find(|d| d.root == path))
+}
+
+/// Destino configurado/detectado com esta raiz (para usar o mesmo id e a mesma trava).
+fn destino_da_raiz(dests: &[Destination], root: &std::path::Path) -> Option<Destination> {
+    let alvo = savesgg_core::paths::norm(root).to_lowercase();
+    dests
+        .iter()
+        .find(|d| savesgg_core::paths::norm(&d.root).to_lowercase() == alvo)
+        .cloned()
+}
+
+/// Abre o seletor e usa a pasta como origem de restauração só nesta sessão.
+#[tauri::command]
+pub async fn open_backup_folder(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Res<Option<Destination>> {
+    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let picked = picked
+        .into_path()
+        .map_err(|_| "pasta inválida".to_string())?;
+    let root = blocking(move || Ok(savesgg_core::destinations::resolve_backup_folder(&picked)))
+        .await?
+        .ok_or_else(|| "Nenhum backup do SavesGG nesta pasta".to_string())?;
+    // Já é um destino conhecido: devolve ele, para a restauração e o motor automático
+    // usarem a mesma trava (senão os dois poderiam gravar o índice ao mesmo tempo).
+    let cfg = state.config();
+    let raiz = root.clone();
+    if let Some(d) = blocking(move || Ok(destino_da_raiz(&list_destinations(&cfg), &raiz))).await? {
+        return Ok(Some(d));
+    }
+    {
+        let mut abertas = state
+            .pastas_abertas
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if !abertas.contains(&root) {
+            abertas.push(root.clone());
+        }
+    }
+    Ok(Some(Destination {
+        id: id_pasta_aberta(&root),
+        label: "Pasta escolhida".into(),
+        kind: savesgg_core::destinations::DestinationKind::PastaLocal,
+        root,
+        available: true,
+        free_bytes: None,
+        has_backup: true,
+        cliente_ativo: None,
+    }))
+}
+
+/// Abre o Explorer na pasta de logs do app.
+#[tauri::command]
+pub fn open_logs_folder(app: tauri::AppHandle) -> Res<()> {
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|_| "pasta de logs indisponível".to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::process::Command::new("explorer")
+        .arg(&dir)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Seletor de pasta genérico (restauração de itens não resolvidos).
@@ -358,6 +449,7 @@ pub struct SnapshotView {
     pub created: String,
     pub pinned: bool,
     pub total_bytes: u64,
+    pub seguranca: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -365,9 +457,79 @@ pub struct GameSnapshotsView {
     pub game_id: String,
     pub game_name: String,
     pub snapshots: Vec<SnapshotView>,
+    /// Quantas versões guardar deste jogo, se diferente do padrão.
+    pub keep: Option<usize>,
+}
+
+/// Confere se a versão existe no índice do destino (não confia na interface).
+fn versao_existe(root: &std::path::Path, game_id: &str, stem: &str) -> Res<()> {
+    let idx = LibraryIndex::load(root).map_err(|e| e.to_string())?;
+    idx.games
+        .get(game_id)
+        .is_some_and(|v| v.iter().any(|r| r.stem == stem))
+        .then_some(())
+        .ok_or_else(|| "versão não encontrada neste backup".to_string())
+}
+
+/// Fixa ou solta uma versão (fixadas nunca são apagadas).
+#[tauri::command]
+pub async fn set_pinned_cmd(
+    state: State<'_, AppState>,
+    destination_id: String,
+    game_id: String,
+    stem: String,
+    pinned: bool,
+) -> Res<()> {
+    let root = destination_root(&state, &destination_id)?;
+    let lock = state.locks.lock(&destination_id);
+    blocking(move || {
+        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+        versao_existe(&root, &game_id, &stem)?;
+        savesgg_core::backup::set_pinned(&root, &game_id, &stem, pinned).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// Quantas versões guardar por jogo (padrão de todos).
+#[tauri::command]
+pub fn set_keep_versions(state: State<'_, AppState>, n: usize) -> Res<()> {
+    let n = savesgg_core::config::validar_keep(n)?;
+    state.update_config(|c| c.keep_versions = n)
+}
+
+/// Quantas versões guardar de um jogo; `None` volta ao padrão.
+#[tauri::command]
+pub fn set_game_keep(state: State<'_, AppState>, game_id: String, n: Option<usize>) -> Res<()> {
+    let n = n.map(savesgg_core::config::validar_keep).transpose()?;
+    if game_id.is_empty() || game_id.len() > 200 {
+        return Err("jogo inválido".into());
+    }
+    state.update_config(|c| match n {
+        Some(n) => {
+            c.per_game_keep.insert(game_id.clone(), n);
+        }
+        None => {
+            c.per_game_keep.remove(&game_id);
+        }
+    })
+}
+
+/// Id de uma pasta aberta na tela Restaurar.
+pub fn id_pasta_aberta(root: &std::path::Path) -> String {
+    format!("aberta:{}", savesgg_core::paths::norm(root).to_lowercase())
 }
 
 fn destination_root(state: &AppState, destination_id: &str) -> Res<PathBuf> {
+    if destination_id.starts_with("aberta:") {
+        return state
+            .pastas_abertas
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .find(|p| id_pasta_aberta(p) == destination_id && p.is_dir())
+            .cloned()
+            .ok_or_else(|| "pasta indisponível".to_string());
+    }
     let cfg = state.config();
     find_destinations(&cfg, &[destination_id.to_string()])
         .into_iter()
@@ -382,6 +544,7 @@ pub async fn list_snapshots(
     destination_id: String,
 ) -> Res<Vec<GameSnapshotsView>> {
     let root = destination_root(&state, &destination_id)?;
+    let per_game = state.config().per_game_keep;
     blocking(move || {
         let idx = LibraryIndex::load(&root).map_err(|e| e.to_string())?;
         let mut out: Vec<GameSnapshotsView> = idx
@@ -401,6 +564,7 @@ pub async fn list_snapshots(
                         created: r.created.to_rfc3339(),
                         pinned: r.pinned,
                         total_bytes: r.total_bytes,
+                        seguranca: r.seguranca,
                     })
                     .collect();
                 snapshots.sort_by(|a, b| b.created.cmp(&a.created));
@@ -408,6 +572,7 @@ pub async fn list_snapshots(
                     game_id: id.clone(),
                     game_name,
                     snapshots,
+                    keep: per_game.get(id).copied(),
                 }
             })
             .collect();
@@ -445,16 +610,258 @@ pub async fn apply_restore(
     overrides: BTreeMap<String, String>,
 ) -> Res<RestoreReport> {
     let root = destination_root(&state, &destination_id)?;
+    let lock = state.locks.lock(&destination_id);
     blocking(move || {
+        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
         let installed = detect_all();
         let ctx = current_ctx(&installed);
         let meta = load_meta(&root, &game_id, &stem).map_err(|e| e.to_string())?;
         let plan = core_plan(&root, &game_id, &stem, &ctx, &vars_for(&meta, &installed))
             .map_err(|e| e.to_string())?;
         let overrides = resolve_overrides(&plan, &overrides).map_err(|e| e.to_string())?;
-        core_apply(&plan, &root, &ctx, &overrides, Utc::now()).map_err(|e| e.to_string())
+        let r = core_apply(&plan, &root, &ctx, &overrides, Utc::now());
+        match &r {
+            Ok(rep) => log::info!(
+                "restauração: {game_id} ({stem}) → {} arquivos",
+                rep.restored
+            ),
+            Err(e) => log::error!("restauração: {game_id} ({stem}) falhou: {e}"),
+        }
+        r.map_err(|e| e.to_string())
     })
     .await
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoteItemView {
+    pub game_id: String,
+    pub game_name: String,
+    pub resultado: LoteResultado,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProgressoRestauracao {
+    pub feitos: usize,
+    pub total: usize,
+    pub jogo: String,
+}
+
+/// Restaura a versão mais recente de vários jogos. Um erro num jogo não para os outros.
+#[tauri::command]
+pub async fn restore_many(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    destination_id: String,
+    game_ids: Vec<String>,
+) -> Res<Vec<LoteItemView>> {
+    let root = destination_root(&state, &destination_id)?;
+    let lock = state.locks.lock(&destination_id);
+    blocking(move || {
+        // Detecção e leitura do índice fora da trava; a trava é pega jogo a jogo, para o
+        // motor automático e o "Fixar" não ficarem parados durante o lote inteiro.
+        let idx = LibraryIndex::load(&root).map_err(|e| e.to_string())?;
+        let installed = detect_all();
+        let ctx = current_ctx(&installed);
+        let total = game_ids.len();
+        let mut out = Vec::with_capacity(total);
+        for (feitos, id) in game_ids.into_iter().enumerate() {
+            let game_name = idx
+                .games
+                .get(&id)
+                .and_then(|refs| refs.iter().max_by_key(|r| r.created))
+                .and_then(|r| load_meta(&root, &id, &r.stem).ok())
+                .map(|m| m.game_name)
+                .unwrap_or_else(|| id.clone());
+            let _ = app.emit(
+                "restauracao-progresso",
+                ProgressoRestauracao {
+                    feitos,
+                    total,
+                    jogo: game_name.clone(),
+                },
+            );
+            let resultado = if idx.games.contains_key(&id) {
+                let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+                restore_latest(&root, &id, &ctx, &installed, Utc::now())
+            } else {
+                LoteResultado::Erro {
+                    mensagem: "jogo não encontrado neste backup".into(),
+                }
+            };
+            log::info!("restauração em lote: {id} → {resultado:?}");
+            out.push(LoteItemView {
+                game_id: id,
+                game_name,
+                resultado,
+            });
+        }
+        Ok(out)
+    })
+    .await
+}
+
+/// Acrescenta um jogo manual, recusando nome que gera o mesmo id de outro.
+fn adicionar_manual(
+    c: &mut savesgg_core::config::Config,
+    m: savesgg_core::config::ManualGame,
+) -> Res<()> {
+    let id = savesgg_core::scan::game_id(&m.name);
+    if c.manual_games
+        .iter()
+        .any(|g| savesgg_core::scan::game_id(&g.name) == id)
+    {
+        return Err("Já existe um jogo com esse nome".into());
+    }
+    c.manual_games.push(m);
+    Ok(())
+}
+
+/// O nome gera o id de um jogo manual ou de um jogo já detectado na varredura?
+/// (Ids iguais seriam trocados por `dedupe_ids` e o jogo detectado perderia o histórico.)
+fn nome_ja_usado(
+    nome: &str,
+    manuais: &[savesgg_core::config::ManualGame],
+    varredura: &[&savesgg_core::scan::DetectedGame],
+) -> bool {
+    let id = savesgg_core::scan::game_id(nome);
+    manuais
+        .iter()
+        .any(|g| savesgg_core::scan::game_id(&g.name) == id)
+        || varredura
+            .iter()
+            .any(|g| g.id == id || savesgg_core::scan::game_id(&g.name) == id)
+}
+
+/// Tira um jogo manual da configuração (os backups continuam). Procura pelo nome que
+/// a varredura mostrou (o id pode ter sido trocado por `dedupe_ids`); sem ele, pelo id.
+fn remover_manual(
+    c: &mut savesgg_core::config::Config,
+    game_id: &str,
+    nome_na_varredura: Option<&str>,
+) -> bool {
+    let antes = c.manual_games.len();
+    c.manual_games.retain(|g| match nome_na_varredura {
+        Some(nome) => g.name != nome,
+        None => savesgg_core::scan::game_id(&g.name) != game_id,
+    });
+    c.manual_games.len() != antes
+}
+
+/// Adiciona um jogo à mão: valida o nome, pede a pasta do save e, opcionalmente, o .exe.
+/// `None` se o usuário cancelar a escolha da pasta.
+#[tauri::command]
+pub async fn add_manual_game(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+) -> Res<Option<Vec<GameView>>> {
+    let name = savesgg_core::scan::validar_nome_jogo(&name)?;
+    let usado = {
+        let scan = state
+            .last_scan
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let jogos: Vec<&savesgg_core::scan::DetectedGame> = scan
+            .as_ref()
+            .map(|s| s.result.games.iter().chain(&s.result.over_limit).collect())
+            .unwrap_or_default();
+        nome_ja_usado(&name, &state.config().manual_games, &jogos)
+    };
+    if usado {
+        return Err("Já existe um jogo com esse nome".into());
+    }
+    let Some(pasta) = app
+        .dialog()
+        .file()
+        .set_title("Pasta onde o jogo guarda os saves")
+        .blocking_pick_folder()
+    else {
+        return Ok(None);
+    };
+    let save_dir = pasta
+        .into_path()
+        .map_err(|_| "pasta inválida".to_string())?;
+    let exe = app
+        .dialog()
+        .file()
+        .set_title("Executável do jogo (opcional)")
+        .add_filter("Programa", &["exe"])
+        .blocking_pick_file()
+        .and_then(|f| f.into_path().ok());
+    let mut erro = None;
+    state.update_config(|c| {
+        // `adicionar_manual` confere de novo os outros jogos manuais (corrida entre cliques).
+        erro = adicionar_manual(
+            c,
+            savesgg_core::config::ManualGame {
+                name,
+                save_dir,
+                exe,
+            },
+        )
+        .err();
+    })?;
+    if let Some(e) = erro {
+        return Err(e);
+    }
+    let app2 = app.clone();
+    blocking(move || run_scan_blocking(&app2.state::<AppState>()))
+        .await
+        .map(Some)
+}
+
+/// Remove um jogo adicionado à mão (os backups dele continuam guardados) e refaz a
+/// varredura, para ele sumir da tela e do backup automático.
+#[tauri::command]
+pub async fn remove_manual_game(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    game_id: String,
+) -> Res<Vec<GameView>> {
+    let nome = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .and_then(|s| s.find(&game_id))
+        .filter(|g| g.source == savesgg_core::scan::Source::Manual)
+        .map(|g| g.name.clone());
+    let mut achou = false;
+    state.update_config(|c| achou = remover_manual(c, &game_id, nome.as_deref()))?;
+    if !achou {
+        return Err("jogo não encontrado".into());
+    }
+    let app2 = app.clone();
+    blocking(move || run_scan_blocking(&app2.state::<AppState>())).await
+}
+
+#[derive(Debug, Serialize)]
+pub struct IgnoredView {
+    pub id: String,
+    pub name: String,
+}
+
+/// Possíveis saves descartados, com o nome da última varredura (ou o id).
+#[tauri::command]
+pub fn ignored_games(state: State<'_, AppState>) -> Res<Vec<IgnoredView>> {
+    let ids = state.config().ignored_games;
+    let scan = state
+        .last_scan
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    Ok(ids
+        .into_iter()
+        .map(|id| IgnoredView {
+            name: scan
+                .as_ref()
+                .and_then(|s| s.find(&id))
+                .map(|g| g.name.clone())
+                .unwrap_or_else(|| id.clone()),
+            id,
+        })
+        .collect())
 }
 
 /// Confirma (mantém) ou descarta um possível save da heurística.
@@ -574,6 +981,71 @@ pub fn auto_status(state: State<'_, AppState>) -> crate::auto::AutoStatusView {
 mod tests {
     use super::*;
 
+    fn manual(nome: &str) -> savesgg_core::config::ManualGame {
+        savesgg_core::config::ManualGame {
+            name: nome.into(),
+            save_dir: "D:/Jogos/X".into(),
+            exe: None,
+        }
+    }
+
+    #[test]
+    fn adicionar_manual_recusa_nome_repetido() {
+        let mut c = savesgg_core::config::Config::default();
+        adicionar_manual(&mut c, manual("Meu Jogo")).unwrap();
+        assert!(adicionar_manual(&mut c, manual("meu jogo!")).is_err());
+        assert_eq!(c.manual_games.len(), 1);
+    }
+
+    #[test]
+    fn remover_manual_tira_da_config() {
+        let mut c = savesgg_core::config::Config::default();
+        adicionar_manual(&mut c, manual("Meu Jogo")).unwrap();
+        adicionar_manual(&mut c, manual("Outro")).unwrap();
+        assert!(remover_manual(&mut c, "meu-jogo", None));
+        assert_eq!(c.manual_games.len(), 1);
+        assert_eq!(c.manual_games[0].name, "Outro");
+        assert!(!remover_manual(&mut c, "meu-jogo", None));
+    }
+
+    #[test]
+    fn remover_manual_pelo_nome_da_varredura_mesmo_com_id_trocado() {
+        // dedupe_ids pode trocar o id ("hades" vira "hades-1a2b"); o nome continua o mesmo.
+        let mut c = savesgg_core::config::Config::default();
+        adicionar_manual(&mut c, manual("Hades")).unwrap();
+        assert!(remover_manual(&mut c, "hades-1a2b", Some("Hades")));
+        assert!(c.manual_games.is_empty());
+    }
+
+    #[test]
+    fn nome_manual_igual_a_jogo_detectado_e_recusado() {
+        let c = savesgg_core::config::Config::default();
+        let mut detectado = jogo("hades");
+        detectado.name = "Hades".into();
+        assert!(nome_ja_usado("hades", &c.manual_games, &[&detectado]));
+        assert!(!nome_ja_usado("Celeste", &c.manual_games, &[&detectado]));
+    }
+
+    #[test]
+    fn pasta_aberta_que_ja_e_destino_usa_o_id_do_destino() {
+        let dests = savesgg_core::destinations::build_destinations(
+            &[],
+            &[],
+            &[PathBuf::from("D:/Backups")],
+        );
+        let achado = destino_da_raiz(&dests, std::path::Path::new("d:/BACKUPS/")).unwrap();
+        assert_eq!(achado.id, dests[0].id);
+        assert!(destino_da_raiz(&dests, std::path::Path::new("E:/Outra")).is_none());
+    }
+
+    #[test]
+    fn fixar_versao_inexistente_falha() {
+        let t = tempfile::tempdir().unwrap();
+        let idx = LibraryIndex::default();
+        idx.save_atomic(t.path()).unwrap();
+        assert!(versao_existe(t.path(), "hades", "2026-11-20_10-00-00").is_err());
+    }
+
     struct Hist(Option<DateTime<Utc>>);
     impl BackupHistory for Hist {
         fn last_backup(&self, id: &str) -> Option<DateTime<Utc>> {
@@ -597,6 +1069,7 @@ mod tests {
             store_game_id: None,
             patterns: vec![],
             steam_app_id: None,
+            last_modified: None,
         }
     }
 

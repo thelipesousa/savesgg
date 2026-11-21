@@ -28,6 +28,17 @@
     "allow-set-theme",
     "allow-set-game-view",
     "allow-complete-wizard",
-    "allow-cached-scan"
+    "allow-cached-scan",
+    "allow-restore-many",
+    "allow-open-backup-folder",
+    "allow-set-pinned-cmd",
+    "allow-set-keep-versions",
+    "allow-set-game-keep",
+    "allow-add-manual-game",
+    "allow-remove-manual-game",
+    "allow-ignored-games",
+    "allow-open-logs-folder",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

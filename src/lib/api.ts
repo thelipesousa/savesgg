@@ -4,6 +4,8 @@ import type {
   Destination,
   GameSnapshotsView,
   GameView,
+  IgnoredView,
+  LoteItemView,
   RestorePlan,
   RestoreReport,
   SettingsView,
@@ -35,6 +37,17 @@ export const api = {
   setTheme: (theme: string) => invoke<void>("set_theme", { theme }),
   setGameView: (view: string) => invoke<void>("set_game_view", { view }),
   completeWizard: () => invoke<void>("complete_wizard"),
+  openBackupFolder: () => invoke<Destination | null>("open_backup_folder"),
+  setPinned: (destinationId: string, gameId: string, stem: string, pinned: boolean) =>
+    invoke<void>("set_pinned_cmd", { destinationId, gameId, stem, pinned }),
+  setKeepVersions: (n: number) => invoke<void>("set_keep_versions", { n }),
+  setGameKeep: (gameId: string, n: number | null) => invoke<void>("set_game_keep", { gameId, n }),
+  addManualGame: (name: string) => invoke<GameView[] | null>("add_manual_game", { name }),
+  removeManualGame: (gameId: string) => invoke<GameView[]>("remove_manual_game", { gameId }),
+  ignoredGames: () => invoke<IgnoredView[]>("ignored_games"),
+  openLogsFolder: () => invoke<void>("open_logs_folder"),
+  restoreMany: (destinationId: string, gameIds: string[]) =>
+    invoke<LoteItemView[]>("restore_many", { destinationId, gameIds }),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
 };
 

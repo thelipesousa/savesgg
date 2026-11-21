@@ -17,6 +17,11 @@ use std::path::{Path, PathBuf};
 
 pub use chrono::{DateTime, Utc};
 pub use library::{LibraryIndex, SnapshotRef, root as backup_root};
+
+/// Nome da pasta do app dentro de um destino (`SavesGG`).
+pub fn library_folder_name() -> &'static str {
+    library::PASTA
+}
 pub use snapshot::{FileEntry, SnapshotMeta};
 
 use crate::CoreError;
@@ -202,6 +207,7 @@ pub(crate) fn backup_game_inner(
         store: game.store,
         store_user_id: ctx.store_user_id.clone().filter(|s| s != "*"),
         store_game_id: game.store_game_id.clone(),
+        seguranca: false,
     };
 
     // 3. Grava .tmp e só renomeia quando tudo estiver no disco.
@@ -255,6 +261,7 @@ pub(crate) fn backup_game_inner(
         pinned: false,
         content_hash,
         total_bytes,
+        seguranca: false,
     };
     refs.push(r.clone());
     refs.sort_by_key(|r| r.created);
@@ -348,6 +355,29 @@ pub fn set_pinned(
     write_atomic(&json, &serde_json::to_vec_pretty(&meta).map_err(fmt_err)?)
 }
 
+/// Marca uma versão como de segurança (no índice e no `.json`).
+pub fn set_safety(dest_root: &Path, game_id: &str, stem: &str) -> Result<(), CoreError> {
+    let mut index = LibraryIndex::load(dest_root)?;
+    let r = index
+        .games
+        .get_mut(game_id)
+        .and_then(|v| v.iter_mut().find(|r| r.stem == stem))
+        .ok_or_else(|| CoreError::Formato(format!("versão {game_id}/{stem} não existe")))?;
+    r.seguranca = true;
+    index.save_atomic(dest_root)?;
+    let mut meta = load_meta(dest_root, game_id, stem)?;
+    meta.seguranca = true;
+    let (_, json) = snapshot_paths(dest_root, game_id, stem);
+    write_atomic(&json, &serde_json::to_vec_pretty(&meta).map_err(fmt_err)?)
+}
+
+/// A versão mais recente que não é de segurança.
+pub fn latest_restorable(refs: &[SnapshotRef]) -> Option<&SnapshotRef> {
+    refs.iter()
+        .filter(|r| !r.seguranca)
+        .max_by_key(|r| r.created)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,6 +439,7 @@ mod tests {
             store_game_id: None,
             patterns: Vec::new(),
             steam_app_id: None,
+            last_modified: None,
         };
         Fixture {
             _t: t,
@@ -509,6 +540,55 @@ mod tests {
         assert_eq!(
             LibraryIndex::load(&f.dest).unwrap().games["elden-ring"].len(),
             2
+        );
+    }
+
+    fn r(stem: &str, h: i64, seguranca: bool) -> SnapshotRef {
+        SnapshotRef {
+            stem: stem.into(),
+            created: now() + Duration::hours(h),
+            pinned: false,
+            content_hash: String::new(),
+            total_bytes: 0,
+            seguranca,
+        }
+    }
+
+    #[test]
+    fn latest_ignora_versao_de_seguranca() {
+        let refs = vec![r("antiga", 0, false), r("nova", 1, true)];
+        assert_eq!(latest_restorable(&refs).unwrap().stem, "antiga");
+        let so_seg = vec![r("a", 0, true), r("b", 1, true)];
+        assert!(latest_restorable(&so_seg).is_none());
+    }
+
+    #[test]
+    fn set_safety_grava_indice_e_json() {
+        let f = fixture();
+        backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
+        set_safety(&f.dest, "elden-ring", "2026-11-20_21-40-05").unwrap();
+        let idx = LibraryIndex::load(&f.dest).unwrap();
+        assert!(idx.games["elden-ring"][0].seguranca);
+        assert!(
+            load_meta(&f.dest, "elden-ring", "2026-11-20_21-40-05")
+                .unwrap()
+                .seguranca
+        );
+    }
+
+    #[test]
+    fn json_antigo_sem_seguranca_le_false() {
+        let f = fixture();
+        backup_game(&f.game, &f.ctx, &f.dest, 10, now()).unwrap();
+        let (_, json) = snapshot_paths(&f.dest, "elden-ring", "2026-11-20_21-40-05");
+        let mut v: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&json).unwrap()).unwrap();
+        v.as_object_mut().unwrap().remove("seguranca");
+        fs::write(&json, v.to_string()).unwrap();
+        assert!(
+            !load_meta(&f.dest, "elden-ring", "2026-11-20_21-40-05")
+                .unwrap()
+                .seguranca
         );
     }
 

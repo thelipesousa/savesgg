@@ -52,4 +52,18 @@ describe("DestinationPicker", () => {
     render(DestinationPicker, { destinations: dests, preselected: ["sync:c:/users/ana/onedrive"], onconfirm: vi.fn(), oncancel: vi.fn(), onaddfolder: vi.fn() });
     expect((screen.getByRole("checkbox", { name: /OneDrive/ }) as HTMLInputElement).checked).toBe(true);
   });
+
+  test("avisa quando o app da nuvem está fechado", () => {
+    const fechado = [{ ...dests[0], cliente_ativo: false }, dests[1]];
+    render(DestinationPicker, { destinations: fechado, preselected: [], onconfirm: vi.fn(), oncancel: vi.fn(), onaddfolder: vi.fn() });
+    expect(
+      screen.getByText("O OneDrive não está aberto: os backups ficam na pasta, mas só sobem quando ele abrir."),
+    ).toBeTruthy();
+  });
+
+  test("sem aviso quando o app da nuvem está aberto", () => {
+    const aberto = [{ ...dests[0], cliente_ativo: true }, dests[1]];
+    render(DestinationPicker, { destinations: aberto, preselected: [], onconfirm: vi.fn(), oncancel: vi.fn(), onaddfolder: vi.fn() });
+    expect(screen.queryByText(/não está aberto/)).toBeNull();
+  });
 });

@@ -6,6 +6,9 @@
   import Configuracoes from "./screens/Configuracoes.svelte";
   import Assistente from "./screens/Assistente.svelte";
 
+  import AvisoAtualizacao from "./components/AvisoAtualizacao.svelte";
+  import { procurarAtualizacao } from "./lib/atualizacao";
+  import type { Update } from "@tauri-apps/plugin-updater";
   import { api } from "./lib/api";
   import { aplicarTema } from "./lib/tema";
 
@@ -25,6 +28,21 @@
       .catch(() => {});
   });
   let tela = $state<Tela>("inicio");
+
+  // No app instalado: procura versão nova 30 s depois de abrir e depois a cada 6 h.
+  let atualizacao = $state<Update | null>(null);
+  $effect(() => {
+    if (import.meta.env.DEV) return;
+    const procurar = async () => {
+      atualizacao = (await procurarAtualizacao()).nova ?? atualizacao;
+    };
+    const primeiro = setTimeout(procurar, 30_000);
+    const repetir = setInterval(procurar, 6 * 60 * 60 * 1000);
+    return () => {
+      clearTimeout(primeiro);
+      clearInterval(repetir);
+    };
+  });
 
   const menu: { id: Tela; texto: string; icone: string }[] = [
     { id: "inicio", texto: "Início", icone: "🏠" },
@@ -52,6 +70,7 @@
     </ul>
   </nav>
   <main class="conteudo">
+    {#if atualizacao}<AvisoAtualizacao {atualizacao} />{/if}
     {#if tela === "inicio"}
       <Inicio />
     {:else if tela === "restaurar"}

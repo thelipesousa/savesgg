@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { beforeEach, expect, test, vi } from "vitest";
 
 const invoke = vi.fn();
@@ -43,4 +43,19 @@ test("atualiza quando o motor termina a varredura depois de abrir", async () => 
   await screen.findByRole("button", { name: "Escanear PC" });
   ouvintes["varredura-concluida"]({ payload: [jogo("c", "Charlie")] });
   expect(await screen.findByText("Charlie")).toBeTruthy();
+});
+
+test("remover jogo manual usa a lista refeita pelo motor", async () => {
+  const manual = { ...jogo("meu-jogo", "Meu Jogo"), source: "manual" };
+  invoke.mockImplementation((cmd: string) => {
+    if (cmd === "cached_scan") return Promise.resolve([manual, jogo("b", "Bravo")]);
+    if (cmd === "remove_manual_game") return Promise.resolve([jogo("b", "Bravo")]);
+    return Promise.resolve(null);
+  });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  render(Inicio);
+  await fireEvent.click(await screen.findByRole("button", { name: "Remover" }));
+  await waitFor(() => expect(screen.queryByText("Meu Jogo")).toBeNull());
+  expect(invoke).toHaveBeenCalledWith("remove_manual_game", { gameId: "meu-jogo" });
+  expect(screen.getByText("Bravo")).toBeTruthy();
 });

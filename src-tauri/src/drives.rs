@@ -118,6 +118,7 @@ mod tests {
             available: true,
             free_bytes: None,
             has_backup: false,
+            cliente_ativo: None,
         }
     }
 

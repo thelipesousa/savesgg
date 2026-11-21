@@ -197,7 +197,7 @@ fn on_menu(app: &AppHandle, id: &str) {
             let state = app.state::<AppState>();
             let paused = !state.config().auto_paused;
             if let Err(e) = state.update_config(|c| c.auto_paused = paused) {
-                eprintln!("bandeja: {e}");
+                log::warn!("bandeja: {e}");
             }
             crate::auto::publish(app, |s| s.paused = paused);
         }
