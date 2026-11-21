@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AvisoNuvem from "../components/AvisoNuvem.svelte";
   import { api, errorMessage } from "../lib/api";
   import { formatBytes } from "../lib/format";
   import { TEMAS, aplicarTema } from "../lib/tema";
@@ -162,6 +163,7 @@
                     {#if d.kind.tipo === "pasta_sincronizada"}Pasta sincronizada · recomendado{:else if d.kind.tipo === "disco_removivel"}Disco externo{:else}Pasta neste PC{/if}
                     {#if d.free_bytes !== null}· {formatBytes(d.free_bytes)} livres{/if}
                   </span>
+                  <AvisoNuvem destino={d} />
                 </span>
                 <input type="checkbox" checked={marcados.includes(d.id)} disabled={!d.available}
                   onchange={() => alternar(d.id)} aria-label={d.label} />

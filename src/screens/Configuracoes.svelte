@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AvisoNuvem from "../components/AvisoNuvem.svelte";
   import { api, errorMessage } from "../lib/api";
   import { formatBytes } from "../lib/format";
   import type { Destination, IgnoredView, SettingsView } from "../lib/types";
@@ -129,6 +130,7 @@
               {#if d.free_bytes !== null}{formatBytes(d.free_bytes)} livres{/if}
             </span>
           </label>
+          <AvisoNuvem destino={d} />
         </li>
       {/each}
       {#each ausentes as id (id)}

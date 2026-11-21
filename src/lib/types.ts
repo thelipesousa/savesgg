@@ -34,6 +34,7 @@ export interface Destination {
   available: boolean;
   free_bytes: number | null;
   has_backup: boolean;
+  cliente_ativo?: boolean | null;
 }
 
 export interface BackupResultView {

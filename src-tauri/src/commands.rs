@@ -197,10 +197,27 @@ pub async fn scan(app: tauri::AppHandle) -> Res<Vec<GameView>> {
     blocking(move || run_scan_blocking(&app.state::<AppState>())).await
 }
 
+/// Nomes dos processos abertos agora (para saber se o app da nuvem está rodando).
+fn nomes_de_processos() -> Vec<String> {
+    let Ok(mut sys) = sysinfo::System::new() else {
+        return Vec::new();
+    };
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    sys.processes()
+        .values()
+        .map(|p| p.name().to_string_lossy().into_owned())
+        .collect()
+}
+
 #[tauri::command]
 pub async fn list_destinations_cmd(state: State<'_, AppState>) -> Res<Vec<Destination>> {
     let cfg = state.config();
-    blocking(move || Ok(list_destinations(&cfg))).await
+    blocking(move || {
+        let mut d = list_destinations(&cfg);
+        savesgg_core::destinations::marcar_clientes(&mut d, &nomes_de_processos());
+        Ok(d)
+    })
+    .await
 }
 
 /// Abre o seletor de pasta e adiciona a pasta como destino.
@@ -256,6 +273,7 @@ pub async fn open_backup_folder(
         available: true,
         free_bytes: None,
         has_backup: true,
+        cliente_ativo: None,
     }))
 }
 
