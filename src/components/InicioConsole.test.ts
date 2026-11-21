@@ -24,8 +24,9 @@ describe("Início console", () => {
 
   test("seta para a direita avança", async () => {
     render(InicioConsole, { games: jogos, onbackup: vi.fn() });
-    await fireEvent.keyDown(screen.getByRole("list", { name: "Biblioteca" }), { key: "ArrowRight" });
+    await fireEvent.keyDown(screen.getByRole("button", { name: "Alfa" }), { key: "ArrowRight" });
     expect(screen.getByRole("heading", { level: 2, name: "Bravo" })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Bravo" }));
   });
 
   test("backup do jogo em destaque", async () => {

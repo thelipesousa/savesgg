@@ -14,11 +14,15 @@
   let indice = $state(0);
   const atual = $derived(games[Math.min(indice, games.length - 1)]);
 
+  let botoes = $state<HTMLButtonElement[]>([]);
+
+  // Setas trocam o jogo em destaque e levam o foco junto (navegação de console).
   function teclado(e: KeyboardEvent) {
     if (e.key === "ArrowRight") indice = Math.min(indice + 1, games.length - 1);
     else if (e.key === "ArrowLeft") indice = Math.max(indice - 1, 0);
     else return;
     e.preventDefault();
+    botoes[indice]?.focus();
   }
 </script>
 
@@ -36,12 +40,11 @@
     </div>
   </section>
 
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <ul class="carrossel" aria-label="Biblioteca" tabindex="0" onkeydown={teclado}>
+  <ul class="carrossel" aria-label="Biblioteca">
     {#each games as g, i (g.id)}
       <li class:ativo={i === indice}>
         <button type="button" aria-label={g.name} aria-current={i === indice ? "true" : undefined}
-          onclick={() => (indice = i)}>
+          bind:this={botoes[i]} onclick={() => (indice = i)} onkeydown={teclado}>
           <Capa game={g} tamanho="grande" />
           <span class="nome">{g.name}</span>
         </button>
