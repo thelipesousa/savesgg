@@ -6,17 +6,25 @@
   import type { AutoStatusView } from "../lib/types";
   import GameRow from "../components/GameRow.svelte";
   import GameCard from "../components/GameCard.svelte";
+  import InicioConsole from "../components/InicioConsole.svelte";
   import DestinationPicker from "../components/DestinationPicker.svelte";
   import StatusAutomatico from "../components/StatusAutomatico.svelte";
   import AvisoDisco from "../components/AvisoDisco.svelte";
 
   let status = $state<AutoStatusView | null>(null);
   let exibicao = $state<"lista" | "grade">("lista");
+  let tema = $state("gamer");
   let disco = $state<Destination | null>(null);
 
   $effect(() => {
     api.autoStatus().then((s) => (status = s)).catch(() => {});
-    api.getSettings().then((s) => (exibicao = s?.game_view === "grade" ? "grade" : "lista")).catch(() => {});
+    api
+      .getSettings()
+      .then((s) => {
+        exibicao = s?.game_view === "grade" ? "grade" : "lista";
+        tema = s?.theme ?? "gamer";
+      })
+      .catch(() => {});
     const parar = [
       listen<AutoStatusView>("status-automatico", (e) => (status = e.payload)),
       listen<Destination>("disco-plugado", (e) => (disco = e.payload)),
@@ -157,6 +165,10 @@
     {/each}
     <button type="button" class="fechar" aria-label="Fechar" onclick={() => (resultado = null)}>×</button>
   </div>
+{/if}
+
+{#if scanned && tema === "console" && normais.length > 0}
+  <InicioConsole games={normais} onbackup={(id) => abrirPicker([id])} />
 {/if}
 
 {#if scanned}
