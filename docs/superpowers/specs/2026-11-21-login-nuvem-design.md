@@ -2,6 +2,9 @@
 
 > Data: 2026-11-21 · Status: aguardando aprovação · Issue: #26 · Versão alvo: 0.3.0
 
+
+> **Mudança de escopo (2026-11-21, decisão do usuário):** nesta versão entra **só o Google Drive**. O OneDrive fica para depois (issue própria), porque o cadastro na Microsoft exige criar uma conta do Azure. O desenho continua o mesmo: o trait `Provedor` permite acrescentar o OneDrive depois sem mexer no enviador. Até lá, as partes de OneDrive deste documento (escopos, endpoints, guia de cadastro da Microsoft) servem de referência para a próxima etapa.
+
 ## 1. Intenção e porquê
 
 O SavesGG vai ser distribuído para primos e amigos do usuário. Hoje a nuvem só funciona se o app oficial do OneDrive ou do Google Drive estiver instalado e sincronizando a pasta. Muita gente não tem esse app, e depois de formatar ele ainda não está configurado.

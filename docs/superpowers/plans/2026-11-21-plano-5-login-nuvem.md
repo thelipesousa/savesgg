@@ -12,6 +12,15 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-21-login-nuvem-design.md` (issue #26)
 
+
+> **Mudança de escopo (2026-11-21, decisão do usuário): só Google Drive nesta etapa.** Ajustes que valem acima de qualquer texto das tarefas:
+> - `ProvedorNuvem` tem só a variante `Gdrive` (serde `"gdrive"`). A variante `Onedrive` entra junto com o OneDrive, depois.
+> - **A Tarefa 4 vira "HTTP e Google Drive":** cria `http.rs` (com `Pedido`, `Resposta`, `Http`, `HttpUreq` e `Token`) e faz todo o conteúdo da Tarefa 5 (Google Drive). **Não** cria `onedrive.rs`. A antiga Tarefa 5 deixa de existir e as seguintes ficam renumeradas (OAuth = 5, comandos e motor = 6, interface = 7, build = 8).
+> - **OAuth (Tarefa 5):** só o Google. `cliente()` devolve `None` para qualquer provedor sem id. Os testes de URL da Microsoft saem, e `url_google_usa_127` fica.
+> - **Interface (Tarefa 7):** só o botão "Entrar com Google (Drive)". `login_nuvem_disponivel` devolve `{ gdrive: bool }`.
+> - **Build (Tarefa 8):** só `SAVESGG_GOOGLE_CLIENT_ID` e `SAVESGG_GOOGLE_CLIENT_SECRET`. O README traz só o guia do Google. A tarefa ganha também, no repositório `savesgg-site`, uma página `/privacidade` (o que o app acessa, onde ficam os dados, que não há servidor nem telemetria, como revogar o acesso), que o Google pede para publicar o consentimento em produção.
+> - Testes e exemplos que citam OneDrive nas Tarefas 1 a 3 usam Google Drive no lugar (por exemplo, `"Google Drive (ana@gmail.com)"` e o id `nuvem:gdrive:abc`).
+
 ## Global Constraints
 
 **Formato e configuração**
