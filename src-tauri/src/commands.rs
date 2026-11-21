@@ -86,7 +86,14 @@ pub fn run_scan_blocking(state: &AppState) -> Res<Vec<GameView>> {
         extra_roots: find_emulator_roots(&drive_roots()),
         manual: cfg.manual_games.clone(),
     };
+    let inicio = std::time::Instant::now();
     let result = core_scan(&ctx, &manifest, &installed, &opts);
+    log::info!(
+        "varredura: {} jogos ({} acima do limite) em {} ms",
+        result.games.len(),
+        result.over_limit.len(),
+        inicio.elapsed().as_millis()
+    );
     let dests = list_destinations(&cfg);
     let (views, risk_ids) = make_views(
         &result,
@@ -275,6 +282,21 @@ pub async fn open_backup_folder(
         has_backup: true,
         cliente_ativo: None,
     }))
+}
+
+/// Abre o Explorer na pasta de logs do app.
+#[tauri::command]
+pub fn open_logs_folder(app: tauri::AppHandle) -> Res<()> {
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|_| "pasta de logs indisponível".to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::process::Command::new("explorer")
+        .arg(&dir)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Seletor de pasta genérico (restauração de itens não resolvidos).
@@ -579,7 +601,15 @@ pub async fn apply_restore(
         let plan = core_plan(&root, &game_id, &stem, &ctx, &vars_for(&meta, &installed))
             .map_err(|e| e.to_string())?;
         let overrides = resolve_overrides(&plan, &overrides).map_err(|e| e.to_string())?;
-        core_apply(&plan, &root, &ctx, &overrides, Utc::now()).map_err(|e| e.to_string())
+        let r = core_apply(&plan, &root, &ctx, &overrides, Utc::now());
+        match &r {
+            Ok(rep) => log::info!(
+                "restauração: {game_id} ({stem}) → {} arquivos",
+                rep.restored
+            ),
+            Err(e) => log::error!("restauração: {game_id} ({stem}) falhou: {e}"),
+        }
+        r.map_err(|e| e.to_string())
     })
     .await
 }
@@ -638,6 +668,7 @@ pub async fn restore_many(
                     mensagem: "jogo não encontrado neste backup".into(),
                 }
             };
+            log::info!("restauração em lote: {id} → {resultado:?}");
             out.push(LoteItemView {
                 game_id: id,
                 game_name,
