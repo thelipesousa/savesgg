@@ -53,6 +53,8 @@ pub fn pasta_preparacao(base: &Path, destino_id: &str) -> PathBuf {
 
 #[cfg(test)]
 pub mod falso;
+pub mod gdrive;
+pub mod http;
 pub mod sync;
 
 /// Item de uma pasta na nuvem.
