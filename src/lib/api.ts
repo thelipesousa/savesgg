@@ -31,6 +31,9 @@ export const api = {
   setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),
   setPaused: (paused: boolean) => invoke<void>("set_paused", { paused }),
   autoStatus: () => invoke<AutoStatusView>("auto_status"),
+  setTheme: (theme: string) => invoke<void>("set_theme", { theme }),
+  setGameView: (view: string) => invoke<void>("set_game_view", { view }),
+  completeWizard: () => invoke<void>("complete_wizard"),
   copyAllTo: (destinationId: string) => invoke<BackupResultView[]>("copy_all_to", { destinationId }),
 };
 

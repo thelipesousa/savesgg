@@ -1,7 +1,6 @@
 /* Tema 1 — Gamer escuro verde-neon (referência: design/stitch/v0-dashboard-original.png).
    Os outros temas (plano 3) redefinem só estas variáveis. */
-:root,
-[data-theme="gamer"] {
+:root {
   --fundo: #0b100e;
   --superficie: #131a17;
   --superficie-2: #1a2420;
@@ -112,7 +111,7 @@ button:disabled {
 
 .chip.ok {
   color: var(--ok);
-  border-color: rgb(25 230 160 / 0.4);
+  border-color: var(--ok);
 }
 
 .modal-fundo {
