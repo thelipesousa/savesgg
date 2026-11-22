@@ -17,8 +17,11 @@ pub const API: &str = "https://www.googleapis.com/drive/v3/files";
 pub const UPLOAD: &str = "https://www.googleapis.com/upload/drive/v3/files";
 pub const PASTA_RAIZ: &str = "SavesGG Backups";
 const TIPO_PASTA: &str = "application/vnd.google-apps.folder";
-/// Até aqui vai num envio só; acima, upload "resumable".
+/// Até aqui vai num envio só; acima, upload "resumable" em pedaços.
 const LIMITE_SIMPLES: usize = 5 * 1024 * 1024;
+/// Pedaço do upload "resumable" (múltiplo de 256 KiB, como a API exige). Cada pedaço
+/// tem o próprio prazo, então um zip grande em internet lenta termina de subir.
+pub const PEDACO: usize = 8 * 1024 * 1024;
 /// Marca interna de "não achou" (404), para refazer com o cache limpo.
 const NAO_ACHOU: &str = "HTTP 404";
 
@@ -54,6 +57,8 @@ pub struct GoogleDrive<H: Http, T: Token> {
     token: T,
     arquivo_ids: PathBuf,
     ids: Mutex<BTreeMap<String, String>>,
+    /// A pasta raiz do cache já foi conferida nesta instância (uma vez por passada).
+    raiz_conferida: Mutex<bool>,
 }
 
 impl<H: Http, T: Token> GoogleDrive<H, T> {
@@ -68,6 +73,7 @@ impl<H: Http, T: Token> GoogleDrive<H, T> {
             token,
             arquivo_ids,
             ids: Mutex::new(ids),
+            raiz_conferida: Mutex::new(false),
         }
     }
 
@@ -109,6 +115,15 @@ impl<H: Http, T: Token> GoogleDrive<H, T> {
         match r.status {
             s if (200..300).contains(&s) => Ok(r),
             404 => Err(ErroNuvem::Servidor(NAO_ACHOU.into())),
+            // A pessoa desmarcou a permissão do Drive no login: só entrando de novo.
+            403 if {
+                let corpo = String::from_utf8_lossy(&r.corpo);
+                corpo.contains("insufficientPermissions")
+                    || corpo.contains("ACCESS_TOKEN_SCOPE_INSUFFICIENT")
+            } =>
+            {
+                Err(ErroNuvem::Login)
+            }
             s => Err(ErroNuvem::Servidor(format!("HTTP {s}"))),
         }
     }
@@ -170,6 +185,9 @@ impl<H: Http, T: Token> GoogleDrive<H, T> {
                 chave.push_str(seg);
                 chave.clone()
             };
+            if i == 0 {
+                self.conferir_raiz()?;
+            }
             let cache = self
                 .ids
                 .lock()
@@ -201,6 +219,42 @@ impl<H: Http, T: Token> GoogleDrive<H, T> {
         Ok(Some(pai))
     }
 
+    /// Uma vez por instância: se a pasta raiz guardada no cache foi para a lixeira ou
+    /// sumiu, esquece o cache (senão os backups iriam para a lixeira e se perderiam).
+    fn conferir_raiz(&self) -> Result<(), ErroNuvem> {
+        let mut conferida = self
+            .raiz_conferida
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if *conferida {
+            return Ok(());
+        }
+        let raiz = self
+            .ids
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get("/")
+            .cloned();
+        if let Some(id) = raiz {
+            #[derive(Deserialize)]
+            struct Lixeira {
+                #[serde(default)]
+                trashed: bool,
+            }
+            let r = self.chamar(Pedido::new("GET", format!("{API}/{id}?fields=trashed")))?;
+            let perdida = match r.status {
+                404 => true,
+                s if (200..300).contains(&s) => Self::json::<Lixeira>(&r)?.trashed,
+                _ => Self::checar(r).map(|_| false)?,
+            };
+            if perdida {
+                self.limpar_ids();
+            }
+        }
+        *conferida = true;
+        Ok(())
+    }
+
     fn arquivo_id(&self, pasta: &str, nome: &str) -> Result<Option<String>, ErroNuvem> {
         let q = format!(
             "name='{}' and '{}' in parents and trashed=false",
@@ -222,6 +276,45 @@ impl<H: Http, T: Token> GoogleDrive<H, T> {
                 op()
             }
             r => r,
+        }
+    }
+}
+
+impl<H: Http, T: Token> GoogleDrive<H, T> {
+    /// Manda o arquivo na sessão "resumable", um pedaço por vez (308 = continue).
+    fn enviar_em_pedacos(
+        &self,
+        sessao: &str,
+        origem: &Path,
+        tamanho: usize,
+    ) -> Result<(), ErroNuvem> {
+        use std::io::Read;
+        let mut f = std::fs::File::open(origem).map_err(|e| ErroNuvem::Local(e.to_string()))?;
+        let mut inicio = 0usize;
+        loop {
+            let n = PEDACO.min(tamanho - inicio);
+            let mut buf = vec![0u8; n];
+            f.read_exact(&mut buf)
+                .map_err(|e| ErroNuvem::Local(e.to_string()))?;
+            let r = self.chamar(
+                Pedido::new("PUT", sessao)
+                    .cabecalho(
+                        "Content-Range",
+                        format!("bytes {inicio}-{}/{tamanho}", inicio + n - 1),
+                    )
+                    .corpo(buf),
+            )?;
+            inicio += n;
+            if r.status == 308 && inicio < tamanho {
+                continue;
+            }
+            Self::checar(r)?;
+            if inicio < tamanho {
+                return Err(ErroNuvem::Servidor(
+                    "o Drive encerrou o envio antes do fim".into(),
+                ));
+            }
+            return Ok(());
         }
     }
 }
@@ -250,18 +343,21 @@ impl<H: Http, T: Token> Provedor for GoogleDrive<H, T> {
     }
 
     fn enviar(&self, caminho: &str, origem: &Path) -> Result<(), ErroNuvem> {
-        let dados = std::fs::read(origem).map_err(|e| ErroNuvem::Local(e.to_string()))?;
+        let tamanho = std::fs::metadata(origem)
+            .map_err(|e| ErroNuvem::Local(e.to_string()))?
+            .len() as usize;
         let (dir, nome) = separar(caminho);
         self.com_cache(|| {
             let pai = self
                 .pasta_id(dir, true)?
                 .ok_or_else(|| ErroNuvem::Servidor("pasta não criada".into()))?;
             let existente = self.arquivo_id(&pai, nome)?;
-            if dados.len() <= LIMITE_SIMPLES {
+            if tamanho <= LIMITE_SIMPLES {
+                let dados = std::fs::read(origem).map_err(|e| ErroNuvem::Local(e.to_string()))?;
                 let pedido = match &existente {
                     Some(id) => Pedido::new("PATCH", format!("{UPLOAD}/{id}?uploadType=media"))
                         .cabecalho("Content-Type", "application/octet-stream")
-                        .corpo(dados.clone()),
+                        .corpo(dados),
                     None => {
                         let meta = serde_json::json!({ "name": nome, "parents": [pai] });
                         let fronteira = "savesgg_fronteira_7f3a";
@@ -289,14 +385,13 @@ impl<H: Http, T: Token> Provedor for GoogleDrive<H, T> {
                     .corpo(serde_json::json!({ "name": nome, "parents": [pai] }).to_string().into_bytes()),
             }
             .cabecalho("Content-Type", "application/json; charset=UTF-8")
-            .cabecalho("X-Upload-Content-Length", dados.len().to_string());
+            .cabecalho("X-Upload-Content-Length", tamanho.to_string());
             let r = Self::checar(self.chamar(inicio)?)?;
             let sessao = r
                 .cabecalho("Location")
                 .ok_or_else(|| ErroNuvem::Servidor("o Drive não abriu a sessão de envio".into()))?
                 .to_string();
-            Self::checar(self.chamar(Pedido::new("PUT", sessao).corpo(dados.clone()))?)?;
-            Ok(())
+            self.enviar_em_pedacos(&sessao, origem, tamanho)
         })
     }
 
@@ -441,10 +536,14 @@ mod tests {
         );
 
         // Outra instância usa o cache gravado: nada de listar ou criar pastas.
-        let http2 = HttpGravado::com(vec![(200, VAZIO), (200, r#"{"id":"g"}"#)]);
+        let http2 = HttpGravado::com(vec![
+            (200, r#"{"trashed":false}"#),
+            (200, VAZIO),
+            (200, r#"{"id":"g"}"#),
+        ]);
         let g2 = GoogleDrive::new(&http2, &tok, ids);
         g2.enviar("SavesGG/jogo/b.json", &a).unwrap();
-        assert_eq!(http2.pedidos().len(), 2);
+        assert_eq!(http2.pedidos().len(), 3, "só confere a raiz");
     }
 
     #[test]
@@ -454,6 +553,7 @@ mod tests {
         std::fs::write(&ids, r#"{"/":"r","SavesGG":"s","SavesGG/jogo":"j"}"#).unwrap();
         let a = arquivo(t.path(), "a.json", 10);
         let http = HttpGravado::com(vec![
+            (200, r#"{"trashed":false}"#),
             (
                 200,
                 r#"{"files":[{"id":"x","name":"a.json","mimeType":"application/json"}]}"#,
@@ -464,7 +564,7 @@ mod tests {
         GoogleDrive::new(&http, &tok, ids)
             .enviar("SavesGG/jogo/a.json", &a)
             .unwrap();
-        let up = &http.pedidos()[1];
+        let up = &http.pedidos()[2];
         assert_eq!(up.metodo, "PATCH");
         assert!(up.url.starts_with(&format!("{UPLOAD}/x?")), "{}", up.url);
     }
@@ -476,6 +576,7 @@ mod tests {
         std::fs::write(&ids, r#"{"/":"r","SavesGG":"s","SavesGG/jogo":"j"}"#).unwrap();
         let a = arquivo(t.path(), "a.zip", 6 * 1024 * 1024);
         let http = HttpGravado::default();
+        http.responde(200, r#"{"trashed":false}"#, vec![]);
         http.responde(200, VAZIO, vec![]);
         http.responde(
             200,
@@ -488,10 +589,102 @@ mod tests {
             .enviar("SavesGG/jogo/a.zip", &a)
             .unwrap();
         let p = http.pedidos();
-        assert!(p[1].url.contains("uploadType=resumable"));
-        assert_eq!(p[2].metodo, "PUT");
-        assert_eq!(p[2].url, "https://upload.exemplo/sessao1");
-        assert_eq!(p[2].corpo.len(), 6 * 1024 * 1024);
+        assert!(p[2].url.contains("uploadType=resumable"));
+        assert_eq!(p[3].metodo, "PUT");
+        assert_eq!(p[3].url, "https://upload.exemplo/sessao1");
+        assert_eq!(p[3].corpo.len(), 6 * 1024 * 1024);
+    }
+
+    #[test]
+    fn gdrive_envio_grande_vai_em_pedacos() {
+        let t = tempfile::tempdir().unwrap();
+        let ids = t.path().join("ids.json");
+        std::fs::write(&ids, r#"{"/":"r","SavesGG":"s","SavesGG/jogo":"j"}"#).unwrap();
+        let tamanho = 2 * PEDACO + 1000;
+        let a = arquivo(t.path(), "a.zip", tamanho);
+        let http = HttpGravado::default();
+        http.responde(200, r#"{"trashed":false}"#, vec![]); // raiz conferida
+        http.responde(200, VAZIO, vec![]);
+        http.responde(200, "", vec![("Location", "https://upload.exemplo/s")]);
+        http.responde(308, "", vec![]);
+        http.responde(308, "", vec![]);
+        http.responde(200, r#"{"id":"z"}"#, vec![]);
+        let tok = TokenFalso::default();
+        GoogleDrive::new(&http, &tok, ids)
+            .enviar("SavesGG/jogo/a.zip", &a)
+            .unwrap();
+        let puts: Vec<Pedido> = http
+            .pedidos()
+            .into_iter()
+            .filter(|p| p.metodo == "PUT")
+            .collect();
+        assert_eq!(puts.len(), 3);
+        let faixa = |p: &Pedido| {
+            p.cabecalhos
+                .iter()
+                .find(|(k, _)| k == "Content-Range")
+                .map(|(_, v)| v.clone())
+                .unwrap()
+        };
+        assert_eq!(faixa(&puts[0]), format!("bytes 0-{}/{tamanho}", PEDACO - 1));
+        assert_eq!(
+            faixa(&puts[2]),
+            format!("bytes {}-{}/{tamanho}", 2 * PEDACO, tamanho - 1)
+        );
+        assert_eq!(puts[2].corpo.len(), 1000);
+    }
+
+    #[test]
+    fn gdrive_raiz_na_lixeira_esquece_o_cache() {
+        let t = tempfile::tempdir().unwrap();
+        let ids = t.path().join("ids.json");
+        std::fs::write(&ids, r#"{"/":"velha","SavesGG":"s-velha"}"#).unwrap();
+        let http = HttpGravado::com(vec![
+            (200, r#"{"trashed":true}"#), // a raiz do cache está na lixeira
+            (200, VAZIO),                 // procura "SavesGG Backups" fora da lixeira
+        ]);
+        let tok = TokenFalso::default();
+        let itens = GoogleDrive::new(&http, &tok, ids.clone())
+            .listar("SavesGG")
+            .unwrap();
+        assert!(itens.is_empty());
+        let gravado = std::fs::read_to_string(&ids).unwrap();
+        assert!(!gravado.contains("velha"), "{gravado}");
+        // num envio, a pasta é criada de novo (fora da lixeira)
+        let a = arquivo(t.path(), "a.json", 10);
+        let http2 = HttpGravado::com(vec![
+            (200, VAZIO),
+            (200, r#"{"id":"r2"}"#),
+            (200, VAZIO),
+            (200, r#"{"id":"s2"}"#),
+            (200, VAZIO),
+            (200, r#"{"id":"f"}"#),
+        ]);
+        GoogleDrive::new(&http2, &tok, ids.clone())
+            .enviar("SavesGG/a.json", &a)
+            .unwrap();
+        assert!(
+            std::fs::read_to_string(&ids)
+                .unwrap()
+                .contains(r#""/":"r2""#)
+        );
+    }
+
+    #[test]
+    fn gdrive_sem_permissao_do_drive_e_login() {
+        let t = tempfile::tempdir().unwrap();
+        let ids = t.path().join("ids.json");
+        std::fs::write(&ids, r#"{"/":"r","SavesGG":"s"}"#).unwrap();
+        let http = HttpGravado::com(vec![
+            (200, r#"{"trashed":false}"#),
+            (
+                403,
+                r#"{"error":{"code":403,"errors":[{"reason":"insufficientPermissions"}]}}"#,
+            ),
+        ]);
+        let tok = TokenFalso::default();
+        let r = GoogleDrive::new(&http, &tok, ids).listar("SavesGG");
+        assert!(matches!(r, Err(ErroNuvem::Login)), "{r:?}");
     }
 
     #[test]
@@ -533,6 +726,7 @@ mod tests {
         let ids = t.path().join("ids.json");
         std::fs::write(&ids, r#"{"/":"r","SavesGG":"s"}"#).unwrap();
         let http = HttpGravado::com(vec![
+            (200, r#"{"trashed":false}"#),
             (
                 200,
                 r#"{"files":[{"id":"1","name":"hades","mimeType":"application/vnd.google-apps.folder"}],"nextPageToken":"p2"}"#,
@@ -550,12 +744,12 @@ mod tests {
         assert_eq!(itens[1].tamanho, 10);
         let p = http.pedidos();
         assert!(
-            p[0].url.contains(&codificar("'s' in parents")),
+            p[1].url.contains(&codificar("'s' in parents")),
             "{}",
-            p[0].url
+            p[1].url
         );
-        assert!(p[0].url.contains("trashed%3Dfalse"));
-        assert!(p[1].url.contains("pageToken=p2"));
+        assert!(p[1].url.contains("trashed%3Dfalse"));
+        assert!(p[2].url.contains("pageToken=p2"));
     }
 
     #[test]
@@ -563,7 +757,11 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let ids = t.path().join("ids.json");
         std::fs::write(&ids, r#"{"/":"r","SavesGG":"s"}"#).unwrap();
-        let http = HttpGravado::com(vec![(401, "{}"), (200, VAZIO)]);
+        let http = HttpGravado::com(vec![
+            (401, "{}"),
+            (200, r#"{"trashed":false}"#),
+            (200, VAZIO),
+        ]);
         let tok = TokenFalso::default();
         GoogleDrive::new(&http, &tok, ids)
             .listar("SavesGG")
@@ -581,7 +779,11 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let ids = t.path().join("ids.json");
         std::fs::write(&ids, r#"{"/":"r","SavesGG":"s"}"#).unwrap();
-        let http = HttpGravado::com(vec![(401, "{}"), (401, "{}")]);
+        let http = HttpGravado::com(vec![
+            (200, r#"{"trashed":false}"#),
+            (401, "{}"),
+            (401, "{}"),
+        ]);
         let tok = TokenFalso::default();
         let r = GoogleDrive::new(&http, &tok, ids).listar("SavesGG");
         assert!(matches!(r, Err(ErroNuvem::Login)));
