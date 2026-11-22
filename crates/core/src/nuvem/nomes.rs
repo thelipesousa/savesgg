@@ -8,7 +8,8 @@ pub fn jogo_valido(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
-/// Nome de versão: `AAAA-MM-DD_HH-MM-SS`, com sufixo opcional `-N`.
+/// Nome de versão: `AAAA-MM-DD_HH-MM-SS`, com sufixo opcional `_N` (o que o motor de
+/// backup usa quando duas versões caem no mesmo segundo) ou `-N`.
 pub fn versao_valida(stem: &str) -> bool {
     let b = stem.as_bytes();
     if b.len() < 19 {
@@ -23,7 +24,7 @@ pub fn versao_valida(stem: &str) -> bool {
     base_ok
         && (sufixo.is_empty()
             || (sufixo.len() >= 2
-                && sufixo[0] == b'-'
+                && (sufixo[0] == b'-' || sufixo[0] == b'_')
                 && sufixo[1..].iter().all(u8::is_ascii_digit)))
 }
 
@@ -56,6 +57,9 @@ mod tests {
     fn versao_valida_formato() {
         assert!(versao_valida("2026-11-20_21-40-05"));
         assert!(versao_valida("2026-11-20_21-40-05-2"));
+        // o motor de backup usa `_N` quando duas versões caem no mesmo segundo
+        assert!(versao_valida("2026-11-20_21-40-05_2"));
+        assert!(!versao_valida("2026-11-20_21-40-05_"));
         assert!(!versao_valida("2026-11-20"));
         assert!(!versao_valida("../a"));
         assert!(!versao_valida("2026-11-20_21-40-05-"));

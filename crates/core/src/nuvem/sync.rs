@@ -54,12 +54,13 @@ pub fn salvar_estado(prep: &Path, e: &EstadoNuvem) -> Result<(), ErroNuvem> {
         .map_err(|x| ErroNuvem::Local(x.to_string()))
 }
 
+/// blake3 e tamanho de um arquivo, lendo aos pedaços (zip grande não vai para a memória).
 pub(crate) fn hash_arquivo(p: &Path) -> Result<(String, u64), ErroNuvem> {
-    let dados = fs::read(p).map_err(|e| ErroNuvem::Local(e.to_string()))?;
-    Ok((
-        blake3::hash(&dados).to_hex().to_string(),
-        dados.len() as u64,
-    ))
+    let erro = |e: std::io::Error| ErroNuvem::Local(e.to_string());
+    let mut f = fs::File::open(p).map_err(erro)?;
+    let mut h = blake3::Hasher::new();
+    let n = std::io::copy(&mut f, &mut h).map_err(erro)?;
+    Ok((h.finalize().to_hex().to_string(), n))
 }
 
 /// Uma versão local: jogo, nome, `.json` e o `.zip` (se ainda estiver aqui).
@@ -70,18 +71,24 @@ pub(crate) struct VersaoLocal {
     pub zip: Option<PathBuf>,
 }
 
-pub(crate) fn versoes_locais(prep: &Path) -> Vec<VersaoLocal> {
+/// Versões da preparação. Uma pasta que não dá para ler (permissão, antivírus) é erro:
+/// tratar como "vazia" faria a retenção apagar na nuvem o que só sumiu da vista.
+pub(crate) fn versoes_locais(prep: &Path) -> Result<Vec<VersaoLocal>, ErroNuvem> {
     let mut out = Vec::new();
-    let Ok(jogos) = fs::read_dir(backup_root(prep)) else {
-        return out;
+    let jogos = match fs::read_dir(backup_root(prep)) {
+        Ok(j) => j,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(out),
+        Err(e) => return Err(ErroNuvem::Local(e.to_string())),
     };
     for j in jogos.flatten().filter(|e| e.path().is_dir()) {
         let jogo = j.file_name().to_string_lossy().into_owned();
         if !jogo_valido(&jogo) {
             continue;
         }
-        let Ok(arqs) = fs::read_dir(j.path()) else {
-            continue;
+        let arqs = match fs::read_dir(j.path()) {
+            Ok(a) => a,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(ErroNuvem::Local(e.to_string())),
         };
         for a in arqs.flatten() {
             let nome = a.file_name().to_string_lossy().into_owned();
@@ -97,22 +104,50 @@ pub(crate) fn versoes_locais(prep: &Path) -> Vec<VersaoLocal> {
         }
     }
     out.sort_by(|a, b| (&a.jogo, &a.stem).cmp(&(&b.jogo, &b.stem)));
-    out
+    Ok(out)
 }
 
 pub(crate) fn remoto(jogo: &str, stem: &str, ext: &str) -> String {
     format!("{PASTA}/{jogo}/{stem}.{ext}")
 }
 
+type Guarda<'a> = std::sync::MutexGuard<'a, ()>;
+
+fn travar(t: &std::sync::Mutex<()>) -> Guarda<'_> {
+    t.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Muda o estado relendo do disco sob a trava (outro passo pode ter gravado nele
+/// enquanto o envio rodava sem a trava, como `garantir_zip` numa restauração).
+fn mudar_estado(
+    prep: &Path,
+    trava: &std::sync::Mutex<()>,
+    f: impl FnOnce(&mut EstadoNuvem),
+) -> Result<EstadoNuvem, ErroNuvem> {
+    let _g = travar(trava);
+    let mut e = carregar_estado(prep);
+    f(&mut e);
+    salvar_estado(prep, &e)?;
+    Ok(e)
+}
+
 /// Envia `local` para `caminho` se o conteúdo for diferente do que está no estado.
+/// O hash e a gravação do estado são feitos com a trava; o envio, sem ela.
 fn enviar_se_mudou(
     prov: &dyn Provedor,
     prep: &Path,
+    trava: &std::sync::Mutex<()>,
     estado: &mut EstadoNuvem,
     caminho: &str,
     local: &Path,
 ) -> Result<bool, ErroNuvem> {
-    let (hash, tamanho) = hash_arquivo(local)?;
+    let (hash, tamanho) = {
+        let _g = travar(trava);
+        if !local.is_file() {
+            return Ok(false); // a retenção apagou enquanto isso
+        }
+        hash_arquivo(local)?
+    };
     if estado
         .arquivos
         .get(caminho)
@@ -121,63 +156,113 @@ fn enviar_se_mudou(
         return Ok(false);
     }
     prov.enviar(caminho, local)?;
-    estado.arquivos.insert(
-        caminho.to_string(),
-        ArquivoRemoto {
-            blake3: hash,
-            tamanho,
-        },
-    );
-    salvar_estado(prep, estado)?;
+    *estado = mudar_estado(prep, trava, |e| {
+        e.arquivos.insert(
+            caminho.to_string(),
+            ArquivoRemoto {
+                blake3: hash,
+                tamanho,
+            },
+        );
+    })?;
     Ok(true)
 }
 
-/// Uma passada de sincronização. Chamar com a trava do destino.
+/// Uma passada de sincronização com uma trava própria (para testes e uso isolado).
 pub fn sincronizar(prep: &Path, prov: &dyn Provedor) -> Result<ResumoSync, ErroNuvem> {
-    let mut estado = carregar_estado(prep);
+    sincronizar_com_trava(prep, prov, &std::sync::Mutex::new(()))
+}
+
+/// Uma passada de sincronização. `trava` é a trava do destino: só os passos locais
+/// (ler, calcular hash, gravar o estado, apagar o zip) a seguram; o envio e os
+/// apagamentos na nuvem rodam sem ela, para o backup local não esperar a internet.
+pub fn sincronizar_com_trava(
+    prep: &Path,
+    prov: &dyn Provedor,
+    trava: &std::sync::Mutex<()>,
+) -> Result<ResumoSync, ErroNuvem> {
+    let (mut estado, locais) = {
+        let _g = travar(trava);
+        (carregar_estado(prep), versoes_locais(prep)?)
+    };
     let mut resumo = ResumoSync::default();
-    let locais = versoes_locais(prep);
 
     for v in &locais {
         let cz = remoto(&v.jogo, &v.stem, "zip");
         let cj = remoto(&v.jogo, &v.stem, "json");
         if let Some(zip) = &v.zip {
-            resumo.enviados += usize::from(enviar_se_mudou(prov, prep, &mut estado, &cz, zip)?);
+            resumo.enviados +=
+                usize::from(enviar_se_mudou(prov, prep, trava, &mut estado, &cz, zip)?);
         }
-        resumo.enviados += usize::from(enviar_se_mudou(prov, prep, &mut estado, &cj, &v.json)?);
+        resumo.enviados += usize::from(enviar_se_mudou(
+            prov,
+            prep,
+            trava,
+            &mut estado,
+            &cj,
+            &v.json,
+        )?);
         // Versão inteira na nuvem: o zip local pode sair (o índice e o .json ficam).
         if let Some(zip) = &v.zip {
-            let (hz, _) = hash_arquivo(zip)?;
-            if estado.arquivos.get(&cz).is_some_and(|a| a.blake3 == hz) {
-                fs::remove_file(zip).map_err(|e| ErroNuvem::Local(e.to_string()))?;
+            let _g = travar(trava);
+            if zip.is_file() && estado.arquivos.contains_key(&cj) {
+                let (hz, _) = hash_arquivo(zip)?;
+                if estado.arquivos.get(&cz).is_some_and(|a| a.blake3 == hz) {
+                    fs::remove_file(zip).map_err(|e| ErroNuvem::Local(e.to_string()))?;
+                }
             }
         }
     }
 
     let indice = prep.join(INDICE);
-    if indice.is_file() {
-        resumo.enviados += usize::from(enviar_se_mudou(prov, prep, &mut estado, INDICE, &indice)?);
-    }
+    resumo.enviados += usize::from(enviar_se_mudou(
+        prov,
+        prep,
+        trava,
+        &mut estado,
+        INDICE,
+        &indice,
+    )?);
 
-    // Retenção: versões que estão no estado mas cujo .json local sumiu.
-    let vivas: BTreeSet<(String, String)> = locais
-        .iter()
-        .map(|v| (v.jogo.clone(), v.stem.clone()))
-        .collect();
-    let apagar: Vec<String> = estado
-        .arquivos
-        .keys()
-        .filter(|k| versao_do_caminho(k).is_some_and(|v| !vivas.contains(&v)))
-        .cloned()
-        .collect();
+    // Retenção: apaga na nuvem só versões que já estiveram inteiras aqui (o .json está
+    // no estado), que não existem mais aqui, e de jogos que ainda têm alguma versão
+    // aqui (um jogo inteiro sumido é perda local, não retenção: a nuvem é o backup).
+    let apagar: Vec<String> = {
+        let _g = travar(trava);
+        let atuais = versoes_locais(prep)?;
+        let vivas: BTreeSet<(String, String)> = atuais
+            .iter()
+            .map(|v| (v.jogo.clone(), v.stem.clone()))
+            .collect();
+        let jogos_aqui: BTreeSet<&str> = atuais.iter().map(|v| v.jogo.as_str()).collect();
+        let estado_atual = carregar_estado(prep);
+        estado_atual
+            .arquivos
+            .keys()
+            .filter(|k| {
+                versao_do_caminho(k).is_some_and(|(jogo, stem)| {
+                    jogos_aqui.contains(jogo.as_str())
+                        && !vivas.contains(&(jogo.clone(), stem.clone()))
+                        && estado_atual
+                            .arquivos
+                            .contains_key(&remoto(&jogo, &stem, "json"))
+                })
+            })
+            .cloned()
+            .collect()
+    };
     for c in apagar {
         prov.apagar(&c)?;
-        estado.arquivos.remove(&c);
-        salvar_estado(prep, &estado)?;
+        mudar_estado(prep, trava, |e| {
+            e.arquivos.remove(&c);
+        })?;
         resumo.apagados += 1;
     }
 
-    resumo.pendentes = pendentes(prep);
+    resumo.pendentes = {
+        let _g = travar(trava);
+        pendentes(prep)
+    };
     Ok(resumo)
 }
 
@@ -192,13 +277,26 @@ pub fn atualizar_da_nuvem(prep: &Path, prov: &dyn Provedor) -> Result<usize, Err
             continue;
         }
         let jogo = pasta.nome;
-        for item in prov.listar(&format!("{PASTA}/{jogo}"))? {
+        let itens = prov.listar(&format!("{PASTA}/{jogo}"))?;
+        // Versões com .json na nuvem: um .zip sem o .json é envio pela metade de
+        // outro PC e não entra no estado (senão a retenção daqui o apagaria).
+        let com_json: BTreeSet<String> = itens
+            .iter()
+            .filter(|i| !i.pasta)
+            .filter_map(|i| arquivo_remoto_valido(&i.nome))
+            .filter(|(_, ext)| *ext == "json")
+            .map(|(stem, _)| stem)
+            .collect();
+        for item in itens {
             if item.pasta {
                 continue;
             }
             let Some((stem, ext)) = arquivo_remoto_valido(&item.nome) else {
                 continue;
             };
+            if ext == "zip" && !com_json.contains(&stem) {
+                continue;
+            }
             let caminho = remoto(&jogo, &stem, ext);
             let local = backup_root(prep).join(&jogo).join(format!("{stem}.{ext}"));
             if ext == "json" {
@@ -223,9 +321,9 @@ pub fn atualizar_da_nuvem(prep: &Path, prov: &dyn Provedor) -> Result<usize, Err
         }
     }
     salvar_estado(prep, &estado)?;
-    if baixados > 0 {
-        incluir_no_indice(prep)?;
-    }
+    // Sempre: também recupera um índice local perdido (as versões só-na-nuvem não
+    // têm zip ao lado, e o índice comum não as acharia sozinho).
+    incluir_no_indice(prep)?;
     Ok(baixados)
 }
 
@@ -233,12 +331,18 @@ pub fn atualizar_da_nuvem(prep: &Path, prov: &dyn Provedor) -> Result<usize, Err
 /// (o índice comum só junta versões com o `.zip` ao lado).
 fn incluir_no_indice(prep: &Path) -> Result<(), ErroNuvem> {
     let erro = |e: crate::CoreError| ErroNuvem::Local(e.to_string());
+    let locais = versoes_locais(prep)?;
+    if locais.is_empty() {
+        return Ok(());
+    }
     let mut idx = crate::backup::LibraryIndex::load(prep).map_err(erro)?;
-    for v in versoes_locais(prep) {
+    let mut mudou = !prep.join(INDICE).is_file();
+    for v in locais {
         let refs = idx.games.entry(v.jogo.clone()).or_default();
         if refs.iter().any(|r| r.stem == v.stem) {
             continue;
         }
+        mudou = true;
         let Ok(meta) = crate::backup::load_meta(prep, &v.jogo, &v.stem) else {
             continue;
         };
@@ -251,6 +355,9 @@ fn incluir_no_indice(prep: &Path) -> Result<(), ErroNuvem> {
             seguranca: meta.seguranca,
         });
         refs.sort_by_key(|r| r.created);
+    }
+    if !mudou {
+        return Ok(());
     }
     idx.save_atomic(prep).map_err(erro)
 }
@@ -306,7 +413,7 @@ fn baixar_atomico(prov: &dyn Provedor, caminho: &str, destino: &Path) -> Result<
 pub fn ultimas_enviadas(prep: &Path) -> BTreeMap<String, chrono::DateTime<chrono::Utc>> {
     let estado = carregar_estado(prep);
     let mut out: BTreeMap<String, chrono::DateTime<chrono::Utc>> = BTreeMap::new();
-    for v in versoes_locais(prep) {
+    for v in versoes_locais(prep).unwrap_or_default() {
         let na_nuvem = estado
             .arquivos
             .contains_key(&remoto(&v.jogo, &v.stem, "zip"))
@@ -346,7 +453,7 @@ pub fn pendentes(prep: &Path) -> usize {
             .unwrap_or(false)
     };
     let mut n = 0;
-    for v in versoes_locais(prep) {
+    for v in versoes_locais(prep).unwrap_or_default() {
         if let Some(zip) = &v.zip {
             n += usize::from(difere(&remoto(&v.jogo, &v.stem, "zip"), zip));
         }
@@ -586,6 +693,107 @@ mod tests {
         let nuvem = ProvedorFalso::default();
         sincronizar(&prep, &nuvem).unwrap();
         assert_eq!(ultimas_enviadas(&prep)["hades"], now());
+    }
+
+    #[test]
+    fn sync_nao_apaga_zip_orfao_de_outro_pc() {
+        // Outro PC enviou o zip e caiu antes do json: este PC não pode apagar o zip.
+        let t = tempfile::tempdir().unwrap();
+        let prep = t.path().join("prep");
+        backup(t.path(), &prep, "v1", 0, 10);
+        let nuvem = ProvedorFalso::default();
+        nuvem.por("SavesGG/hades/2026-01-01_00-00-00.zip", b"zip do outro pc");
+        atualizar_da_nuvem(&prep, &nuvem).unwrap();
+        sincronizar(&prep, &nuvem).unwrap();
+        sincronizar(&prep, &nuvem).unwrap();
+        assert!(nuvem.tem("SavesGG/hades/2026-01-01_00-00-00.zip"));
+    }
+
+    #[test]
+    fn sync_jogo_sumido_localmente_nao_apaga_na_nuvem() {
+        let t = tempfile::tempdir().unwrap();
+        let prep = t.path().join("prep");
+        let stem = backup(t.path(), &prep, "v1", 0, 10);
+        let nuvem = ProvedorFalso::default();
+        sincronizar(&prep, &nuvem).unwrap();
+        fs::remove_dir_all(prep.join("SavesGG/hades")).unwrap();
+        let r = sincronizar(&prep, &nuvem).unwrap();
+        assert_eq!(r.apagados, 0);
+        assert!(nuvem.tem(&format!("SavesGG/hades/{stem}.zip")));
+        assert!(nuvem.tem(&format!("SavesGG/hades/{stem}.json")));
+    }
+
+    #[test]
+    fn sync_envia_versao_com_sufixo() {
+        let t = tempfile::tempdir().unwrap();
+        let prep = t.path().join("prep");
+        let a = backup(t.path(), &prep, "v1", 0, 10);
+        let b = backup(t.path(), &prep, "v2", 0, 10); // mesmo segundo: ganha sufixo
+        assert_ne!(a, b);
+        let nuvem = ProvedorFalso::default();
+        sincronizar(&prep, &nuvem).unwrap();
+        assert!(nuvem.tem(&format!("SavesGG/hades/{b}.zip")), "{b}");
+        assert_eq!(pendentes(&prep), 0);
+    }
+
+    #[test]
+    fn pull_reconstroi_indice_perdido() {
+        let t = tempfile::tempdir().unwrap();
+        let outro = t.path().join("outro-pc");
+        let stem = backup(t.path(), &outro, "v1", 0, 10);
+        let nuvem = ProvedorFalso::default();
+        sincronizar(&outro, &nuvem).unwrap();
+        let prep = t.path().join("pc-novo");
+        atualizar_da_nuvem(&prep, &nuvem).unwrap();
+        fs::remove_file(prep.join("SavesGG/biblioteca.json")).unwrap();
+        atualizar_da_nuvem(&prep, &nuvem).unwrap();
+        let idx = LibraryIndex::load(&prep).unwrap();
+        assert_eq!(idx.games["hades"][0].stem, stem);
+    }
+
+    /// Provedor que confere se a trava do destino está livre durante o envio.
+    struct ProvedorQueConfereTrava<'a> {
+        nuvem: ProvedorFalso,
+        trava: &'a std::sync::Mutex<()>,
+        livre_no_envio: std::sync::Mutex<Vec<bool>>,
+    }
+    impl Provedor for ProvedorQueConfereTrava<'_> {
+        fn listar(&self, p: &str) -> Result<Vec<crate::nuvem::ItemRemoto>, ErroNuvem> {
+            self.nuvem.listar(p)
+        }
+        fn enviar(&self, c: &str, o: &Path) -> Result<(), ErroNuvem> {
+            self.livre_no_envio
+                .lock()
+                .unwrap()
+                .push(self.trava.try_lock().is_ok());
+            self.nuvem.enviar(c, o)
+        }
+        fn baixar(&self, c: &str, d: &Path) -> Result<(), ErroNuvem> {
+            self.nuvem.baixar(c, d)
+        }
+        fn apagar(&self, c: &str) -> Result<(), ErroNuvem> {
+            self.nuvem.apagar(c)
+        }
+    }
+
+    #[test]
+    fn sync_libera_a_trava_durante_o_envio() {
+        let t = tempfile::tempdir().unwrap();
+        let prep = t.path().join("prep");
+        backup(t.path(), &prep, "v1", 0, 10);
+        let trava = std::sync::Mutex::new(());
+        let p = ProvedorQueConfereTrava {
+            nuvem: ProvedorFalso::default(),
+            trava: &trava,
+            livre_no_envio: std::sync::Mutex::new(Vec::new()),
+        };
+        sincronizar_com_trava(&prep, &p, &trava).unwrap();
+        let livres = p.livre_no_envio.lock().unwrap().clone();
+        assert_eq!(livres.len(), 3);
+        assert!(
+            livres.iter().all(|l| *l),
+            "o backup local não pode esperar o envio"
+        );
     }
 
     #[test]

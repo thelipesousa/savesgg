@@ -239,9 +239,12 @@ pub fn clear_protected(
             game_id,
             destination_id,
         } = o
-            && dests
-                .iter()
-                .any(|d| &d.id == destination_id && savesgg_core::destinations::counts_as_off_pc(d))
+            && dests.iter().any(|d| {
+                &d.id == destination_id
+                        && savesgg_core::destinations::counts_as_off_pc(d)
+                        // na nuvem, só protege depois de subir (ver history/indice_enviado)
+                        && !matches!(d.kind, DestinationKind::Nuvem(_))
+            })
         {
             at_risk.remove(game_id);
         }
