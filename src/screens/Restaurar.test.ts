@@ -181,4 +181,47 @@ describe("Restaurar", () => {
     expect((screen.getByRole("button", { name: "Restaurar" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Procurar backup em outra pasta…" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  test("conta de nuvem atualiza da nuvem antes de listar", async () => {
+    const nuvem: Destination = {
+      id: "nuvem:gdrive:abc",
+      label: "Google Drive (ana@gmail.com)",
+      kind: { tipo: "nuvem", provedor: "gdrive" },
+      root: "C:/x",
+      available: true,
+      free_bytes: null,
+      has_backup: true,
+    };
+    const ordem: string[] = [];
+    invoke.mockImplementation((cmd: string) => {
+      ordem.push(cmd);
+      if (cmd === "list_destinations_cmd") return Promise.resolve([nuvem]);
+      if (cmd === "list_snapshots") return Promise.resolve([]);
+      return Promise.resolve(0);
+    });
+    render(Restaurar);
+    await fireEvent.click(await screen.findByRole("button", { name: /Google Drive/ }));
+    await waitFor(() => expect(ordem).toContain("list_snapshots"));
+    expect(ordem.indexOf("atualizar_da_nuvem_cmd")).toBeGreaterThan(-1);
+    expect(ordem.indexOf("atualizar_da_nuvem_cmd")).toBeLessThan(ordem.indexOf("list_snapshots"));
+  });
+
+  test("conta de nuvem aparece mesmo sem backup neste PC", async () => {
+    const nuvem: Destination = {
+      id: "nuvem:gdrive:abc",
+      label: "Google Drive (ana@gmail.com)",
+      kind: { tipo: "nuvem", provedor: "gdrive" },
+      root: "C:/x",
+      available: true,
+      free_bytes: null,
+      has_backup: false,
+    };
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "list_destinations_cmd") return Promise.resolve([nuvem, { ...pendrive, has_backup: false }]);
+      return Promise.resolve([]);
+    });
+    render(Restaurar);
+    expect(await screen.findByRole("button", { name: /Google Drive/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Pendrive/ })).toBeNull();
+  });
 });

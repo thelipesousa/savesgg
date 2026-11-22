@@ -1,8 +1,10 @@
 <script lang="ts">
   import AvisoNuvem from "../components/AvisoNuvem.svelte";
+  import ContasNuvem from "../components/ContasNuvem.svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { api, errorMessage } from "../lib/api";
   import { formatBytes } from "../lib/format";
-  import type { Destination, IgnoredView, SettingsView } from "../lib/types";
+  import type { AutoStatusView, Destination, IgnoredView, SettingsView, StatusNuvem } from "../lib/types";
   import { TEMAS, aplicarTema } from "../lib/tema";
 
   let settings = $state<SettingsView | null>(null);
@@ -10,6 +12,20 @@
   let erro = $state<string | null>(null);
 
   let descartados = $state<IgnoredView[]>([]);
+  let statusNuvem = $state<StatusNuvem[]>([]);
+
+  $effect(() => {
+    api
+      .autoStatus()
+      .then((s) => (statusNuvem = s?.nuvem ?? []))
+      .catch(() => {});
+    const parar = listen<AutoStatusView>("status-automatico", (ev) => {
+      statusNuvem = ev.payload.nuvem ?? [];
+    });
+    return () => {
+      parar.then((f) => f()).catch(() => {});
+    };
+  });
 
   async function carregar() {
     try {
@@ -74,7 +90,7 @@
   );
 
   function icone(d: Destination): string {
-    if (d.kind.tipo === "pasta_sincronizada") return "☁️";
+    if (d.kind.tipo === "pasta_sincronizada" || d.kind.tipo === "nuvem") return "☁️";
     if (d.kind.tipo === "disco_removivel") return "💾";
     return "📁";
   }
@@ -107,6 +123,12 @@
 {#if erro}<p class="erro" role="alert">{erro}</p>{/if}
 
 {#if settings}
+  <section class="cartao bloco">
+    <h2>Contas na nuvem</h2>
+    <p class="muted">Entre na sua conta e os backups sobem direto para o seu Google Drive, na pasta "SavesGG Backups".</p>
+    <ContasNuvem destinos={destinos} status={statusNuvem} onmudou={carregar} />
+  </section>
+
   <section class="cartao bloco">
     <h2>Destinos do backup automático</h2>
     <p class="muted">Quando você fecha um jogo, os saves vão sozinhos para cá.</p>

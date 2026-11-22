@@ -7,6 +7,81 @@ Feito com **Tauri 2 + Rust** (motor) e **Svelte + TypeScript + Tailwind** (inter
 - Design aprovado: [`docs/superpowers/specs/2026-11-20-saveguard-design.md`](docs/superpowers/specs/2026-11-20-saveguard-design.md)
 - Referências visuais (Google Stitch): [`design/stitch/`](design/stitch/)
 
+![Início do SavesGG no tema Cyberpunk](docs/imagens/inicio.png)
+
+## Telas
+
+| Restaurar | Contas na nuvem e destinos |
+|---|---|
+| ![Tela Restaurar com as versões de cada jogo no Google Drive](docs/imagens/restaurar.png) | ![Configurações com a conta do Google Drive e os destinos do backup automático](docs/imagens/configuracoes-nuvem.png) |
+
+**Os 5 temas** (trocados na hora em Configurações → Aparência):
+
+| Gamer | Pastel | Windows 11 |
+|---|---|---|
+| ![Tema Gamer](docs/imagens/tema-gamer.png) | ![Tema Pastel](docs/imagens/tema-pastel.png) | ![Tema Windows 11](docs/imagens/tema-windows-11.png) |
+
+| Cyberpunk | Console |
+|---|---|
+| ![Tema Cyberpunk](docs/imagens/tema-cyberpunk.png) | ![Tema Console, com o jogo em destaque e o carrossel de capas](docs/imagens/tema-console.png) |
+
+## Como funciona
+
+### 1. Achar os saves
+
+O app traz embutido o [manifesto do Ludusavi](https://github.com/mtkennerly/ludusavi-manifest), uma lista com onde cada jogo guarda o save (dados da PCGamingWiki). Ao escanear, ele descobre os jogos instalados (Steam, Epic, GOG, Xbox, emuladores), confere quais caminhos da lista existem neste PC e calcula a prioridade de cada jogo: tamanho, quando foi jogado e se já tem cópia fora do PC. Jogos que a lista não conhece podem ser adicionados à mão.
+
+### 2. Cada backup é uma versão com dois arquivos
+
+```
+SavesGG/
+└── dave-the-diver/
+    ├── 2026-11-22_02-47-14.zip    ← os arquivos do save, compactados
+    └── 2026-11-22_02-47-14.json   ← a "etiqueta": de onde veio cada arquivo
+```
+
+O `.json` guarda o jogo, a loja, a data, o PC de origem e, para cada arquivo, o **caminho original com marcadores**, o lugar dele dentro do zip, o tamanho e um código de conferência (hash):
+
+```json
+{
+  "game_name": "Dave the Diver",
+  "files": [{
+    "template": "<winLocalAppDataLow>/nexon/DAVE THE DIVER/SteamSData/6144/GameSave_00_GD.sav",
+    "zip_path": "winLocalAppDataLow/nexon/DAVE THE DIVER/SteamSData/6144/GameSave_00_GD.sav",
+    "size": 245599,
+    "blake3": "67d6d95a…"
+  }]
+}
+```
+
+Se nada mudou desde a última versão, o app não cria outra. As versões antigas saem sozinhas: por padrão ficam as últimas, e as **fixadas** nunca são apagadas.
+
+### 3. Por que marcadores em vez do caminho completo
+
+No PC de hoje, o save está em `C:\Users\Ana\AppData\LocalLow\...`. Depois de formatar, ou num PC novo, o nome de usuário e até o disco podem ser outros. Por isso o `.json` guarda `<winLocalAppDataLow>`, e não o caminho completo. Os principais marcadores:
+
+| Marcador | Vira, no PC onde se restaura |
+|---|---|
+| `<home>` | a pasta do usuário (`C:\Users\<você>`) |
+| `<winAppData>` / `<winLocalAppData>` / `<winLocalAppDataLow>` | `AppData\Roaming`, `AppData\Local` e `AppData\LocalLow` |
+| `<winDocuments>` | a pasta Documentos (mesmo se ela estiver no OneDrive) |
+| `<root>` / `<base>` | a pasta da loja e a pasta de instalação do jogo |
+| `<storeUserId>` | o id da sua conta na loja (por exemplo, o da Steam) |
+
+### 4. Restaurar devolve cada arquivo ao lugar certo
+
+1. O app lê o `.json` e troca cada marcador pelo caminho **deste** PC, recriando as pastas com os nomes certos.
+2. Se o backup estiver no Google Drive, ele baixa o `.zip` na hora.
+3. Antes de sobrescrever, guarda os saves atuais numa **versão de segurança** (fixada), para dar para desfazer.
+4. Extrai cada arquivo no lugar dele e confere o hash.
+
+Quando não dá para descobrir o caminho sozinho (por exemplo, o jogo ainda não está instalado ou a conta da loja é outra), o jogo aparece em "precisa de você" e você escolhe a pasta.
+
+### 5. Para onde vão os backups
+
+- **Pasta de nuvem sincronizada, pendrive ou HD:** a pasta `SavesGG` é gravada direto no destino (por exemplo, `OneDrive\SavesGG Backups\SavesGG`).
+- **Google Drive pelo login do app:** o backup é gravado numa pasta local de preparação e sobe em segundo plano para a pasta **"SavesGG Backups"** do Drive da pessoa, com a mesma estrutura acima. Depois que a versão está inteira na nuvem, o `.zip` local sai para não ocupar espaço. Num PC novo, basta entrar com a mesma conta: a tela Restaurar lista o que está no Drive e baixa só o que for restaurar.
+
 ## Como rodar
 
 Requisitos: Windows 10/11, [Rust](https://rustup.rs) estável, Node 22 e o WebView2 (já vem no Windows).
@@ -60,6 +135,26 @@ powershell -File scripts/lancar.ps1 -Notas "O que mudou nesta versão"
 ```
 
 O script compila, assina, gera `latest.json` e `SHA256SUMS.txt` e publica a release `vX.Y.Z` em `savesgg-releases`, com o instalador em nome estável (`SavesGG_x64-setup.exe`). Para testar sem publicar: `-Ensaio`. Antes, suba a versão em `tauri.conf.json`, `Cargo.toml` (workspace) e `package.json`.
+
+## Login no Google Drive
+
+Na seção "Contas na nuvem" de Configurações (e no assistente), cada pessoa entra na própria conta do Google. Os backups vão para a pasta **"SavesGG Backups"** no Drive dela, e o app só enxerga os arquivos que ele mesmo criou (escopo `drive.file`). O login acontece no navegador, com PKCE. O token de acesso contínuo fica no Gerenciador de Credenciais do Windows, nunca em arquivo. Depois de formatar, basta entrar de novo: as versões que estão no Drive aparecem na tela Restaurar.
+
+O backup é gravado primeiro numa pasta local (`%LOCALAPPDATA%\SavesGG\nuvem\...`) e sobe em segundo plano. Sem internet, ele espera e envia depois. O OneDrive entra numa próxima etapa (issue #27).
+
+**Cadastro do app no Google** (feito uma vez, por quem publica o SavesGG):
+
+1. Em <https://console.cloud.google.com>, crie um projeto (por exemplo, "SavesGG") e ative a **Google Drive API**.
+2. Em "Tela de consentimento OAuth": tipo **Externo**, nome **SavesGG**, logo opcional, **e-mail de suporte e de contato separados do pessoal** (eles aparecem para quem faz login), página inicial `https://savesgg-site.vercel.app` e política de privacidade `https://savesgg-site.vercel.app/privacidade`. Escopos: `.../auth/drive.file`, `openid` e `email`.
+3. **Publique o app ("Em produção").** Em "teste", o login expira a cada 7 dias e só aceita 100 contas listadas à mão.
+4. Em "Credenciais", crie um **ID do cliente OAuth** do tipo **App para computador** e copie o ID e a chave secreta. Para apps de desktop, o próprio Google diz que essa chave não é confidencial, mas mesmo assim ela fica fora do Git.
+5. Crie `%USERPROFILE%\.tauri\savesgg-oauth.json` com o conteúdo abaixo. O `scripts/lancar.ps1` lê esse arquivo e embute os ids no build. Sem ele, o login aparece como "indisponível nesta versão".
+
+```json
+{ "google_client_id": "....apps.googleusercontent.com", "google_client_secret": "..." }
+```
+
+Para testar em desenvolvimento, defina as variáveis `SAVESGG_GOOGLE_CLIENT_ID` e `SAVESGG_GOOGLE_CLIENT_SECRET` antes de `npm run tauri dev`.
 
 ## Fluxo de branches
 

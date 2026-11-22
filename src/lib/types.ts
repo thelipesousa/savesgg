@@ -24,7 +24,8 @@ export interface GameView {
 export type DestinationKind =
   | { tipo: "pasta_sincronizada"; provedor: "one_drive" | "google_drive" | "dropbox" }
   | { tipo: "disco_removivel" }
-  | { tipo: "pasta_local" };
+  | { tipo: "pasta_local" }
+  | { tipo: "nuvem"; provedor: "gdrive" };
 
 export interface Destination {
   id: string;
@@ -100,6 +101,15 @@ export interface AutoStatusView {
   at_risk: number;
   copying: boolean;
   last_error: string | null;
+  nuvem?: StatusNuvem[];
+}
+
+export interface StatusNuvem {
+  destination_id: string;
+  pendentes: number;
+  enviando: boolean;
+  erro: string | null;
+  precisa_entrar: boolean;
 }
 
 export type LoteResultado =

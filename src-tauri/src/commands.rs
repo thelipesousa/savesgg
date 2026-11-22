@@ -42,7 +42,11 @@ fn history(dests: &[Destination]) -> MultiHistory {
         dests
             .iter()
             .filter(|d| d.available && d.has_backup && counts_as_off_pc(d))
-            .filter_map(|d| LibraryIndex::load(&d.root).ok())
+            .filter_map(|d| match d.kind {
+                // Na nuvem só conta a versão que já subiu.
+                DestinationKind::Nuvem(_) => Some(crate::nuvem::indice_enviado(&d.root)),
+                _ => LibraryIndex::load(&d.root).ok(),
+            })
             .collect(),
     )
 }
@@ -400,7 +404,12 @@ pub async fn backup_now(
     game_ids: Vec<String>,
     destination_ids: Vec<String>,
 ) -> Res<Vec<BackupResultView>> {
-    blocking(move || backup_blocking(&app.state::<AppState>(), &game_ids, &destination_ids)).await
+    let app2 = app.clone();
+    let r =
+        blocking(move || backup_blocking(&app2.state::<AppState>(), &game_ids, &destination_ids))
+            .await;
+    app.state::<AppState>().enviador.avisar();
+    r
 }
 
 /// Jogos que entram em "copiar tudo": sem os ignorados e sem possíveis saves ou
@@ -440,7 +449,16 @@ pub async fn copy_all_to(
     app: tauri::AppHandle,
     destination_id: String,
 ) -> Res<Vec<BackupResultView>> {
-    blocking(move || Ok(copy_all_blocking(&app.state::<AppState>(), &destination_id))).await
+    let app2 = app.clone();
+    let r = blocking(move || {
+        Ok(copy_all_blocking(
+            &app2.state::<AppState>(),
+            &destination_id,
+        ))
+    })
+    .await;
+    app.state::<AppState>().enviador.avisar();
+    r
 }
 
 #[derive(Debug, Serialize)]
@@ -611,8 +629,14 @@ pub async fn apply_restore(
 ) -> Res<RestoreReport> {
     let root = destination_root(&state, &destination_id)?;
     let lock = state.locks.lock(&destination_id);
+    let conta = crate::nuvem::conta_do_destino(&state.config(), &destination_id);
     blocking(move || {
         let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(c) = &conta {
+            let p = crate::nuvem::provedor_de(c).map_err(|e| e.to_string())?;
+            savesgg_core::nuvem::sync::garantir_zip(&root, p.as_ref(), &game_id, &stem)
+                .map_err(|e| e.to_string())?;
+        }
         let installed = detect_all();
         let ctx = current_ctx(&installed);
         let meta = load_meta(&root, &game_id, &stem).map_err(|e| e.to_string())?;
@@ -656,7 +680,12 @@ pub async fn restore_many(
 ) -> Res<Vec<LoteItemView>> {
     let root = destination_root(&state, &destination_id)?;
     let lock = state.locks.lock(&destination_id);
+    let conta = crate::nuvem::conta_do_destino(&state.config(), &destination_id);
     blocking(move || {
+        let provedor = match &conta {
+            Some(c) => Some(crate::nuvem::provedor_de(c).map_err(|e| e.to_string())?),
+            None => None,
+        };
         // Detecção e leitura do índice fora da trava; a trava é pega jogo a jogo, para o
         // motor automático e o "Fixar" não ficarem parados durante o lote inteiro.
         let idx = LibraryIndex::load(&root).map_err(|e| e.to_string())?;
@@ -682,7 +711,22 @@ pub async fn restore_many(
             );
             let resultado = if idx.games.contains_key(&id) {
                 let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
-                restore_latest(&root, &id, &ctx, &installed, Utc::now())
+                // Conta de nuvem: baixa o zip da versão que vai ser restaurada.
+                let versao = idx
+                    .games
+                    .get(&id)
+                    .and_then(|v| savesgg_core::backup::latest_restorable(v));
+                let baixou = match (&provedor, versao) {
+                    (Some(p), Some(r)) => {
+                        savesgg_core::nuvem::sync::garantir_zip(&root, p.as_ref(), &id, &r.stem)
+                            .map_err(|e| e.to_string())
+                    }
+                    _ => Ok(()),
+                };
+                match baixou {
+                    Ok(()) => restore_latest(&root, &id, &ctx, &installed, Utc::now()),
+                    Err(mensagem) => LoteResultado::Erro { mensagem },
+                }
             } else {
                 LoteResultado::Erro {
                     mensagem: "jogo não encontrado neste backup".into(),
@@ -698,6 +742,111 @@ pub async fn restore_many(
         Ok(out)
     })
     .await
+}
+
+#[derive(Debug, Serialize)]
+pub struct NuvemDisponivel {
+    pub gdrive: bool,
+}
+
+/// Quais logins na nuvem este build tem (os ids do cadastro vêm no build).
+#[tauri::command]
+pub fn login_nuvem_disponivel() -> NuvemDisponivel {
+    NuvemDisponivel {
+        gdrive: crate::oauth::cliente(savesgg_core::nuvem::ProvedorNuvem::Gdrive).is_some(),
+    }
+}
+
+/// Baixa a lista de versões da nuvem para a preparação de uma conta.
+fn atualizar_conta(state: &AppState, conta: &savesgg_core::nuvem::ContaNuvem) -> Res<usize> {
+    let lock = state.locks.lock(&conta.destino_id());
+    let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+    let prep = crate::nuvem::preparacao(conta);
+    std::fs::create_dir_all(&prep).map_err(|e| e.to_string())?;
+    let p = crate::nuvem::provedor_de(conta).map_err(|e| e.to_string())?;
+    savesgg_core::nuvem::sync::atualizar_da_nuvem(&prep, p.as_ref()).map_err(|e| e.to_string())
+}
+
+/// Entra numa conta de nuvem pelo navegador. A conta vira destino (também do backup
+/// automático) e as versões que já estão lá aparecem para restaurar.
+#[tauri::command]
+pub async fn entrar_nuvem(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    provedor: savesgg_core::nuvem::ProvedorNuvem,
+) -> Res<Destination> {
+    let conta =
+        blocking(move || crate::oauth::entrar(provedor, crate::oauth::abrir_navegador)).await?;
+    let id = conta.destino_id();
+    state.update_config(|c| {
+        c.contas_nuvem.retain(|x| x.destino_id() != id);
+        c.contas_nuvem.push(conta.clone());
+        if !c.auto_destinations.contains(&id) {
+            c.auto_destinations.push(id.clone());
+        }
+    })?;
+    let app2 = app.clone();
+    let c2 = conta.clone();
+    // A conta já está salva: se a primeira leitura da nuvem falhar (internet caiu),
+    // o login vale mesmo assim e a tela Restaurar tenta de novo ao abrir.
+    if let Err(e) = blocking(move || atualizar_conta(&app2.state::<AppState>(), &c2)).await {
+        log::warn!("nuvem: conta conectada, mas a leitura da nuvem falhou: {e}");
+    }
+    state.enviador.avisar();
+    savesgg_core::destinations::destinos_nuvem(
+        std::slice::from_ref(&conta),
+        &crate::nuvem::base_local(),
+    )
+    .into_iter()
+    .next()
+    .ok_or_else(|| "conta conectada, mas não apareceu como destino".to_string())
+}
+
+/// Para de esperar o login em andamento (a pessoa desistiu no navegador).
+#[tauri::command]
+pub fn cancelar_login() {
+    crate::oauth::CANCELAR_LOGIN.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// Sai de uma conta: apaga o login guardado e a pasta local. Os backups na nuvem ficam.
+#[tauri::command]
+pub async fn sair_nuvem(state: State<'_, AppState>, destination_id: String) -> Res<()> {
+    let conta = crate::nuvem::conta_do_destino(&state.config(), &destination_id)
+        .ok_or_else(|| "conta não encontrada".to_string())?;
+    crate::oauth::sair(&destination_id);
+    state.update_config(|c| {
+        c.contas_nuvem.retain(|x| x.destino_id() != destination_id);
+        c.auto_destinations.retain(|x| x != &destination_id);
+    })?;
+    let lock = state.locks.lock(&destination_id);
+    let prep = crate::nuvem::preparacao(&conta);
+    blocking(move || {
+        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = std::fs::remove_dir_all(&prep);
+        Ok(())
+    })
+    .await?;
+    state.enviador.avisar();
+    log::info!("nuvem: conta desconectada");
+    Ok(())
+}
+
+/// Pede uma passada de envio agora.
+#[tauri::command]
+pub fn enviar_agora(state: State<'_, AppState>) {
+    state.enviador.avisar();
+}
+
+/// Baixa da nuvem a lista de versões (antes de restaurar). Devolve quantas chegaram.
+#[tauri::command]
+pub async fn atualizar_da_nuvem_cmd(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    destination_id: String,
+) -> Res<usize> {
+    let conta = crate::nuvem::conta_do_destino(&state.config(), &destination_id)
+        .ok_or_else(|| "conta não encontrada".to_string())?;
+    blocking(move || atualizar_conta(&app.state::<AppState>(), &conta)).await
 }
 
 /// Acrescenta um jogo manual, recusando nome que gera o mesmo id de outro.
