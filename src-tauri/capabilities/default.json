@@ -41,6 +41,7 @@
     "allow-login-nuvem-disponivel",
     "allow-entrar-nuvem",
     "allow-sair-nuvem",
+    "allow-cancelar-login",
     "allow-enviar-agora",
     "allow-atualizar-da-nuvem-cmd",
     "updater:default",

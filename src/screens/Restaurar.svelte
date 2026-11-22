@@ -26,7 +26,10 @@
 
   async function carregarDestinos() {
     try {
-      const achados = (await api.listDestinations()).filter((d) => d.available && d.has_backup);
+      const achados = (await api.listDestinations()).filter(
+        // A conta de nuvem aparece sempre: as versões podem estar só lá (PC novo).
+        (d) => d.available && (d.has_backup || d.kind.tipo === "nuvem"),
+      );
       destinos = [...achados, ...abertas.filter((a) => !achados.some((d) => d.id === a.id))];
     } catch (e) {
       erro = errorMessage(e);

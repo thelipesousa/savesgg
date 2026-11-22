@@ -13,7 +13,7 @@ use savesgg_core::backup::{LibraryIndex, SnapshotRef};
 use savesgg_core::config::Config;
 use savesgg_core::nuvem::gdrive::GoogleDrive;
 use savesgg_core::nuvem::http::HttpUreq;
-use savesgg_core::nuvem::sync::{ResumoSync, pendentes, sincronizar, ultimas_enviadas};
+use savesgg_core::nuvem::sync::{ResumoSync, pendentes, sincronizar_com_trava, ultimas_enviadas};
 use savesgg_core::nuvem::{ContaNuvem, ErroNuvem, Provedor, ProvedorNuvem, pasta_preparacao};
 
 use crate::oauth::{self, TokenKeyring};
@@ -193,10 +193,10 @@ pub fn iniciar(app: AppHandle) {
                     st.enviando = true;
                     publicar(&app, st.clone());
                     let lock = state.locks.lock(&id);
-                    let r = {
-                        let _trava = lock.lock().unwrap_or_else(|e| e.into_inner());
-                        provedor_de(conta).and_then(|p| sincronizar(&prep, p.as_ref()))
-                    };
+                    // A trava do destino só vale nos passos locais: o envio roda sem
+                    // ela, para o backup local não ficar esperando a internet.
+                    let r = provedor_de(conta)
+                        .and_then(|p| sincronizar_com_trava(&prep, p.as_ref(), &lock));
                     match &r {
                         Ok(resumo) => {
                             log::info!(

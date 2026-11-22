@@ -78,3 +78,13 @@ test("enviar agora chama a API", async () => {
   await fireEvent.click(await screen.findByRole("button", { name: "Enviar agora" }));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("enviar_agora"));
 });
+
+test("cancelar para a espera do login", async () => {
+  responder(true);
+  render(ContasNuvem, { destinos: [], status: [], onmudou: vi.fn() });
+  const botao = await screen.findByRole("button", { name: "Entrar com Google (Drive)" });
+  await waitFor(() => expect((botao as HTMLButtonElement).disabled).toBe(false));
+  await fireEvent.click(botao);
+  await fireEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("cancelar_login"));
+});

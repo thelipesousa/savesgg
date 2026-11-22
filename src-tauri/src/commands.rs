@@ -787,7 +787,11 @@ pub async fn entrar_nuvem(
     })?;
     let app2 = app.clone();
     let c2 = conta.clone();
-    blocking(move || atualizar_conta(&app2.state::<AppState>(), &c2)).await?;
+    // A conta já está salva: se a primeira leitura da nuvem falhar (internet caiu),
+    // o login vale mesmo assim e a tela Restaurar tenta de novo ao abrir.
+    if let Err(e) = blocking(move || atualizar_conta(&app2.state::<AppState>(), &c2)).await {
+        log::warn!("nuvem: conta conectada, mas a leitura da nuvem falhou: {e}");
+    }
     state.enviador.avisar();
     savesgg_core::destinations::destinos_nuvem(
         std::slice::from_ref(&conta),
@@ -796,6 +800,12 @@ pub async fn entrar_nuvem(
     .into_iter()
     .next()
     .ok_or_else(|| "conta conectada, mas não apareceu como destino".to_string())
+}
+
+/// Para de esperar o login em andamento (a pessoa desistiu no navegador).
+#[tauri::command]
+pub fn cancelar_login() {
+    crate::oauth::CANCELAR_LOGIN.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// Sai de uma conta: apaga o login guardado e a pasta local. Os backups na nuvem ficam.

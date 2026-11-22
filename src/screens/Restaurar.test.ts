@@ -205,4 +205,23 @@ describe("Restaurar", () => {
     expect(ordem.indexOf("atualizar_da_nuvem_cmd")).toBeGreaterThan(-1);
     expect(ordem.indexOf("atualizar_da_nuvem_cmd")).toBeLessThan(ordem.indexOf("list_snapshots"));
   });
+
+  test("conta de nuvem aparece mesmo sem backup neste PC", async () => {
+    const nuvem: Destination = {
+      id: "nuvem:gdrive:abc",
+      label: "Google Drive (ana@gmail.com)",
+      kind: { tipo: "nuvem", provedor: "gdrive" },
+      root: "C:/x",
+      available: true,
+      free_bytes: null,
+      has_backup: false,
+    };
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd === "list_destinations_cmd") return Promise.resolve([nuvem, { ...pendrive, has_backup: false }]);
+      return Promise.resolve([]);
+    });
+    render(Restaurar);
+    expect(await screen.findByRole("button", { name: /Google Drive/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Pendrive/ })).toBeNull();
+  });
 });

@@ -6,6 +6,7 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -161,12 +162,24 @@ fn ler_query(s: &mut TcpStream) -> Option<String> {
     )
 }
 
+/// Ligada pelo botão Cancelar da tela: o login em andamento para de esperar.
+pub static CANCELAR_LOGIN: AtomicBool = AtomicBool::new(false);
+
 /// Espera o navegador voltar para `127.0.0.1` com o código. Confere o `state`.
-pub fn esperar_codigo(l: TcpListener, state: &str, prazo: Duration) -> Result<String, String> {
+/// Para se `cancelar` for ligada (a pessoa fechou o navegador e clicou em Cancelar).
+pub fn esperar_codigo(
+    l: TcpListener,
+    state: &str,
+    prazo: Duration,
+    cancelar: &AtomicBool,
+) -> Result<String, String> {
     let fim = Instant::now() + prazo;
     l.set_nonblocking(true)
         .map_err(|_| "não deu para esperar o login".to_string())?;
     while Instant::now() < fim {
+        if cancelar.load(Ordering::SeqCst) {
+            return Err("login cancelado".into());
+        }
         match l.accept() {
             Ok((mut s, _)) => {
                 let _ = s.set_nonblocking(false);
@@ -204,7 +217,17 @@ struct RespostaToken {
     access_token: Option<String>,
     refresh_token: Option<String>,
     expires_in: Option<u64>,
+    /// Permissões que a pessoa de fato liberou (o Google deixa desmarcar o Drive).
+    scope: Option<String>,
     error: Option<String>,
+}
+
+/// A resposta do token libera o Drive? Sem o campo, segue (o envio avisa depois).
+fn escopo_tem_drive(scope: Option<&str>) -> bool {
+    scope.is_none_or(|s| {
+        s.split_whitespace()
+            .any(|e| e == "https://www.googleapis.com/auth/drive.file")
+    })
 }
 
 fn form(pares: &[(&str, &str)]) -> Vec<u8> {
@@ -347,8 +370,9 @@ pub fn entrar(p: ProvedorNuvem, abrir: impl Fn(&str)) -> Result<ContaNuvem, Stri
         .port();
     let (verifier, ch) = pkce();
     let state = aleatorio();
+    CANCELAR_LOGIN.store(false, Ordering::SeqCst);
     abrir(&url_autorizacao(&c, porta, &state, &ch));
-    let code = esperar_codigo(l, &state, PRAZO_LOGIN)?;
+    let code = esperar_codigo(l, &state, PRAZO_LOGIN, &CANCELAR_LOGIN)?;
 
     let http = HttpUreq::default();
     let redir = redirect(porta);
@@ -363,6 +387,9 @@ pub fn entrar(p: ProvedorNuvem, abrir: impl Fn(&str)) -> Result<ContaNuvem, Stri
         pares.push(("client_secret", s));
     }
     let t = pedir_token(&http, form(&pares)).map_err(|e| format!("o login falhou: {e}"))?;
+    if !escopo_tem_drive(t.scope.as_deref()) {
+        return Err("Marque a permissão do Google Drive na tela do Google e entre de novo".into());
+    }
     let acesso = t
         .access_token
         .ok_or("o login falhou: sem token de acesso")?;
@@ -395,6 +422,7 @@ mod tests {
     use savesgg_core::nuvem::http::{Pedido, Resposta};
     use std::io::{Read, Write};
     use std::net::TcpStream;
+    use std::sync::atomic::AtomicBool;
 
     fn cliente_teste() -> ClienteOAuth {
         ClienteOAuth {
@@ -443,7 +471,7 @@ mod tests {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
         let porta = l.local_addr().unwrap().port();
         let t = std::thread::spawn(move || chamar_loopback(porta, "/?code=abc&state=s1&scope=x"));
-        let r = esperar_codigo(l, "s1", Duration::from_secs(5));
+        let r = esperar_codigo(l, "s1", Duration::from_secs(5), &AtomicBool::new(false));
         assert_eq!(r, Ok("abc".to_string()));
         assert!(t.join().unwrap().contains("Pode fechar esta aba"));
     }
@@ -453,7 +481,7 @@ mod tests {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
         let porta = l.local_addr().unwrap().port();
         let t = std::thread::spawn(move || chamar_loopback(porta, "/?code=abc&state=outro"));
-        assert!(esperar_codigo(l, "s1", Duration::from_secs(5)).is_err());
+        assert!(esperar_codigo(l, "s1", Duration::from_secs(5), &AtomicBool::new(false)).is_err());
         t.join().unwrap();
     }
 
@@ -463,15 +491,35 @@ mod tests {
         let porta = l.local_addr().unwrap().port();
         let t =
             std::thread::spawn(move || chamar_loopback(porta, "/?error=access_denied&state=s1"));
-        let r = esperar_codigo(l, "s1", Duration::from_secs(5));
+        let r = esperar_codigo(l, "s1", Duration::from_secs(5), &AtomicBool::new(false));
         assert!(r.unwrap_err().contains("cancelado"));
         t.join().unwrap();
     }
 
     #[test]
+    fn loopback_cancelado_pelo_app() {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let cancelar = AtomicBool::new(true);
+        let r = esperar_codigo(l, "s1", Duration::from_secs(5), &cancelar);
+        assert_eq!(r, Err("login cancelado".to_string()));
+    }
+
+    #[test]
+    fn escopo_precisa_do_drive() {
+        assert!(escopo_tem_drive(Some(
+            "openid https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email"
+        )));
+        assert!(!escopo_tem_drive(Some(
+            "openid https://www.googleapis.com/auth/userinfo.email"
+        )));
+        // Sem o campo na resposta, não dá para saber: segue (o envio avisa depois).
+        assert!(escopo_tem_drive(None));
+    }
+
+    #[test]
     fn loopback_timeout() {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
-        let r = esperar_codigo(l, "s1", Duration::from_millis(200));
+        let r = esperar_codigo(l, "s1", Duration::from_millis(200), &AtomicBool::new(false));
         assert!(r.unwrap_err().contains("demorou demais"));
     }
 
