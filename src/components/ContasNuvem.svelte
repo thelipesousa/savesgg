@@ -55,6 +55,14 @@
     }
   }
 
+  async function cancelar() {
+    try {
+      await api.cancelarLogin();
+    } catch (e) {
+      erro = errorMessage(e);
+    }
+  }
+
   async function sair(d: Destination) {
     const email = emailDe(d);
     if (!confirm(`Sair de ${email}? Os backups na nuvem continuam lá.`)) return;
@@ -101,7 +109,10 @@
   {/each}
 
   {#if entrando}
-    <p class="muted" role="status">Termine o login no navegador…</p>
+    <div class="acoes">
+      <p class="muted" role="status">Termine o login no navegador…</p>
+      <button type="button" class="botao-secundario" onclick={cancelar}>Cancelar</button>
+    </div>
   {/if}
   <div class="acoes">
     <button type="button" class="botao-secundario" onclick={entrar} disabled={entrando || disponivel !== true}>

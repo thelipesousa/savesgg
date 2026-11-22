@@ -48,6 +48,7 @@ export const api = {
   openLogsFolder: () => invoke<void>("open_logs_folder"),
   loginNuvemDisponivel: () => invoke<{ gdrive: boolean }>("login_nuvem_disponivel"),
   entrarNuvem: (provedor: "gdrive") => invoke<Destination>("entrar_nuvem", { provedor }),
+  cancelarLogin: () => invoke<void>("cancelar_login"),
   sairNuvem: (destinationId: string) => invoke<void>("sair_nuvem", { destinationId }),
   enviarAgora: () => invoke<void>("enviar_agora"),
   atualizarDaNuvem: (destinationId: string) => invoke<number>("atualizar_da_nuvem_cmd", { destinationId }),

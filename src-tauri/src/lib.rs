@@ -107,6 +107,7 @@ pub fn run() {
             commands::login_nuvem_disponivel,
             commands::entrar_nuvem,
             commands::sair_nuvem,
+            commands::cancelar_login,
             commands::enviar_agora,
             commands::atualizar_da_nuvem_cmd,
         ])
