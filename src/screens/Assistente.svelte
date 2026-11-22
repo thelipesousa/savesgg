@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ContasNuvem from "../components/ContasNuvem.svelte";
   import AvisoNuvem from "../components/AvisoNuvem.svelte";
   import { api, errorMessage } from "../lib/api";
   import { formatBytes } from "../lib/format";
@@ -71,6 +72,17 @@
     });
   }
 
+  /** Depois de entrar numa conta de nuvem: ela já vem marcada como destino. */
+  function contaMudou() {
+    tentar(async () => {
+      const antes = new Set(destinos.map((d) => d.id));
+      destinos = await api.listDestinations();
+      for (const d of destinos) {
+        if (d.kind.tipo === "nuvem" && !antes.has(d.id) && !marcados.includes(d.id)) marcados = [...marcados, d.id];
+      }
+    });
+  }
+
   function irParaTema() {
     tentar(async () => {
       await api.setAutoDestinations(marcados);
@@ -98,7 +110,7 @@
   }
 
   function icone(d: Destination): string {
-    if (d.kind.tipo === "pasta_sincronizada") return "☁️";
+    if (d.kind.tipo === "pasta_sincronizada" || d.kind.tipo === "nuvem") return "☁️";
     if (d.kind.tipo === "disco_removivel") return "💾";
     return "📁";
   }
@@ -177,6 +189,9 @@
             </button>
           </li>
         </ul>
+        <div class="nuvem-login">
+          <ContasNuvem destinos={[]} status={[]} onmudou={contaMudou} />
+        </div>
         {#if marcados.length === 0}
           <p class="aviso" role="status">
             Nenhum destino marcado: dá para seguir, mas o backup automático só começa depois que você escolher um em

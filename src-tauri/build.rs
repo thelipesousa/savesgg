@@ -30,6 +30,12 @@ fn main() {
         "remove_manual_game",
         "ignored_games",
         "open_logs_folder",
+        "login_nuvem_disponivel",
+        "entrar_nuvem",
+        "sair_nuvem",
+        "cancelar_login",
+        "enviar_agora",
+        "atualizar_da_nuvem_cmd",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

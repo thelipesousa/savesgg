@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-enviar-agora"
+description = "Enables the enviar_agora command without any pre-configured scope."
+commands.allow = ["enviar_agora"]
+
+[[permission]]
+identifier = "deny-enviar-agora"
+description = "Denies the enviar_agora command without any pre-configured scope."
+commands.deny = ["enviar_agora"]

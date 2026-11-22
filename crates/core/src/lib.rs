@@ -7,6 +7,7 @@ pub mod emulators;
 mod heuristics;
 pub mod legado;
 pub mod manifest;
+pub mod nuvem;
 pub mod paths;
 pub mod pending;
 pub mod protection;

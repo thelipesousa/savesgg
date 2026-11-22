@@ -48,6 +48,8 @@ pub struct AppState {
     pub at_risk_ids: Mutex<std::collections::BTreeSet<String>>,
     /// Pastas de backup abertas na tela Restaurar (só nesta sessão; não viram destino).
     pub pastas_abertas: Mutex<Vec<PathBuf>>,
+    /// Acorda o envio das contas de nuvem.
+    pub enviador: crate::nuvem::Enviador,
 }
 
 /// Traz a configuração e a fila do 0.1.0 (SaveGuard) para as pastas do SavesGG.
@@ -87,6 +89,7 @@ impl AppState {
             drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),
             at_risk_ids: Mutex::new(std::collections::BTreeSet::new()),
             pastas_abertas: Mutex::new(Vec::new()),
+            enviador: crate::nuvem::Enviador::default(),
         }
     }
 

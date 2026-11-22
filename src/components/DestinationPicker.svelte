@@ -23,7 +23,7 @@
   }
 
   function icon(d: Destination): string {
-    if (d.kind.tipo === "pasta_sincronizada") return "☁️";
+    if (d.kind.tipo === "pasta_sincronizada" || d.kind.tipo === "nuvem") return "☁️";
     if (d.kind.tipo === "disco_removivel") return "💾";
     return "📁";
   }

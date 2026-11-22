@@ -26,7 +26,10 @@
 
   async function carregarDestinos() {
     try {
-      const achados = (await api.listDestinations()).filter((d) => d.available && d.has_backup);
+      const achados = (await api.listDestinations()).filter(
+        // A conta de nuvem aparece sempre: as versões podem estar só lá (PC novo).
+        (d) => d.available && (d.has_backup || d.kind.tipo === "nuvem"),
+      );
       destinos = [...achados, ...abertas.filter((a) => !achados.some((d) => d.id === a.id))];
     } catch (e) {
       erro = errorMessage(e);
@@ -59,6 +62,15 @@
     erro = null;
     resumo = null;
     try {
+      // Conta de nuvem: traz da nuvem as versões que ainda não estão neste PC.
+      const destino = destinos.find((d) => d.id === id);
+      if (destino?.kind.tipo === "nuvem") {
+        try {
+          await api.atualizarDaNuvem(id);
+        } catch (e) {
+          erro = `Não deu para atualizar da nuvem: ${errorMessage(e)}`;
+        }
+      }
       jogos = await api.listSnapshots(id);
       marcados = new Set(jogos.map((j) => j.game_id));
     } catch (e) {
