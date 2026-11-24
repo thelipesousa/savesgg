@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Compila, assina e publica uma versão do SavesGG no repositório público de lançamentos.
 
@@ -6,7 +6,7 @@
   1. Confere se está na main com a árvore limpa (exceto em -Ensaio).
   2. Lê a chave privada de %USERPROFILE%\.tauri\savesgg.key (nunca impressa).
   3. Compila com `npm run tauri build` (gera o instalador e a assinatura .sig).
-  4. Copia o instalador com um nome estável (SavesGG_x64-setup.exe).
+  4. Copia o instalador com um nome estável (SavesGG_x64-setup.exe) e monta o zip portable.
   5. Gera latest.json (lido pela atualização automática) e SHA256SUMS.txt.
   6. Publica a release vX.Y.Z em thelipesousa/savesgg-releases (exceto em -Ensaio).
 
@@ -68,6 +68,28 @@ $saida = "target\release\lancamento"
 New-Item -ItemType Directory -Force $saida | Out-Null
 Copy-Item $setup (Join-Path $saida "SavesGG_x64-setup.exe") -Force
 Copy-Item $sig (Join-Path $saida "SavesGG_x64-setup.exe.sig") -Force
+
+# 4b. Versão portable (pendrive): exe + manifesto + pasta "dados", que liga o modo portable.
+$port = Join-Path $saida "portable"
+if (Test-Path $port) { Remove-Item -Recurse -Force $port }
+New-Item -ItemType Directory -Force (Join-Path $port "resources"), (Join-Path $port "dados") | Out-Null
+Copy-Item "target\release\savesgg.exe" (Join-Path $port "SavesGG.exe")
+Copy-Item "src-tauri\resources\manifest.yaml" (Join-Path $port "resources\manifest.yaml")
+$leia = @"
+SavesGG portable
+
+Esta pasta guarda as configuracoes, o historico e os logs do SavesGG quando ele roda
+do pendrive. Nao apague: sem ela o SavesGG usa as pastas do Windows, como o instalado.
+
+- Nao inicia com o Windows: abra o SavesGG.exe quando plugar o pendrive.
+- Atualizacao: o app avisa e abre a pagina de downloads; troque o SavesGG.exe pelo novo.
+- Login do Google: fica guardado em cada PC (entre de novo em cada um).
+"@
+[System.IO.File]::WriteAllText((Resolve-Path (Join-Path $port "dados")).Path + "\LEIA-ME.txt", $leia, (New-Object System.Text.UTF8Encoding $false))
+$zip = Join-Path $saida "SavesGG_portable_x64.zip"
+if (Test-Path $zip) { Remove-Item -Force $zip }
+Compress-Archive -Path (Join-Path $port "*") -DestinationPath $zip
+Remove-Item -Recurse -Force $port
 
 # 5. latest.json e SHA256SUMS.txt
 if (-not $Notas) {

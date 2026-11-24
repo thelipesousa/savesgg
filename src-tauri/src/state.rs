@@ -68,7 +68,10 @@ fn migrar_do_nome_antigo(config_path: &std::path::Path) {
 impl AppState {
     pub fn new(bundled: Vec<PathBuf>) -> Self {
         let config_path = Config::default_path();
-        migrar_do_nome_antigo(&config_path);
+        // No pendrive não há SaveGuard antigo para trazer (e não mexe no PC).
+        if !savesgg_core::pastas::Pastas::atual().portatil {
+            migrar_do_nome_antigo(&config_path);
+        }
         let config = Config::load_or_default(&config_path);
         let manifest_cache = config_path.with_file_name("manifest.yaml");
         AppState {
@@ -81,9 +84,8 @@ impl AppState {
             scan_gen: AtomicU64::new(0),
             locks: DestLocks::default(),
             auto_status: Mutex::new(AutoStatusView::default()),
-            pending_base: dirs::data_local_dir()
-                .unwrap_or_default()
-                .join("SavesGG")
+            pending_base: savesgg_core::pastas::Pastas::atual()
+                .local
                 .join("pendentes"),
             plugged: Mutex::new(Vec::new()),
             drive_watcher: Mutex::new(crate::drives::DriveWatcher::default()),

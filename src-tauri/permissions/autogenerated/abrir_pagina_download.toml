@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-abrir-pagina-download"
+description = "Enables the abrir_pagina_download command without any pre-configured scope."
+commands.allow = ["abrir_pagina_download"]
+
+[[permission]]
+identifier = "deny-abrir-pagina-download"
+description = "Denies the abrir_pagina_download command without any pre-configured scope."
+commands.deny = ["abrir_pagina_download"]

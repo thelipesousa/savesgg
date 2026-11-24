@@ -55,11 +55,9 @@ pub fn aplicar_resultado(st: &mut StatusNuvem, r: &Result<ResumoSync, ErroNuvem>
     }
 }
 
-/// `%LOCALAPPDATA%\SavesGG`.
+/// `%LOCALAPPDATA%\SavesGG` (ou `dados` no portable).
 pub fn base_local() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(std::env::temp_dir)
-        .join("SavesGG")
+    savesgg_core::pastas::Pastas::atual().local.clone()
 }
 
 pub fn preparacao(conta: &ContaNuvem) -> PathBuf {
