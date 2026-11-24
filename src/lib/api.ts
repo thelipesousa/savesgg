@@ -29,6 +29,8 @@ export const api = {
   confirmHeuristic: (gameId: string, keep: boolean) =>
     invoke<void>("confirm_heuristic", { gameId, keep }),
   appVersion: () => invoke<string>("app_version"),
+  modoPortatil: () => invoke<boolean>("modo_portatil"),
+  abrirPaginaDownload: () => invoke<void>("abrir_pagina_download"),
   getSettings: () => invoke<SettingsView>("get_settings"),
   setAutoDestinations: (ids: string[]) => invoke<void>("set_auto_destinations", { ids }),
   setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),

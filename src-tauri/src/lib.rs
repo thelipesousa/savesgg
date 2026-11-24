@@ -13,13 +13,19 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Log em %LOCALAPPDATA%\com.savesgg.app\logs (1 MB por arquivo, guarda 5).
-        // Nunca registra conteúdo de saves nem tokens.
+        // Log em %LOCALAPPDATA%\com.savesgg.app\logs (no portable, dados\logs),
+        // 1 MB por arquivo, guarda 5. Nunca registra conteúdo de saves nem tokens.
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                        file_name: Some("savesgg".into()),
+                    tauri_plugin_log::Target::new(match pasta_logs_portatil() {
+                        Some(path) => tauri_plugin_log::TargetKind::Folder {
+                            path,
+                            file_name: Some("savesgg".into()),
+                        },
+                        None => tauri_plugin_log::TargetKind::LogDir {
+                            file_name: Some("savesgg".into()),
+                        },
                     }),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
                 ])
@@ -63,7 +69,15 @@ pub fn run() {
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("resources/manifest.yaml"),
             );
-            log::info!("SavesGG {} iniciando", env!("CARGO_PKG_VERSION"));
+            log::info!(
+                "SavesGG {} iniciando{}",
+                env!("CARGO_PKG_VERSION"),
+                if savesgg_core::pastas::Pastas::atual().portatil {
+                    " (portable)"
+                } else {
+                    ""
+                }
+            );
             app.manage(state::AppState::new(bundled));
             sync_autostart(app.handle());
             tray::build(app.handle())?;
@@ -85,6 +99,8 @@ pub fn run() {
             commands::apply_restore,
             commands::confirm_heuristic,
             commands::app_version,
+            commands::modo_portatil,
+            commands::abrir_pagina_download,
             commands::copy_all_to,
             commands::get_settings,
             commands::set_auto_destinations,
@@ -120,10 +136,18 @@ pub(crate) fn on_status_changed(app: &tauri::AppHandle, status: &auto::AutoStatu
     tray::update(app, status);
 }
 
+/// Pasta de logs no modo portable (`dados\logs`); `None` no app instalado.
+pub(crate) fn pasta_logs_portatil() -> Option<std::path::PathBuf> {
+    let p = savesgg_core::pastas::Pastas::atual();
+    p.portatil.then(|| p.local.join("logs"))
+}
+
 /// Liga/desliga o início com o Windows conforme a configuração. Só no app instalado:
-/// em desenvolvimento registraria o executável de teste no Windows.
+/// em desenvolvimento registraria o executável de teste no Windows. No portable não
+/// mexe em nada: a letra do pendrive muda de um PC para outro, e o registro com o mesmo
+/// nome pode ser do SavesGG instalado neste PC (desligá-lo estragaria o instalado).
 pub(crate) fn sync_autostart(app: &tauri::AppHandle) {
-    if cfg!(debug_assertions) {
+    if cfg!(debug_assertions) || savesgg_core::pastas::Pastas::atual().portatil {
         return;
     }
     use tauri_plugin_autostart::ManagerExt;

@@ -307,10 +307,13 @@ pub async fn open_backup_folder(
 /// Abre o Explorer na pasta de logs do app.
 #[tauri::command]
 pub fn open_logs_folder(app: tauri::AppHandle) -> Res<()> {
-    let dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|_| "pasta de logs indisponível".to_string())?;
+    let dir = match crate::pasta_logs_portatil() {
+        Some(d) => d,
+        None => app
+            .path()
+            .app_log_dir()
+            .map_err(|_| "pasta de logs indisponível".to_string())?,
+    };
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     std::process::Command::new("explorer")
         .arg(&dir)
@@ -1033,6 +1036,26 @@ pub fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// Página de downloads (fixa: nada vem da tela).
+pub const PAGINA_DOWNLOAD: &str =
+    "https://github.com/thelipesousa/savesgg-releases/releases/latest";
+
+/// Rodando do pendrive (pasta `dados` ao lado do exe).
+#[tauri::command]
+pub fn modo_portatil() -> bool {
+    savesgg_core::pastas::Pastas::atual().portatil
+}
+
+/// Abre a página de downloads no navegador (atualização da versão portable).
+#[tauri::command]
+pub fn abrir_pagina_download() -> Res<()> {
+    std::process::Command::new("explorer")
+        .arg(PAGINA_DOWNLOAD)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 #[derive(Debug, Serialize)]
 pub struct SettingsView {
     pub auto_destinations: Vec<String>,
@@ -1042,6 +1065,8 @@ pub struct SettingsView {
     pub theme: String,
     pub game_view: String,
     pub wizard_done: bool,
+    /// Rodando do pendrive: a tela esconde "Iniciar com o Windows".
+    pub portatil: bool,
 }
 
 /// Aceita só valores de uma lista fechada (tema, exibição).
@@ -1081,6 +1106,7 @@ pub fn get_settings(state: State<'_, AppState>) -> SettingsView {
         theme: c.theme_or_default().to_string(),
         game_view: c.game_view_or_default().to_string(),
         wizard_done: c.wizard_done,
+        portatil: savesgg_core::pastas::Pastas::atual().portatil,
     }
 }
 
@@ -1103,6 +1129,9 @@ pub async fn set_auto_destinations(app: tauri::AppHandle, ids: Vec<String>) -> R
 
 #[tauri::command]
 pub fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Res<()> {
+    if savesgg_core::pastas::Pastas::atual().portatil {
+        return Err("A versão portable não inicia com o Windows".into());
+    }
     app.state::<AppState>()
         .update_config(|c| c.autostart = enabled)?;
     crate::sync_autostart(&app);
