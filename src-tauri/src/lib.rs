@@ -143,15 +143,15 @@ pub(crate) fn pasta_logs_portatil() -> Option<std::path::PathBuf> {
 }
 
 /// Liga/desliga o início com o Windows conforme a configuração. Só no app instalado:
-/// em desenvolvimento registraria o executável de teste no Windows. No portable fica
-/// sempre desligado (a letra do pendrive muda de um PC para outro).
+/// em desenvolvimento registraria o executável de teste no Windows. No portable não
+/// mexe em nada: a letra do pendrive muda de um PC para outro, e o registro com o mesmo
+/// nome pode ser do SavesGG instalado neste PC (desligá-lo estragaria o instalado).
 pub(crate) fn sync_autostart(app: &tauri::AppHandle) {
-    if cfg!(debug_assertions) {
+    if cfg!(debug_assertions) || savesgg_core::pastas::Pastas::atual().portatil {
         return;
     }
     use tauri_plugin_autostart::ManagerExt;
-    let want = app.state::<state::AppState>().config().autostart
-        && !savesgg_core::pastas::Pastas::atual().portatil;
+    let want = app.state::<state::AppState>().config().autostart;
     let m = app.autolaunch();
     let r = match (want, m.is_enabled().unwrap_or(false)) {
         (true, false) => m.enable(),
