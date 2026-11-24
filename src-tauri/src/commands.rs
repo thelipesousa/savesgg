@@ -1037,8 +1037,7 @@ pub fn app_version() -> String {
 }
 
 /// Página de downloads (fixa: nada vem da tela).
-pub const PAGINA_DOWNLOAD: &str =
-    "https://github.com/thelipesousa/savesgg-releases/releases/latest";
+pub const PAGINA_DOWNLOAD: &str = "https://github.com/thelipesousa/savesgg/releases/latest";
 
 /// Rodando do pendrive (pasta `dados` ao lado do exe).
 #[tauri::command]
