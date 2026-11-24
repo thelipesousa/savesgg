@@ -198,13 +198,20 @@
 
   <section class="cartao bloco">
     <h2>Funcionamento</h2>
-    <label class="opcao">
-      <input type="checkbox" checked={settings.autostart} onchange={alternarAutostart} aria-label="Iniciar com o Windows" />
-      <span>
-        <strong>Iniciar com o Windows</strong>
-        <span class="muted">Abre minimizado na bandeja, sem atrapalhar.</span>
-      </span>
-    </label>
+    {#if settings.portatil}
+      <p class="muted">
+        Versão portable: tudo fica na pasta <code>dados</code> ao lado do SavesGG. Ela não inicia
+        com o Windows; abra o SavesGG quando plugar o pendrive.
+      </p>
+    {:else}
+      <label class="opcao">
+        <input type="checkbox" checked={settings.autostart} onchange={alternarAutostart} aria-label="Iniciar com o Windows" />
+        <span>
+          <strong>Iniciar com o Windows</strong>
+          <span class="muted">Abre minimizado na bandeja, sem atrapalhar.</span>
+        </span>
+      </label>
+    {/if}
     <label class="opcao">
       <input type="checkbox" checked={settings.auto_paused} onchange={alternarPausa} aria-label="Pausar backup automático" />
       <span>

@@ -11,6 +11,8 @@ fn main() {
         "apply_restore",
         "confirm_heuristic",
         "app_version",
+        "modo_portatil",
+        "abrir_pagina_download",
         "copy_all_to",
         "get_settings",
         "set_auto_destinations",

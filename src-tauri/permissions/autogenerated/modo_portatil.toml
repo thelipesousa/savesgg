@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-modo-portatil"
+description = "Enables the modo_portatil command without any pre-configured scope."
+commands.allow = ["modo_portatil"]
+
+[[permission]]
+identifier = "deny-modo-portatil"
+description = "Denies the modo_portatil command without any pre-configured scope."
+commands.deny = ["modo_portatil"]

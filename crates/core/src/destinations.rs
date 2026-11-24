@@ -244,9 +244,10 @@ pub fn list_destinations(cfg: &crate::config::Config) -> Vec<Destination> {
         crate::legado::migrar_destino(d);
     }
     let mut out = build_destinations(&sync, &drives, &cfg.custom_folders);
-    if let Some(local) = dirs::data_local_dir() {
-        out.extend(destinos_nuvem(&cfg.contas_nuvem, &local.join("SavesGG")));
-    }
+    out.extend(destinos_nuvem(
+        &cfg.contas_nuvem,
+        &crate::pastas::Pastas::atual().local,
+    ));
     out
 }
 
