@@ -142,10 +142,11 @@ Cada lançamento traz também `SavesGG_portable_x64.zip`. Descompacte no pendriv
 
 - **Onde ficam os dados:** se existe a pasta `dados` ao lado do `SavesGG.exe`, o app guarda ali a configuração, a fila de pendentes, a preparação da nuvem e os logs. Sem ela, usa as pastas do Windows, como o instalado. Fica no PC só o cache da tela do WebView2.
 - **Bandeja e backup automático:** funcionam igual enquanto o app estiver aberto.
-- **Iniciar com o Windows:** fica desligado e escondido (a letra do pendrive muda de PC para PC).
+- **Iniciar com o Windows:** fica escondido e o portable não mexe nele (a letra do pendrive muda de PC para PC, e o registro pode ser do SavesGG instalado).
 - **Atualização:** o app avisa da versão nova e abre a página de downloads; troque o `SavesGG.exe` pelo novo (a pasta `dados` fica).
 - **Login do Google:** fica no Gerenciador de Credenciais de cada PC, nunca no pendrive. Perder o pendrive não entrega a sua conta; em outro PC, entre de novo.
 - Precisa do WebView2, que já vem no Windows 10 e 11.
+- Se o SavesGG instalado já estiver aberto na bandeja deste PC, abrir o portable só traz a janela do instalado (é um app só por vez). Feche o instalado pela bandeja antes.
 
 ## Login no Google Drive
 

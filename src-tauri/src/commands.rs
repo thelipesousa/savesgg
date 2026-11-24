@@ -1129,6 +1129,9 @@ pub async fn set_auto_destinations(app: tauri::AppHandle, ids: Vec<String>) -> R
 
 #[tauri::command]
 pub fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Res<()> {
+    if savesgg_core::pastas::Pastas::atual().portatil {
+        return Err("A versão portable não inicia com o Windows".into());
+    }
     app.state::<AppState>()
         .update_config(|c| c.autostart = enabled)?;
     crate::sync_autostart(&app);

@@ -17,7 +17,7 @@ Levar o SavesGG num pendrive e usar em vários PCs sem instalar. Tudo do app (co
 - Quem hoje monta esses caminhos passa a usar `Pastas::atual()`: `Config::default_path`, fila de pendentes, preparação da nuvem, destinos de nuvem.
 - Logs: no portable vão para `dados\logs` (e "Abrir pasta de logs" abre ela).
 - Migração do nome antigo (SaveGuard) não roda no portable.
-- "Iniciar com o Windows": desligado e escondido no portable (a letra do pendrive muda); se o PC tinha o registro, ele é removido.
+- "Iniciar com o Windows": escondido no portable e o app não mexe no registro (a letra do pendrive muda, e o registro de mesmo nome pode ser do SavesGG instalado no PC).
 - Atualização: no portable o aviso mostra "Baixar a versão nova", que abre a página de lançamentos (URL fixa no Rust, nada vindo da tela).
 - Login do Google: segue no Gerenciador de Credenciais de cada PC (perder o pendrive não vaza a conta).
 - Lançamento: `scripts/lancar.ps1` gera `SavesGG_portable_x64.zip` com `SavesGG.exe`, `resources\manifest.yaml` e `dados\LEIA-ME.txt`, e publica junto (entra no SHA256SUMS).
