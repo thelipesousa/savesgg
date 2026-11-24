@@ -134,7 +134,18 @@ O app instalado procura versão nova 30 s depois de abrir e a cada 6 h (também 
 powershell -File scripts/lancar.ps1 -Notas "O que mudou nesta versão"
 ```
 
-O script compila, assina, gera `latest.json` e `SHA256SUMS.txt` e publica a release `vX.Y.Z` em `savesgg-releases`, com o instalador em nome estável (`SavesGG_x64-setup.exe`). Para testar sem publicar: `-Ensaio`. Antes, suba a versão em `tauri.conf.json`, `Cargo.toml` (workspace) e `package.json`.
+O script compila, assina, gera `latest.json` e `SHA256SUMS.txt` e publica a release `vX.Y.Z` em `savesgg-releases`, com o instalador em nome estável (`SavesGG_x64-setup.exe`) e o zip portable (`SavesGG_portable_x64.zip`). Para testar sem publicar: `-Ensaio`. Antes, suba a versão em `tauri.conf.json`, `Cargo.toml` (workspace) e `package.json`.
+
+## Versão portable (pendrive)
+
+Cada lançamento traz também `SavesGG_portable_x64.zip`. Descompacte no pendrive e abra o `SavesGG.exe`: nada é instalado.
+
+- **Onde ficam os dados:** se existe a pasta `dados` ao lado do `SavesGG.exe`, o app guarda ali a configuração, a fila de pendentes, a preparação da nuvem e os logs. Sem ela, usa as pastas do Windows, como o instalado. Fica no PC só o cache da tela do WebView2.
+- **Bandeja e backup automático:** funcionam igual enquanto o app estiver aberto.
+- **Iniciar com o Windows:** fica desligado e escondido (a letra do pendrive muda de PC para PC).
+- **Atualização:** o app avisa da versão nova e abre a página de downloads; troque o `SavesGG.exe` pelo novo (a pasta `dados` fica).
+- **Login do Google:** fica no Gerenciador de Credenciais de cada PC, nunca no pendrive. Perder o pendrive não entrega a sua conta; em outro PC, entre de novo.
+- Precisa do WebView2, que já vem no Windows 10 e 11.
 
 ## Login no Google Drive
 

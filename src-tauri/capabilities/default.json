@@ -17,6 +17,8 @@
     "allow-apply-restore",
     "allow-confirm-heuristic",
     "allow-app-version",
+    "allow-modo-portatil",
+    "allow-abrir-pagina-download",
     "allow-copy-all-to",
     "notification:default",
     "allow-get-settings",

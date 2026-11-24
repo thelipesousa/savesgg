@@ -55,6 +55,13 @@ describe("Configurações", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_autostart", { enabled: false }));
   });
 
+  test("portable esconde iniciar com o Windows", async () => {
+    responder({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10, portatil: true });
+    render(Configuracoes);
+    expect(await screen.findByText(/Versão portable/)).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /Iniciar com o Windows/ })).toBeNull();
+  });
+
   test("pausar backup automático", async () => {
     responder({ auto_destinations: [], autostart: true, auto_paused: false, keep_versions: 10, theme: "gamer", game_view: "lista", wizard_done: true });
     render(Configuracoes);

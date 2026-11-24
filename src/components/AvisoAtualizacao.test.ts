@@ -6,6 +6,9 @@ vi.mock("../lib/atualizacao", () => ({
   instalarEReiniciar: (...a: unknown[]) => instalar(...a),
 }));
 
+const invoke = vi.fn();
+vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
+
 import AvisoAtualizacao from "./AvisoAtualizacao.svelte";
 import type { Update } from "@tauri-apps/plugin-updater";
 
@@ -13,6 +16,8 @@ const atualizacao = { version: "0.2.1", body: "Correções" } as unknown as Upda
 
 beforeEach(() => {
   instalar.mockReset();
+  invoke.mockReset();
+  invoke.mockResolvedValue(false);
 });
 
 test("mostra a versão e as notas", () => {
@@ -31,4 +36,14 @@ test("atualizar chama instalar e mostra a porcentagem", async () => {
   expect(instalar).toHaveBeenCalled();
   await waitFor(() => expect(screen.getByRole("button", { name: /40%/ })).toBeTruthy());
   expect((screen.getByRole("button", { name: /40%/ }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("no portable abre a página de downloads em vez de instalar", async () => {
+  invoke.mockImplementation((cmd: string) => Promise.resolve(cmd === "modo_portatil" ? true : null));
+  render(AvisoAtualizacao, { atualizacao });
+  const botao = await screen.findByRole("button", { name: "Baixar a versão nova" });
+  await fireEvent.click(botao);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("abrir_pagina_download"));
+  expect(instalar).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Atualizar e reiniciar" })).toBeNull();
 });

@@ -90,6 +90,8 @@ export interface SettingsView {
   theme: string;
   game_view: "lista" | "grade";
   wizard_done: boolean;
+  /** Rodando do pendrive (versão portable). */
+  portatil?: boolean;
 }
 
 export interface AutoStatusView {
