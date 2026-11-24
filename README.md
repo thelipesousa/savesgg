@@ -2,6 +2,12 @@
 
 App para Windows que encontra os saves de todos os seus jogos (Steam, Epic, GOG, Xbox, emuladores e jogos sem loja), mostra quais correm risco por não terem cópia fora do PC e faz backup contínuo para nuvem (pasta do OneDrive/Google Drive/Dropbox), pendrive ou HD externo, com versões e restauração num PC novo.
 
+## Baixar
+
+- **Instalador (recomendado):** [SavesGG_x64-setup.exe](https://github.com/thelipesousa/savesgg/releases/latest/download/SavesGG_x64-setup.exe), que inicia com o Windows e se atualiza sozinho.
+- **Portable (pendrive, sem instalar):** [SavesGG_portable_x64.zip](https://github.com/thelipesousa/savesgg/releases/latest/download/SavesGG_portable_x64.zip).
+- Todas as versões: [Releases](https://github.com/thelipesousa/savesgg/releases). Windows 10/11 64 bits.
+
 Feito com **Tauri 2 + Rust** (motor) e **Svelte + TypeScript + Tailwind** (interface).
 
 - Design aprovado: [`docs/superpowers/specs/2026-11-20-saveguard-design.md`](docs/superpowers/specs/2026-11-20-saveguard-design.md)
@@ -124,7 +130,7 @@ Testes com os dados reais do seu PC (não alteram os saves): veja os comandos `-
 
 ## Atualização automática e lançamentos
 
-O app instalado procura versão nova 30 s depois de abrir e a cada 6 h (também em Sobre → "Procurar atualização"). As versões ficam no repositório público [`thelipesousa/savesgg-releases`](https://github.com/thelipesousa/savesgg-releases); o código continua privado. Toda atualização é **assinada**: o app recusa arquivo sem assinatura válida.
+O app instalado procura versão nova 30 s depois de abrir e a cada 6 h (também em Sobre → "Procurar atualização"). As versões ficam nos [Releases deste repositório](https://github.com/thelipesousa/savesgg/releases). Até a 0.3.1 o app procurava em `thelipesousa/savesgg-releases`; por isso cada lançamento também deixa lá um `latest.json` apontando para cá, para quem ainda tem essas versões se atualizar. Toda atualização é **assinada**: o app recusa arquivo sem assinatura válida.
 
 **Chave de assinatura:** `%USERPROFILE%\.tauri\savesgg.key` (fora do repositório; `*.key` está no `.gitignore`). **Guarde uma cópia em lugar seguro** (ex.: gerenciador de senhas): sem ela não há como publicar atualizações para quem já instalou. A chave pública está em `src-tauri/tauri.conf.json`.
 
@@ -134,7 +140,7 @@ O app instalado procura versão nova 30 s depois de abrir e a cada 6 h (também 
 powershell -File scripts/lancar.ps1 -Notas "O que mudou nesta versão"
 ```
 
-O script compila, assina, gera `latest.json` e `SHA256SUMS.txt` e publica a release `vX.Y.Z` em `savesgg-releases`, com o instalador em nome estável (`SavesGG_x64-setup.exe`) e o zip portable (`SavesGG_portable_x64.zip`). Para testar sem publicar: `-Ensaio`. Antes, suba a versão em `tauri.conf.json`, `Cargo.toml` (workspace) e `package.json`.
+O script compila, assina, gera `latest.json` e `SHA256SUMS.txt` e publica a release `vX.Y.Z` neste repositório, com o instalador em nome estável (`SavesGG_x64-setup.exe`) e o zip portable (`SavesGG_portable_x64.zip`). Para testar sem publicar: `-Ensaio`. Antes, suba a versão em `tauri.conf.json`, `Cargo.toml` (workspace), `src-tauri/Cargo.toml` e `package.json`.
 
 ## Versão portable (pendrive)
 

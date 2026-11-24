@@ -8,7 +8,8 @@
   3. Compila com `npm run tauri build` (gera o instalador e a assinatura .sig).
   4. Copia o instalador com um nome estável (SavesGG_x64-setup.exe) e monta o zip portable.
   5. Gera latest.json (lido pela atualização automática) e SHA256SUMS.txt.
-  6. Publica a release vX.Y.Z em thelipesousa/savesgg-releases (exceto em -Ensaio).
+  6. Publica a release vX.Y.Z em thelipesousa/savesgg (exceto em -Ensaio) e deixa o latest.json
+     também em thelipesousa/savesgg-releases, onde as versões até a 0.3.1 procuram atualização.
 
 .EXAMPLE
   powershell -File scripts/lancar.ps1 -Ensaio
@@ -23,7 +24,9 @@ $ErrorActionPreference = "Stop"
 $raiz = Split-Path -Parent $PSScriptRoot
 Set-Location $raiz
 
-$repoLancamentos = "thelipesousa/savesgg-releases"
+$repoLancamentos = "thelipesousa/savesgg"
+# Versões até a 0.3.1 procuram atualização aqui; recebe só o latest.json (apontando para o repositório acima).
+$repoAntigo = "thelipesousa/savesgg-releases"
 $chave = Join-Path $env:USERPROFILE ".tauri\savesgg.key"
 
 # 1. Estado do Git
@@ -126,4 +129,6 @@ if ($Ensaio) {
 $arquivos = Get-ChildItem $saida -File | ForEach-Object { $_.FullName }
 gh release create $tag --repo $repoLancamentos --title "SavesGG $versao" --notes $Notas @arquivos
 if ($LASTEXITCODE -ne 0) { throw "A publicação falhou." }
+gh release create $tag --repo $repoAntigo --title "SavesGG $versao" --notes "Os downloads mudaram para https://github.com/$repoLancamentos/releases" (Join-Path $saida "latest.json")
+if ($LASTEXITCODE -ne 0) { Write-Warning "Não deu para deixar o latest.json em $repoAntigo (quem tem a 0.3.1 ou anterior não verá esta versão)." }
 Write-Host "Publicado: https://github.com/$repoLancamentos/releases/tag/$tag" -ForegroundColor Green

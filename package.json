@@ -1,6 +1,6 @@
 {
   "name": "savesgg",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Backup contínuo de saves de jogos",
   "type": "module",
   "scripts": {
