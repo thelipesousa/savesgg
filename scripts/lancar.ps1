@@ -73,8 +73,8 @@ Copy-Item $sig (Join-Path $saida "SavesGG_x64-setup.exe.sig") -Force
 $port = Join-Path $saida "portable"
 if (Test-Path $port) { Remove-Item -Recurse -Force $port }
 New-Item -ItemType Directory -Force (Join-Path $port "resources"), (Join-Path $port "dados") | Out-Null
-Copy-Item "targetelease\savesgg.exe" (Join-Path $port "SavesGG.exe")
-Copy-Item "src-tauriesources\manifest.yaml" (Join-Path $port "resources\manifest.yaml")
+Copy-Item "target\release\savesgg.exe" (Join-Path $port "SavesGG.exe")
+Copy-Item "src-tauri\resources\manifest.yaml" (Join-Path $port "resources\manifest.yaml")
 $leia = @"
 SavesGG portable
 
