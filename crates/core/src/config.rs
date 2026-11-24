@@ -75,12 +75,9 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Caminho padrão: `%APPDATA%\SavesGG\config.json`.
+    /// Caminho padrão: `%APPDATA%\SavesGG\config.json` (ou `dados\config.json` no portable).
     pub fn default_path() -> PathBuf {
-        dirs::data_dir()
-            .unwrap_or_default()
-            .join("SavesGG")
-            .join("config.json")
+        crate::pastas::Pastas::atual().config.join("config.json")
     }
 
     /// Lê a configuração. Arquivo ausente = padrão; corrompido = padrão, guardando o
