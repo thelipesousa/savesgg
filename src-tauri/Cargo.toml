@@ -38,7 +38,7 @@ tauri-plugin-updater = "2.14.1"
 tauri-plugin-process = "2.4.0"
 sha2 = "0.10.9"
 base64 = "0.22.1"
-rand = "0.9.2"
+rand = "0.10.4"
 keyring = { version = "3.6.3", features = ["windows-native"] }
 
 [dev-dependencies]
